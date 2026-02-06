@@ -1,0 +1,165 @@
+import React, { useState, useEffect } from 'react';
+import { Menu, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
+
+const Navbar = () => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isTop, setIsTop] = useState(true);
+    const [showNavbar, setShowNavbar] = useState(true);
+    const [lastScrollY, setLastScrollY] = useState(0);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY;
+            setIsTop(currentScrollY < 10);
+            if (currentScrollY > lastScrollY && currentScrollY > 100) {
+                setShowNavbar(false);
+            } else {
+                setShowNavbar(true);
+            }
+            setLastScrollY(currentScrollY);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [lastScrollY]);
+
+    const navLinks = [
+        { name: 'About', href: '/about' },
+        { name: 'Services', href: '/services' },
+        { name: 'Courses', href: '/courses' },
+        { name: 'Events', href: '/events' },
+        { name: 'Careers', href: '/careers' },
+        { name: 'News', href: '/news' },
+        { name: 'Resources', href: '/resources' },
+        { name: 'FAQs', href: '#' },
+        { name: 'Contact Us', href: '/contact' },
+    ];
+
+    return (
+        <motion.nav
+            initial={{ y: 0 }}
+            animate={{ y: showNavbar ? 0 : -100 }}
+            transition={{ duration: 0.3 }}
+            className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isTop ? 'bg-transparent py-6' : 'bg-white py-4 shadow-md'
+                }`}
+        >
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between items-center">
+                    {/* Logo */}
+                    <Link to="/" className="flex-shrink-0 flex items-center">
+                        <img className="h-10 w-auto" src="/logo.png" alt="Core Connect Academy" />
+                        <div className={`ml-2 flex flex-col leading-none transition-colors duration-300 ${isTop ? 'text-white' : 'text-primary'}`}>
+                            <span className="text-xl font-bold tracking-tight uppercase">CORE CONNECT</span>
+                            <span className="text-[10px] tracking-[0.3em] font-semibold uppercase">Academy</span>
+                        </div>
+                    </Link>
+
+                    {/* Desktop Navigation */}
+                    <div className="hidden lg:flex items-center space-x-6">
+                        <div className="flex space-x-1">
+                            {navLinks.map((link) => (
+                                <Link
+                                    key={link.name}
+                                    to={link.href}
+                                    className={`px-3 py-2 text-[13px] font-semibold transition-colors ${isTop ? 'text-white/80 hover:text-white' : 'text-gray-600 hover:text-primary'
+                                        }`}
+                                >
+                                    {link.name}
+                                </Link>
+                            ))}
+                        </div>
+                        <button className={`${isTop ? 'bg-white/10 border border-white/20 hover:bg-white/20' : 'bg-primary hover:bg-primary/90'
+                            } text-white px-6 py-2 rounded-md text-[13px] font-bold transition-all`}>
+                            Show Interest
+                        </button>
+                    </div>
+
+                    {/* Mobile menu button */}
+                    <div className="lg:hidden">
+                        <button
+                            onClick={() => setIsOpen(!isOpen)}
+                            className={`p-2 rounded-md ${isTop ? 'text-white' : 'text-primary'}`}
+                        >
+                            {isOpen ? <X size={24} /> : <Menu size={24} />}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Mobile Navigation - Slide-in from Right */}
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        {/* Backdrop Overlay */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            onClick={() => setIsOpen(false)}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+                        />
+
+                        {/* Slide-in Menu Panel */}
+                        <motion.div
+                            initial={{ x: '100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '100%' }}
+                            transition={{ type: 'tween', duration: 0.3, ease: 'easeInOut' }}
+                            className="fixed top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl z-50 lg:hidden overflow-y-auto"
+                        >
+                            {/* Menu Header */}
+                            <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-primary/5">
+                                <div className="flex items-center gap-3">
+                                    <img className="h-8 w-auto" src="/logo.png" alt="Core Connect Academy" />
+                                    <div className="flex flex-col leading-none text-primary">
+                                        <span className="text-sm font-black tracking-tight uppercase">CORE CONNECT</span>
+                                        <span className="text-[8px] tracking-[0.3em] font-bold uppercase">Academy</span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsOpen(false)}
+                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    <X size={24} className="text-gray-600" />
+                                </button>
+                            </div>
+
+                            {/* Menu Links */}
+                            <nav className="p-6 space-y-1">
+                                {navLinks.map((link, index) => (
+                                    <motion.div
+                                        key={link.name}
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: index * 0.05 }}
+                                    >
+                                        <Link
+                                            to={link.href}
+                                            className="block px-4 py-3 text-sm font-bold text-gray-700 hover:bg-primary/5 hover:text-primary rounded-lg transition-all uppercase tracking-wider"
+                                            onClick={() => setIsOpen(false)}
+                                        >
+                                            {link.name}
+                                        </Link>
+                                    </motion.div>
+                                ))}
+                            </nav>
+
+                            {/* CTA Button */}
+                            <div className="p-6 border-t border-gray-100 mt-auto">
+                                <Link to="/student" onClick={() => setIsOpen(false)}>
+                                    <button className="w-full bg-primary text-white px-6 py-4 rounded-lg text-sm font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-primary/20">
+                                        Show Interest
+                                    </button>
+                                </Link>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </motion.nav>
+    );
+};
+
+export default Navbar;

@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+    --color-primary: #0066CC;
+    --color-secondary: #F37021;
+}
+
+@keyframes scrollIndicator {
+    0% {
+        transform: translateY(-100%);
+    }
+
+    100% {
+        transform: translateY(200%);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-scrollIndicator {
+    animation: scrollIndicator 2s infinite linear;
+}
+
+.animate-fadeIn {
+    animation: fadeIn 0.4s ease-out forwards;
+}
