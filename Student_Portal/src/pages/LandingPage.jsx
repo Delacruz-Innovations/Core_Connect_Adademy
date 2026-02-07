@@ -10,11 +10,18 @@ import FAQ from '../components/FAQ';
 import CTA from '../components/CTA';
 import Footer from '../components/Footer';
 
+import WhyCoreConnect from '../components/WhyCoreConnect';
+import HowWeTeach from '../components/HowWeTeach';
+import AudienceFit from '../components/AudienceFit';
+
 const LandingPage = () => {
     return (
         <div className="min-h-screen bg-white font-sans text-black">
             <Navbar />
             <Hero />
+            <AudienceFit />
+            <WhyCoreConnect />
+            <HowWeTeach />
             <Partners />
             <Courses />
             <SuccessStories />

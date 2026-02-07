@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
     Users, UserCheck, BookOpen, GraduationCap,
     ClipboardList, Database, TrendingUp, ArrowRight,
@@ -22,11 +23,11 @@ const StatCard = ({ icon: Icon, label, value, trend }) => (
     </div>
 );
 
-const QuickAction = ({ icon: Icon, label, color = "bg-primary" }) => (
-    <button className={`${color} text-white p-6 flex flex-col items-center justify-center gap-4 hover:bg-black transition-all shadow-xl shadow-primary/5 group`}>
+const QuickAction = ({ icon: Icon, label, color = "bg-primary", to }) => (
+    <Link to={to} className={`${color} text-white p-6 flex flex-col items-center justify-center gap-4 hover:bg-black transition-all shadow-xl shadow-primary/5 group`}>
         <Icon size={28} className="group-hover:scale-110 transition-transform" />
         <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
-    </button>
+    </Link>
 );
 
 const AdminDashboard = () => {
@@ -64,10 +65,10 @@ const AdminDashboard = () => {
                 <div className="lg:col-span-4 space-y-6">
                     <h2 className="text-xl font-black italic uppercase tracking-tight">Quick Actions</h2>
                     <div className="grid grid-cols-2 gap-4">
-                        <QuickAction icon={UserPlus} label="Enrol Student" />
-                        <QuickAction icon={PlusCircle} label="Create Course" />
-                        <QuickAction icon={CheckSquare} label="Review Submissions" color="bg-secondary" />
-                        <QuickAction icon={BrainCircuit} label="Manage AI Knowledge" color="bg-black" />
+                        <QuickAction icon={UserPlus} label="Enrol Student" to="/admin/enrolments" />
+                        <QuickAction icon={PlusCircle} label="Create Course" to="/admin/courses/new" />
+                        <QuickAction icon={CheckSquare} label="Review Submissions" color="bg-secondary" to="/admin/courses" />
+                        <QuickAction icon={BrainCircuit} label="Manage AI Knowledge" color="bg-black" to="/admin/ai-knowledge" />
                     </div>
 
                     <div className="bg-primary/5 p-8 border border-primary/10">

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { LoadingProvider, useLoading } from './context/LoadingContext';
+import { AuthProvider } from './context/AuthContext';
 import LoadingSpinner from './components/LoadingSpinner';
 
 // Public Pages
@@ -15,18 +16,30 @@ import ResourcesPage from './pages/ResourcesPage';
 import ContactPage from './pages/ContactPage';
 import CourseDetailPage from './pages/CourseDetailPage';
 import NotFound from './pages/NotFound';
+import FAQPage from './pages/FAQPage';
+import ShowInterestPage from './pages/ShowInterestPage';
+import HowItWorksPage from './pages/HowItWorksPage';
+import LoginPage from './pages/LoginPage';
+import SetPasswordPage from './pages/SetPasswordPage';
 
 // Student Portal Layout & Pages
 import StudentLayout from './layouts/StudentLayout';
 import StudentDashboard from './pages/student/StudentDashboard';
-import CourseOverview from './pages/student/CourseOverview';
-import CoursePlayer from './pages/student/CoursePlayer';
+import CoursePlayerPage from './pages/learning/CoursePlayerPage';
+import ModuleViewPage from './pages/learning/ModuleViewPage';
+import LessonPlayerPage from './pages/learning/LessonPlayerPage';
 import AssignmentUpload from './pages/student/AssignmentUpload';
 import AssignmentHistory from './pages/student/AssignmentHistory';
 import CourseCompletion from './pages/student/CourseCompletion';
 import AIFAQInterface from './pages/student/AIFAQInterface';
 import StudentProfile from './pages/student/StudentProfile';
 import ResourceLibrary from './pages/student/ResourceLibrary';
+
+// Guards
+import AuthGuard from './components/guards/AuthGuard';
+import EnrolmentGuard from './components/guards/EnrolmentGuard';
+import ModuleUnlockGuard from './components/guards/ModuleUnlockGuard';
+import LessonAccessGuard from './components/guards/LessonAccessGuard';
 
 function AppContent() {
   const { isLoading } = useLoading();
@@ -44,22 +57,43 @@ function AppContent() {
         <Route path="/careers" element={<CareersPage />} />
         <Route path="/news" element={<BlogsPage />} />
         <Route path="/resources" element={<ResourcesPage />} />
+        <Route path="/faqs" element={<FAQPage />} />
+        <Route path="/how-it-works" element={<HowItWorksPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/set-password" element={<SetPasswordPage />} />
+        <Route path="/show-interest" element={<ShowInterestPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/courses/:id" element={<CourseDetailPage />} />
 
-        {/* Student Portal Routes */}
-        <Route element={<StudentLayout />}>
-          <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
-          <Route path="/student/dashboard" element={<StudentDashboard />} />
-          <Route path="/student/courses" element={<StudentDashboard />} /> {/* Alias or specific list */}
-          <Route path="/student/course/:courseId" element={<CourseOverview />} />
-          <Route path="/student/course/:courseId/module/:moduleId" element={<CoursePlayer />} />
-          <Route path="/student/course/:courseId/completed" element={<CourseCompletion />} />
-          <Route path="/student/assignments" element={<AssignmentHistory />} />
-          <Route path="/student/assignments/:assignmentId" element={<AssignmentUpload />} />
-          <Route path="/student/ai-assistant" element={<AIFAQInterface />} />
-          <Route path="/student/profile" element={<StudentProfile />} />
-          <Route path="/student/resources" element={<ResourceLibrary />} />
+        {/* Protected Student Routes */}
+        <Route element={<AuthGuard />}>
+
+          {/* Standard Dashboard Layout */}
+          <Route element={<StudentLayout />}>
+            <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
+            <Route path="/student/dashboard" element={<StudentDashboard />} />
+            <Route path="/student/courses" element={<StudentDashboard />} /> {/* Should likely be StudentCourses component if exists, but import says StudentDashboard or similar */}
+            <Route path="/student/course/:courseId/completed" element={<CourseCompletion />} />
+            <Route path="/student/assignments" element={<AssignmentHistory />} />
+            <Route path="/student/assignments/:assignmentId" element={<AssignmentUpload />} />
+            <Route path="/student/ai-assistant" element={<AIFAQInterface />} />
+            <Route path="/student/profile" element={<StudentProfile />} />
+            <Route path="/student/resources" element={<ResourceLibrary />} />
+          </Route>
+
+          {/* Immersive Learning Routes (No Layout) - Sequentially Guarded */}
+          <Route element={<EnrolmentGuard />}>
+            <Route path="/student/course/:courseId" element={<CoursePlayerPage />} />
+
+            <Route element={<ModuleUnlockGuard />}>
+              <Route path="/student/course/:courseId/module/:moduleId" element={<ModuleViewPage />} />
+
+              <Route element={<LessonAccessGuard />}>
+                <Route path="/student/course/:courseId/module/:moduleId/lesson/:lessonId" element={<LessonPlayerPage />} />
+              </Route>
+            </Route>
+          </Route>
+
         </Route>
 
         {/* 404 Not Found */}
@@ -73,7 +107,9 @@ function App() {
   return (
     <Router>
       <LoadingProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </LoadingProvider>
     </Router>
   );

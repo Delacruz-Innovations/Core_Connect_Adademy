@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion } from 'framer-motion';
-import { ArrowRight, Search, Clock } from 'lucide-react';
+import { ArrowRight, Bell } from 'lucide-react';
 
 const BlogsPage = () => {
     const [activeCategory, setActiveCategory] = useState('All');
@@ -12,107 +12,112 @@ const BlogsPage = () => {
     }, []);
 
     const categories = [
-        'All', 'Blog', 'Tech', 'Tips', 'Training', 'General', 'Development', 'Latest News'
+        'All', 'Programme Updates', 'New Cohorts', 'Reflections', 'Announcements'
     ];
 
     const blogPosts = [
-        { title: "The Future of Project Management in a Digital...", cat: "Latest News", img: "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-        { title: "Which role is better, BA or PM?", cat: "Tech", img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-        { title: "Can a Business Analyst do Project Management?", cat: "Tips", img: "https://images.unsplash.com/photo-1551288049-bbbda536339a?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-        { title: "What is the salary of a BA vs PM?", cat: "General", img: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-        { title: "PRINCE2 or PRINCE2 Agile: Which One is for me...", cat: "Training", img: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-        { title: "CORE CONNECT ACADEMY Becomes a PeopleCert Accredite...", cat: "Latest News", img: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-        { title: "From Novice to Expert: How to Launch a Cybers...", cat: "Development", img: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-        { title: "AI for Non-Tech Professionals: 5 Essential Sk...", cat: "Tech", img: "https://images.unsplash.com/photo-1677442136019-21780ecad995?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-        { title: "Project Management vs. Business Analysis: Whi...", cat: "Tips", img: "https://images.unsplash.com/photo-1552664688-cf412bb27db2?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-        { title: "What are the most popular business analysis c...", cat: "Training", img: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" }
+        { title: "New Cohort Starting: Business Analysis Sept 2026", cat: "New Cohorts", img: "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
+        { title: "Academy Reflection: The Power of Mentorship", cat: "Reflections", img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
+        { title: "Important Update: Curriculum Enhancements", cat: "Programme Updates", img: "https://images.unsplash.com/photo-1551288049-bbbda536339a?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
+        { title: "Graduation Ceremony 2025 Highlights", cat: "Announcements", img: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
+        { title: "Why we teach structure over shortcuts", cat: "Reflections", img: "https://images.unsplash.com/photo-1552664688-cf412bb27db2?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
+        { title: "Cybersecurity Programme: Now Open", cat: "New Cohorts", img: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" }
     ];
 
     const filteredPosts = activeCategory === 'All'
         ? blogPosts
-        : blogPosts.filter(post => post.cat === activeCategory || (activeCategory === 'Blog' && post.cat !== 'Latest News'));
+        : blogPosts.filter(post => post.cat === activeCategory);
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white font-sans text-black">
             <Navbar />
 
             {/* Hero Section */}
-            <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+            <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-black">
                 <div
-                    className="absolute inset-0 z-0"
-                    style={{
-                        backgroundImage: 'url("/mug-hero.png")',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        backgroundAttachment: 'fixed'
-                    }}
-                >
-                    <div className="absolute inset-0 bg-black/70"></div>
-                </div>
-                <div className="relative z-10 text-center text-white px-4">
+                    className="absolute inset-0 z-0 opacity-40 bg-fixed bg-cover bg-center"
+                    style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1504711434969-e33886168f5c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80")' }}
+                ></div>
+                <div className="relative z-10 text-center text-white px-4 max-w-4xl mx-auto">
                     <motion.h1
-                        initial={{ opacity: 0, y: 30 }}
+                        initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="text-7xl font-black mb-6 italic tracking-tight uppercase"
+                        className="text-5xl lg:text-7xl font-black mb-6 italic uppercase tracking-tighter leading-none"
                     >
-                        Blog
+                        Academy Updates
                     </motion.h1>
-                    <p className="max-w-3xl mx-auto text-lg text-white/90 font-medium leading-relaxed italic">
-                        Discover the latest tech trends, expert advice, and practical guides from our instructors and industry specialists. Empower your tech journey with our in-depth articles and thought leadership.
-                    </p>
+                    <div className="w-24 h-1 bg-primary mx-auto"></div>
                 </div>
             </section>
 
-            {/* Category Filter */}
-            <section className="pt-24 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex flex-wrap justify-center gap-4 border-b border-gray-100 pb-12">
+            {/* Intro Content */}
+            <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <div className="max-w-3xl mx-auto space-y-8">
+                    <h2 className="text-4xl font-bold leading-tight">
+                        Here we share <span className="text-primary italic">what matters</span>.
+                    </h2>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm font-bold text-gray-600 uppercase tracking-wider">
+                        <span>Programme updates</span>
+                        <span>New cohorts</span>
+                        <span>Academy reflections</span>
+                        <span>Important announcements</span>
+                    </div>
+
+                    <p className="text-2xl font-black italic text-gray-900 border-t border-b border-gray-100 py-8">
+                        "No noise. Just what matters."
+                    </p>
+
+                    <button
+                        onClick={() => document.getElementById('updates-grid').scrollIntoView({ behavior: 'smooth' })}
+                        className="bg-primary text-white px-10 py-5 rounded-md font-bold text-sm tracking-wide uppercase shadow-xl shadow-primary/20 hover:-translate-y-1 transition-transform inline-flex items-center gap-2"
+                    >
+                        Read Latest Updates <ArrowRight size={16} />
+                    </button>
+                </div>
+            </section>
+
+            {/* Updates Grid */}
+            <section id="updates-grid" className="pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* Category Filter */}
+                <div className="flex flex-wrap justify-center gap-2 mb-12">
                     {categories.map((cat) => (
                         <button
                             key={cat}
                             onClick={() => setActiveCategory(cat)}
-                            className={`px-6 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative ${activeCategory === cat ? 'text-primary' : 'text-gray-400 hover:text-black'
+                            className={`px-6 py-3 text-xs font-bold uppercase tracking-wider transition-all border ${activeCategory === cat
+                                    ? 'bg-black text-white border-black'
+                                    : 'bg-white text-gray-500 border-gray-200 hover:border-black hover:text-black'
                                 }`}
                         >
                             {cat}
-                            {activeCategory === cat && (
-                                <motion.div layoutId="underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                            )}
                         </button>
                     ))}
                 </div>
-            </section>
 
-            {/* Blog Grid */}
-            <section className="pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                     {filteredPosts.map((post, i) => (
                         <motion.div
                             layout
                             key={i}
-                            className="group relative h-[400px] overflow-hidden bg-gray-200"
+                            className="group flex flex-col bg-white border border-gray-100 shadow-sm hover:shadow-2xl transition-all duration-300"
                         >
-                            <img src={post.img} alt={post.title} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-10 flex flex-col justify-end transition-colors group-hover:from-primary/90">
-                                <div className="flex gap-4 items-center mb-4">
-                                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/60">Blog</span>
-                                    <span className="w-1 h-1 bg-primary rounded-full"></span>
-                                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/60">{post.cat}</span>
+                            <div className="aspect-video overflow-hidden relative">
+                                <img src={post.img} alt={post.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 grayscale group-hover:grayscale-0" />
+                                <div className="absolute top-4 left-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest px-3 py-1">
+                                    {post.cat}
                                 </div>
-                                <h3 className="text-xl font-bold text-white mb-6 leading-tight transition-transform group-hover:-translate-y-2">{post.title}</h3>
-                                <button className="text-[10px] font-black text-white/50 uppercase tracking-[0.3em] flex items-center gap-2 group-hover:text-white transition-colors">
-                                    Read More <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                                </button>
+                            </div>
+                            <div className="p-8 flex flex-col flex-1">
+                                <h3 className="text-xl font-bold mb-6 text-gray-900 leading-tight group-hover:text-primary transition-colors">{post.title}</h3>
+                                <div className="mt-auto pt-6 border-t border-gray-50 flex justify-between items-center">
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                        <Bell size={12} /> Update
+                                    </span>
+                                    <span className="text-xs font-bold text-black uppercase tracking-wider group-hover:translate-x-1 transition-transform">Read &rarr;</span>
+                                </div>
                             </div>
                         </motion.div>
-                    ))}
-                </div>
-
-                {/* Pagination Dummy */}
-                <div className="mt-20 flex justify-center gap-2">
-                    {[1, 2, 3].map(i => (
-                        <button key={i} className={`w-10 h-10 font-bold text-xs ${i === 1 ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'} transition-all`}>
-                            0{i}
-                        </button>
                     ))}
                 </div>
             </section>

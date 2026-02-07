@@ -1,86 +1,311 @@
-import React from 'react';
-import {
-    History, ShieldCheck, User,
-    Terminal, Search, Filter,
-    ArrowDownCircle, MoreHorizontal
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { FileText, Filter, Download, Calendar, User, Activity, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const AuditLogs = () => {
-    const logs = [
-        { id: 5001, actor: "Emily Brown (Admin)", action: "Enrolled Student", entity: "John Smith", timestamp: "Feb 05, 2026 - 15:15:22" },
-        { id: 5002, actor: "Emily Brown (Admin)", action: "Login Success", entity: "Admin Portal", timestamp: "Feb 05, 2026 - 14:30:10" },
-        { id: 5003, actor: "Sytem Engine", action: "Automatic Backup", entity: "Course Database", timestamp: "Feb 05, 2026 - 02:00:00" },
-        { id: 5004, actor: "Admin User", action: "Deleted Resource", entity: "Wk1_Draft_v1.pdf", timestamp: "Feb 04, 2026 - 18:45:33" }
+    const [logs, setLogs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [filters, setFilters] = useState({
+        eventType: 'all',
+        dateFrom: '',
+        dateTo: '',
+        searchTerm: ''
+    });
+    const [expandedId, setExpandedId] = useState(null);
+
+    const eventTypes = [
+        { value: 'all', label: 'All Events', icon: '📋' },
+        { value: 'application_submitted', label: 'Application Submitted', icon: '📝' },
+        { value: 'application_approved', label: 'Application Approved', icon: '✅' },
+        { value: 'application_rejected', label: 'Application Rejected', icon: '❌' },
+        { value: 'enrollment_created', label: 'Enrollment Created', icon: '🎓' },
+        { value: 'user_created', label: 'User Created', icon: '👤' },
+        { value: 'password_reset', label: 'Password Reset', icon: '🔑' }
     ];
 
+    useEffect(() => {
+        fetchLogs();
+    }, [filters]);
+
+    const fetchLogs = async () => {
+        setLoading(true);
+        try {
+            let query = supabase
+                .from('audit_logs')
+                .select('*, profiles!audit_logs_admin_id_fkey(full_name, username)')
+                .order('created_at', { ascending: false })
+                .limit(100);
+
+            // Apply filters
+            if (filters.eventType !== 'all') {
+                query = query.eq('event_type', filters.eventType);
+            }
+
+            if (filters.dateFrom) {
+                query = query.gte('created_at', new Date(filters.dateFrom).toISOString());
+            }
+
+            if (filters.dateTo) {
+                const endDate = new Date(filters.dateTo);
+                endDate.setHours(23, 59, 59, 999);
+                query = query.lte('created_at', endDate.toISOString());
+            }
+
+            const { data, error } = await query;
+
+            if (error) throw error;
+
+            // Client-side search filter
+            let filteredData = data || [];
+            if (filters.searchTerm) {
+                const searchLower = filters.searchTerm.toLowerCase();
+                filteredData = filteredData.filter(log =>
+                    log.event_type.toLowerCase().includes(searchLower) ||
+                    JSON.stringify(log.details).toLowerCase().includes(searchLower) ||
+                    log.profiles?.full_name?.toLowerCase().includes(searchLower)
+                );
+            }
+
+            setLogs(filteredData);
+        } catch (error) {
+            console.error('Error fetching audit logs:', error);
+            alert('Error loading audit logs');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const exportToCSV = () => {
+        const headers = ['Timestamp', 'Event Type', 'Admin', 'Entity Type', 'Entity ID', 'Details'];
+        const rows = logs.map(log => [
+            new Date(log.created_at).toLocaleString(),
+            log.event_type,
+            log.profiles?.full_name || 'System',
+            log.entity_type || '',
+            log.entity_id || '',
+            JSON.stringify(log.details)
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+    };
+
+    const getEventIcon = (eventType) => {
+        const event = eventTypes.find(e => e.value === eventType);
+        return event?.icon || '📋';
+    };
+
+    const getEventColor = (eventType) => {
+        if (eventType.includes('approved') || eventType.includes('created')) return 'text-green-600 bg-green-50';
+        if (eventType.includes('rejected')) return 'text-red-600 bg-red-50';
+        if (eventType.includes('submitted')) return 'text-blue-600 bg-blue-50';
+        return 'text-gray-600 bg-gray-50';
+    };
+
     return (
-        <div className="space-y-12">
+        <div className="p-8">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-4 block">Compliance Monitoring</span>
-                    <h1 className="text-5xl font-black italic tracking-tighter">Audit Logs</h1>
+            <div className="mb-8">
+                <h1 className="text-4xl font-black uppercase tracking-tight text-black mb-2">Audit Logs</h1>
+                <p className="text-gray-500 font-medium">Track all system activities and administrative actions</p>
+            </div>
+
+            {/* Filters */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                    <Filter size={20} className="text-gray-400" />
+                    <h2 className="text-xs font-black uppercase tracking-widest text-gray-900">Filters</h2>
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-gray-400 bg-white border border-gray-100 px-4 py-3 rounded-none shadow-sm">
-                        <Search size={18} />
-                        <input type="text" placeholder="Search logs..." className="bg-transparent border-none outline-none text-sm w-64 font-bold" />
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {/* Event Type Filter */}
+                    <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">
+                            Event Type
+                        </label>
+                        <select
+                            value={filters.eventType}
+                            onChange={(e) => setFilters({ ...filters, eventType: e.target.value })}
+                            className="w-full border border-gray-200 p-3 font-medium text-sm focus:outline-none focus:border-primary"
+                        >
+                            {eventTypes.map(type => (
+                                <option key={type.value} value={type.value}>
+                                    {type.icon} {type.label}
+                                </option>
+                            ))}
+                        </select>
                     </div>
-                    <button className="bg-black text-white px-6 py-3 font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
-                        <ArrowDownCircle size={14} /> Export CSV
+
+                    {/* Date From */}
+                    <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">
+                            From Date
+                        </label>
+                        <input
+                            type="date"
+                            value={filters.dateFrom}
+                            onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                            className="w-full border border-gray-200 p-3 font-medium text-sm focus:outline-none focus:border-primary"
+                        />
+                    </div>
+
+                    {/* Date To */}
+                    <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">
+                            To Date
+                        </label>
+                        <input
+                            type="date"
+                            value={filters.dateTo}
+                            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                            className="w-full border border-gray-200 p-3 font-medium text-sm focus:outline-none focus:border-primary"
+                        />
+                    </div>
+
+                    {/* Search */}
+                    <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">
+                            Search
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="Search logs..."
+                            value={filters.searchTerm}
+                            onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
+                            className="w-full border border-gray-200 p-3 font-medium text-sm focus:outline-none focus:border-primary"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex gap-3 mt-4">
+                    <button
+                        onClick={() => setFilters({ eventType: 'all', dateFrom: '', dateTo: '', searchTerm: '' })}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 font-bold text-xs uppercase tracking-widest hover:bg-gray-200 transition-colors"
+                    >
+                        Clear Filters
+                    </button>
+                    <button
+                        onClick={exportToCSV}
+                        disabled={logs.length === 0}
+                        className="px-4 py-2 bg-primary text-white font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                        <Download size={14} />
+                        Export CSV
                     </button>
                 </div>
             </div>
 
-            {/* Log Feed */}
-            <div className="bg-white border border-gray-100 shadow-sm overflow-hidden">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="bg-gray-50/50 border-b border-gray-100">
-                            <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Authority (Actor)</th>
-                            <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Transaction (Action)</th>
-                            <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Entity Impacted</th>
-                            <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Precise Timestamp</th>
-                            <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Raw</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 font-mono">
-                        {logs.map((log) => (
-                            <tr key={log.id} className="group hover:bg-gray-50 transition-colors">
-                                <td className="px-8 py-6">
-                                    <div className="flex items-center gap-3">
-                                        <ShieldCheck size={14} className="text-primary" />
-                                        <span className="text-xs font-bold text-black">{log.actor}</span>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 px-2 py-1">
-                                        {log.action}
-                                    </span>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <span className="text-xs font-medium text-gray-500">{log.entity}</span>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <span className="text-[10px] font-bold text-gray-400">{log.timestamp}</span>
-                                </td>
-                                <td className="px-8 py-6 text-right">
-                                    <button className="text-gray-300 hover:text-black transition-colors">
-                                        <Terminal size={14} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white border border-gray-200 p-6 rounded-lg">
+                    <div className="text-3xl font-black text-black mb-1">{logs.length}</div>
+                    <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Total Events</div>
+                </div>
+                <div className="bg-white border border-gray-200 p-6 rounded-lg">
+                    <div className="text-3xl font-black text-green-600 mb-1">
+                        {logs.filter(l => l.event_type.includes('approved')).length}
+                    </div>
+                    <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Approvals</div>
+                </div>
+                <div className="bg-white border border-gray-200 p-6 rounded-lg">
+                    <div className="text-3xl font-black text-blue-600 mb-1">
+                        {logs.filter(l => l.event_type.includes('submitted')).length}
+                    </div>
+                    <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Submissions</div>
+                </div>
+                <div className="bg-white border border-gray-200 p-6 rounded-lg">
+                    <div className="text-3xl font-black text-purple-600 mb-1">
+                        {logs.filter(l => l.event_type.includes('created')).length}
+                    </div>
+                    <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Created</div>
+                </div>
             </div>
 
-            <div className="mt-8 p-10 bg-gray-900 text-white font-mono text-[10px] leading-relaxed">
-                <p className="text-primary font-black mb-4 uppercase tracking-widest">// RECENT RAW EVENTS STREAM</p>
-                <p className="text-white/40 mb-1">[2026-02-05T15:15:22.451Z] INFO: adm_emily_brown triggered enrolment_created for ent_john_smith in crs_ba_mastery</p>
-                <p className="text-white/40 mb-1">[2026-02-05T15:10:04.112Z] AUTH: adm_emily_brown session_extended</p>
-                <p className="text-white/40 mb-1">[2026-02-05T14:30:10.887Z] AUTH: adm_emily_brown login_success from ip_192.168.1.45</p>
-                <div className="w-2 h-4 bg-primary inline-block animate-pulse mt-2"></div>
+            {/* Logs List */}
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                {loading ? (
+                    <div className="p-12 text-center">
+                        <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p className="text-gray-500 font-medium">Loading audit logs...</p>
+                    </div>
+                ) : logs.length === 0 ? (
+                    <div className="p-12 text-center">
+                        <FileText size={48} className="mx-auto text-gray-300 mb-4" />
+                        <p className="text-gray-500 font-medium">No audit logs found</p>
+                        <p className="text-gray-400 text-sm mt-2">Try adjusting your filters</p>
+                    </div>
+                ) : (
+                    <div className="divide-y divide-gray-100">
+                        {logs.map((log) => (
+                            <motion.div
+                                key={log.id}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="p-6 hover:bg-gray-50 transition-colors"
+                            >
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-start gap-4 flex-1">
+                                        {/* Icon */}
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${getEventColor(log.event_type)}`}>
+                                            {getEventIcon(log.event_type)}
+                                        </div>
+
+                                        {/* Content */}
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <h3 className="font-black text-sm uppercase tracking-wide text-black">
+                                                    {log.event_type.replace(/_/g, ' ')}
+                                                </h3>
+                                                <span className="text-xs text-gray-400 font-medium">
+                                                    {new Date(log.created_at).toLocaleString()}
+                                                </span>
+                                            </div>
+
+                                            {log.profiles && (
+                                                <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                                                    <User size={12} />
+                                                    <span className="font-medium">
+                                                        {log.profiles.full_name} (@{log.profiles.username})
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {log.details && Object.keys(log.details).length > 0 && (
+                                                <div className="mt-2">
+                                                    <button
+                                                        onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                                                        className="text-xs font-bold text-primary hover:text-primary/80 flex items-center gap-1"
+                                                    >
+                                                        {expandedId === log.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                                        {expandedId === log.id ? 'Hide' : 'Show'} Details
+                                                    </button>
+
+                                                    {expandedId === log.id && (
+                                                        <div className="mt-3 p-3 bg-gray-50 rounded border border-gray-200">
+                                                            <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap">
+                                                                {JSON.stringify(log.details, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -6,6 +6,7 @@ import {
     LogOut, Menu, X, Bell, Search, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import NotificationCenter from '../components/NotificationCenter';
 
 const SidebarItem = ({ icon: Icon, label, href, active }) => (
     <Link
@@ -97,10 +98,7 @@ const AdminLayout = () => {
                     </div>
 
                     <div className="flex items-center gap-6">
-                        <button className="relative p-2 text-gray-400 hover:text-primary transition-colors">
-                            <Bell size={20} />
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-secondary rounded-full border-2 border-white"></span>
-                        </button>
+                        <NotificationCenter />
 
                         <div className="w-px h-8 bg-gray-100"></div>
 

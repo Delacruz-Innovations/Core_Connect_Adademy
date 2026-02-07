@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import NotificationCenter from '../components/NotificationCenter';
 import {
     LayoutDashboard, BookOpen, FileText,
     Download, MessageSquare, User,
-    LogOut, Menu, X, Bell, ChevronRight,
-    Settings, HelpCircle, GraduationCap,
-    Clock
+    LogOut, Menu, X, ChevronRight,
+    GraduationCap, Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -36,6 +37,7 @@ const SidebarSection = ({ title, children }) => (
 );
 
 const StudentLayout = () => {
+    const { profile, signOut } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -53,6 +55,11 @@ const StudentLayout = () => {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    const handleSignOut = async () => {
+        await signOut();
+        navigate('/login');
+    };
 
     const sections = [
         {
@@ -136,7 +143,10 @@ const StudentLayout = () => {
 
                 {/* Sidebar Footer */}
                 <div className="absolute bottom-0 left-0 right-0 p-6 bg-white border-t border-gray-50">
-                    <button className="group w-full flex items-center justify-between px-6 py-4 rounded-xl bg-gray-50 hover:bg-black transition-all">
+                    <button
+                        onClick={handleSignOut}
+                        className="group w-full flex items-center justify-between px-6 py-4 rounded-xl bg-gray-50 hover:bg-black transition-all"
+                    >
                         <div className="flex items-center gap-3">
                             <LogOut size={16} className="text-red-500 group-hover:text-red-400" />
                             <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 group-hover:text-white">Sign Out</span>
@@ -169,24 +179,21 @@ const StudentLayout = () => {
                             <div className="flex flex-col items-end">
                                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Current Session</span>
                                 <span className="text-xs font-bold text-black flex items-center gap-2">
-                                    <Clock size={12} className="text-primary" /> PM & Business Analysis
+                                    <Clock size={12} className="text-primary" /> Student Portal Active
                                 </span>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-5">
-                            <button className="relative p-2 text-gray-400 hover:text-primary transition-colors">
-                                <Bell size={20} />
-                                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-2 ring-white"></span>
-                            </button>
+                            <NotificationCenter />
 
                             <Link to="/student/profile" className="flex items-center gap-3 group">
                                 <div className="text-right hidden sm:block">
-                                    <p className="text-[11px] font-black text-black group-hover:text-primary transition-colors">Demo Student</p>
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">S-ID: #29401</p>
+                                    <p className="text-[11px] font-black text-black group-hover:text-primary transition-colors">{profile?.full_name || 'Loading...'}</p>
+                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">@{profile?.username || 'user'}</p>
                                 </div>
-                                <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-black text-xs hover:bg-primary transition-all shadow-lg shadow-black/10">
-                                    DS
+                                <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-black text-xs hover:bg-primary transition-all shadow-lg shadow-black/10 uppercase">
+                                    {profile?.full_name ? profile.full_name.split(' ').map(n => n[0]).join('') : 'ST'}
                                 </div>
                             </Link>
                         </div>
@@ -205,4 +212,3 @@ const StudentLayout = () => {
 };
 
 export default StudentLayout;
-

@@ -13,16 +13,20 @@ const AdminLogin = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
         setLoading(true);
-        // Direct navigation for demo
-        setTimeout(() => {
-            navigate('/admin/dashboard');
-            setLoading(false);
-        }, 500);
-    };
 
-    const handleDemoLogin = () => {
-        navigate('/admin/dashboard');
+        try {
+            await login(email, password);
+            // We don't necessarily need to navigate here if AuthContext 
+            // state changes trigger a re-render of AdminGuard, but it's safe.
+            navigate('/admin/dashboard');
+        } catch (err) {
+            console.error('Login error:', err);
+            setError(err.message || 'Invalid email or password. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -95,14 +99,11 @@ const AdminLogin = () => {
                                     <>Sign In Securely <ArrowRight size={16} /></>
                                 )}
                             </button>
-
-                            <button
-                                type="button"
-                                onClick={handleDemoLogin}
-                                className="w-full border-2 border-primary/20 text-primary py-4 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2"
-                            >
-                                Demo Access Mode
-                            </button>
+                        </div>
+                        <div className="text-center pt-4 border-t border-gray-100 mt-4">
+                            <p className="text-xs font-bold text-gray-400">
+                                Don't have an account? <Link to="/admin/signup" className="text-primary hover:text-black transition-colors">Sign Up Now</Link>
+                            </p>
                         </div>
                     </form>
                 </div>

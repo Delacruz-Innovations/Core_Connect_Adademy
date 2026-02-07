@@ -25,15 +25,10 @@ const Navbar = () => {
     }, [lastScrollY]);
 
     const navLinks = [
+        { name: 'Home', href: '/' },
         { name: 'About', href: '/about' },
-        { name: 'Services', href: '/services' },
         { name: 'Courses', href: '/courses' },
-        { name: 'Events', href: '/events' },
-        { name: 'Careers', href: '/careers' },
-        { name: 'News', href: '/news' },
-        { name: 'Resources', href: '/resources' },
-        { name: 'FAQs', href: '#' },
-        { name: 'Contact Us', href: '/contact' },
+        { name: 'How It Works', href: '/how-it-works' },
     ];
 
     return (
@@ -69,10 +64,17 @@ const Navbar = () => {
                                 </Link>
                             ))}
                         </div>
-                        <button className={`${isTop ? 'bg-white/10 border border-white/20 hover:bg-white/20' : 'bg-primary hover:bg-primary/90'
-                            } text-white px-6 py-2 rounded-md text-[13px] font-bold transition-all`}>
-                            Show Interest
-                        </button>
+                        <div className="flex items-center gap-4">
+                            <Link to="/login" className={`text-[13px] font-bold uppercase tracking-wide transition-colors ${isTop ? 'text-white hover:text-white/80' : 'text-black hover:text-primary'}`}>
+                                Login
+                            </Link>
+                            <Link to="/show-interest">
+                                <button className={`${isTop ? 'bg-white/10 border border-white/20 hover:bg-white/20' : 'bg-primary hover:bg-primary/90'
+                                    } text-white px-6 py-2 rounded-md text-[13px] font-bold transition-all`}>
+                                    Register Interest
+                                </button>
+                            </Link>
+                        </div>
                     </div>
 
                     {/* Mobile menu button */}
@@ -144,13 +146,26 @@ const Navbar = () => {
                                         </Link>
                                     </motion.div>
                                 ))}
+                                <motion.div
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: navLinks.length * 0.05 }}
+                                >
+                                    <Link
+                                        to="/login"
+                                        className="block px-4 py-3 text-sm font-bold text-gray-700 hover:bg-primary/5 hover:text-primary rounded-lg transition-all uppercase tracking-wider"
+                                        onClick={() => setIsOpen(false)}
+                                    >
+                                        Login / Signup
+                                    </Link>
+                                </motion.div>
                             </nav>
 
                             {/* CTA Button */}
                             <div className="p-6 border-t border-gray-100 mt-auto">
-                                <Link to="/student" onClick={() => setIsOpen(false)}>
+                                <Link to="/show-interest" onClick={() => setIsOpen(false)}>
                                     <button className="w-full bg-primary text-white px-6 py-4 rounded-lg text-sm font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-primary/20">
-                                        Show Interest
+                                        Register Interest
                                     </button>
                                 </Link>
                             </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Clock, BarChart, CheckCircle2,
@@ -100,9 +100,11 @@ const CourseDetailPage = () => {
                             </div>
 
                             <div className="pt-6">
-                                <button className="bg-primary text-white px-12 py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-primary/30 hover:bg-black transition-all transform hover:-translate-y-1">
-                                    Show Intrest
-                                </button>
+                                <Link to="/show-interest">
+                                    <button className="bg-primary text-white px-12 py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-primary/30 hover:bg-black transition-all transform hover:-translate-y-1">
+                                        Register Interest
+                                    </button>
+                                </Link>
                             </div>
                         </div>
 
@@ -278,9 +280,11 @@ const CourseDetailPage = () => {
                                         Take the next step in your career journey. Secure your spot in the Core Connect Academy's Project Management & Business Analysis course.
                                     </p>
                                     <div className="flex flex-col gap-4">
-                                        <button className="w-full bg-primary text-white py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:bg-white hover:text-primary transition-all">
-                                            Buy Course
-                                        </button>
+                                        <Link to="/show-interest">
+                                            <button className="w-full bg-primary text-white py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:bg-white hover:text-primary transition-all">
+                                                Register Interest
+                                            </button>
+                                        </Link>
                                         <button className="w-full border border-white/20 text-white py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] hover:bg-white/10 transition-all flex items-center justify-center gap-2">
                                             <Download size={16} /> Download Brochure
                                         </button>

@@ -1,8 +1,11 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Award, Briefcase, Users, Star } from 'lucide-react';
 
 const Hero = () => {
+    // Video background replaces the image slideshow
+
     const badges = [
         { icon: <Award className="text-secondary" />, text: "Quality Training Provider", label: "UK Accredited" },
         { icon: <Briefcase className="text-secondary" />, text: "Practical Projects", label: "Work Experience" },
@@ -13,60 +16,113 @@ const Hero = () => {
     return (
         <div className="flex flex-col">
             {/* Hero Content */}
-            <section className="relative bg-primary text-white overflow-hidden min-h-screen flex items-center pt-24 lg:pt-32">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10 w-full">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <section className="relative bg-primary text-white overflow-hidden min-h-screen flex items-center pt-20 lg:pt-0">
+                {/* Background Decor */}
+                <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                    <div className="absolute top-0 left-1/4 w-96 h-96 bg-white/5 blur-3xl -translate-y-1/2"></div>
+                    <div className="absolute bottom-0 right-1/2 w-64 h-64 bg-secondary/10 blur-3xl translate-y-1/2"></div>
+                </div>
+
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full h-full flex flex-col lg:flex-row items-center">
+
+                    {/* Left Content */}
+                    <motion.div
+                        initial={{ opacity: 0, x: -30 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.8 }}
+                        className="w-full lg:w-1/2 py-20 lg:py-32 lg:pr-12"
+                    >
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 border border-white/20 text-xs font-medium text-white mb-8 backdrop-blur-sm">
+                            <span className="w-2 h-2 bg-green-400 animate-pulse"></span>
+                            New Cohort Enrolling Now
+                        </div>
+
+                        <h1 className="text-5xl lg:text-7xl font-bold mb-8 leading-tight tracking-tight">
+                            Learn properly. <br />
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
+                                Transition confidently.
+                            </span>
+                        </h1>
+
+                        <p className="text-xl text-white/90 mb-10 leading-relaxed font-medium max-w-lg border-l-4 border-secondary/50 pl-6">
+                            A structured, mentor-led academy for anyone ready to move into tech-adjacent careers — even if you're starting from zero.
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row items-start gap-6">
+                            <Link to="/show-interest">
+                                <button className="bg-white text-primary px-10 py-4 rounded-md font-bold text-sm tracking-wide uppercase shadow-xl shadow-black/20 hover:shadow-2xl transition-all hover:-translate-y-1 w-full sm:w-auto flex items-center justify-center gap-2 group">
+                                    Register Interest
+                                    <span className="group-hover:translate-x-1 transition-transform">→</span>
+                                </button>
+                            </Link>
+                            <div className="flex flex-col justify-center h-full py-2">
+                                <p className="text-sm text-white/80 italic">
+                                    No pressure. No promises. Just clarity.
+                                </p>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Right Video Section (Desktop & Mobile) */}
+                    <div className="w-full lg:w-1/2 relative mt-12 lg:mt-0">
+                        {/* Decorative Glow */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-white/5 blur-3xl rounded-full pointer-events-none"></div>
+
+                        {/* Browser Mockup Container */}
                         <motion.div
-                            initial={{ opacity: 0, x: -30 }}
-                            whileInView={{ opacity: 1, x: 0 }}
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            whileInView={{ opacity: 1, scale: 1, y: 0 }}
                             viewport={{ once: true }}
-                            transition={{ duration: 0.8 }}
+                            transition={{ duration: 0.8, delay: 0.2 }}
+                            className="relative z-10 rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-gray-900/50 backdrop-blur-sm"
                         >
-                            <h1 className="text-5xl lg:text-7xl font-bold mb-6 leading-tight">
-                                Transform <br />
-                                Your Career
-                            </h1>
-                            <p className="text-lg text-white/90 mb-10 max-w-xl leading-relaxed">
-                                Become a project management professional and data analyst professional for several companies.
-                                Our students earn £40k - £80k salaries. Get the required project and mentorship at CORE CONNECT ACADEMY to land your dream job.
-                            </p>
-                            <div className="flex flex-wrap gap-4">
-                                <button className="bg-white text-primary px-8 py-4 rounded-md font-bold text-sm tracking-wide uppercase shadow-lg shadow-black/10 transition-transform hover:-translate-y-1">
-                                    Learn More
-                                </button>
-                                <button className="border border-white text-white px-8 py-4 rounded-md font-bold text-sm tracking-wide uppercase transition-all hover:bg-white hover:text-primary">
-                                    Get Started
-                                </button>
+                            {/* Browser Header */}
+                            <div className="h-10 bg-gray-800/80 border-b border-white/5 flex items-center px-4 gap-2">
+                                <div className="flex gap-2">
+                                    <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
+                                    <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                                    <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
+                                </div>
+                                <div className="mx-auto bg-black/20 px-4 py-1 rounded-full text-[10px] text-gray-400 font-mono flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                    app.coreconnect.academy
+                                </div>
+                            </div>
+
+                            {/* Video Player */}
+                            <div className="relative aspect-video bg-black rounded-b-xl overflow-hidden group">
+                                <video
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <source src="/assets/videos/hero-background.mp4" type="video/mp4" />
+                                </video>
+
+                                {/* Overlay Gradient */}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
                             </div>
                         </motion.div>
 
+                        {/* Floating Experience Badge - Repositioned */}
                         <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.8 }}
-                            className="flex justify-center lg:justify-end"
+                            initial={{ opacity: 0, x: 20 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.6 }}
+                            className="absolute -bottom-6 -right-6 z-20 hidden lg:block"
                         >
-                            <div className="relative max-w-lg">
-                                {/* Mockup illustration shape */}
-                                <div className="bg-black rounded-lg p-2 shadow-2xl border-4 border-gray-800">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                                        alt="Learning Platform"
-                                        className="rounded-sm w-full"
-                                    />
+                            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-xl shadow-2xl flex items-center gap-4">
+                                <div className="flex -space-x-3">
+                                    <img className="w-10 h-10 border-2 border-white rounded-full object-cover" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="Student" />
+                                    <img className="w-10 h-10 border-2 border-white rounded-full object-cover" src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&q=80" alt="Student" />
+                                    <div className="w-10 h-10 border-2 border-white bg-secondary text-white flex items-center justify-center text-xs font-bold rounded-full">+200</div>
                                 </div>
-                                {/* Float elements to mimic illustration */}
-                                <div className="absolute -top-6 -right-6 bg-white p-4 rounded-md shadow-xl text-black">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                                            <Star className="text-primary" size={16} />
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-xs">Join Classes</p>
-                                            <p className="text-[10px] text-gray-500">Live Session Now</p>
-                                        </div>
-                                    </div>
+                                <div>
+                                    <p className="text-white font-bold text-sm">Join the Academy</p>
+                                    <p className="text-white/60 text-xs">New cohort starting soon</p>
                                 </div>
                             </div>
                         </motion.div>
@@ -75,12 +131,12 @@ const Hero = () => {
             </section>
 
             {/* Trust Badges Bar */}
-            <section className="bg-white py-10 border-b border-gray-100">
+            <section className="bg-white py-10 border-b border-gray-100 relative z-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                         {badges.map((badge, idx) => (
-                            <div key={idx} className="flex items-center gap-4 group">
-                                <div className="w-12 h-12 flex items-center justify-center shrink-0">
+                            <div key={idx} className="flex items-center gap-4 group cursor-default">
+                                <div className="w-12 h-12 flex items-center justify-center shrink-0 bg-gray-50 group-hover:bg-primary/10 transition-colors">
                                     {badge.icon}
                                 </div>
                                 <div>
