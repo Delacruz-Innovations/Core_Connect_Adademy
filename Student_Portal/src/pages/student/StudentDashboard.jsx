@@ -50,16 +50,31 @@ const StudentDashboard = () => {
         try {
             const { data, error } = await supabase
                 .from('enrollments')
-                .select('*')
+                .select('*, course:course_id(*)')
                 .eq('student_id', user.id)
                 .eq('status', 'active');
 
             if (error) throw error;
 
-            // Map enrollment data to include course metadata
+            // Map enrollment data to display format
             const mappedCourses = data.reduce((acc, enrollment) => {
-                // enrollment.courses is an array of strings (course IDs)
-                if (enrollment.courses && Array.isArray(enrollment.courses)) {
+                // 1. Check for Direct Foreign Key Relation (New Architecture)
+                if (enrollment.course) {
+                    acc.push({
+                        id: enrollment.course.id,
+                        name: enrollment.course.title || enrollment.course.name, // Handle schema variations
+                        code: enrollment.course.code || 'CCA-001',
+                        duration: enrollment.course.duration || '12 Weeks',
+                        enrollmentDate: enrollment.created_at,
+                        paymentStatus: enrollment.payment_status,
+                        progress: enrollment.progress || 0, // Use stored progress if available
+                        lastActive: 'Recently',
+                        nextLesson: 'Start Learning',
+                        image: enrollment.course.image_url || `https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80`
+                    });
+                }
+                // 2. Fallback: Legacy Array of Strings (Old Architecture)
+                else if (enrollment.courses && Array.isArray(enrollment.courses)) {
                     enrollment.courses.forEach(courseId => {
                         const courseInfo = getCourseById(courseId);
                         if (courseInfo) {
@@ -67,7 +82,6 @@ const StudentDashboard = () => {
                                 ...courseInfo,
                                 enrollmentDate: enrollment.created_at,
                                 paymentStatus: enrollment.payment_status,
-                                // Add mock progress data for now
                                 progress: Math.floor(Math.random() * 40) + 10,
                                 lastActive: 'Recently',
                                 nextLesson: 'Introduction to Module 1',

@@ -18,22 +18,23 @@ const AboutHero = () => {
             </div>
 
             {/* Content */}
-            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-20">
                 <motion.div
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8 }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
                 >
-                    <h1 className="text-6xl lg:text-8xl font-black text-white mb-6 italic tracking-tighter uppercase leading-none">
-                        About Us
+                    <span className="text-secondary font-black uppercase tracking-[0.4em] text-xs mb-6 block">Est. CoreConnect</span>
+                    <h1 className="text-4xl md:text-6xl lg:text-9xl font-black text-white mb-8 italic tracking-tighter uppercase leading-[0.85]">
+                        The <span className="text-primary italic">Academy</span> Story
                     </h1>
-                    <p className="text-xl lg:text-2xl text-white/90 max-w-3xl mx-auto font-medium leading-relaxed font-sans">
-                        We are a Multi-Award winning tech training company that provides both training and practical work experience with mentorship support.
+                    <p className="text-lg md:text-xl lg:text-3xl text-white/80 max-w-4xl mx-auto font-medium leading-relaxed tracking-tight">
+                        A Multi-Award winning tech training company providing <span className="text-white">practical work experience</span> and lifelong mentorship.
                     </p>
-                    <div className="mt-8 flex justify-center gap-2">
-                        <div className="w-12 h-1 bg-primary"></div>
-                        <div className="w-4 h-1 bg-primary/40"></div>
-                        <div className="w-2 h-1 bg-primary/20"></div>
+                    <div className="mt-12 flex justify-center items-center gap-4">
+                        <div className="w-20 h-px bg-white/20"></div>
+                        <div className="w-3 h-3 rounded-full border border-secondary"></div>
+                        <div className="w-20 h-px bg-white/20"></div>
                     </div>
                 </motion.div>
             </div>

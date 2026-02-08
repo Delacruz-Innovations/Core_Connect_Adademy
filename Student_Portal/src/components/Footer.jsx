@@ -1,9 +1,9 @@
 import React from 'react';
 import { Facebook, Twitter, Instagram, Linkedin, Youtube, Mail, Phone, MapPin, Send } from 'lucide-react';
 
-const Footer = () => {
+const Footer = ({ className = "", hideScroll = false }) => {
     return (
-        <footer className="bg-white pt-32 pb-12 border-t border-gray-100 italic">
+        <footer className={`bg-white pt-32 pb-12 border-t border-gray-100 italic relative z-10 ${className}`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
                 {/* Main Footer Grid */}
@@ -104,18 +104,19 @@ const Footer = () => {
                         ))}
                     </div>
                 </div>
-
             </div>
 
             {/* Scroll indicator typical of these designs */}
-            <div className="fixed bottom-10 right-10 z-40 hidden lg:block">
-                <div className="flex flex-col items-center gap-4">
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-[0.3em] rotate-90 mb-12 origin-right whitespace-nowrap">Scroll Down</p>
-                    <div className="w-[1px] h-20 bg-primary/20 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1/2 bg-primary animate-scrollIndicator"></div>
+            {!hideScroll && (
+                <div className="fixed bottom-10 right-10 z-40 hidden lg:block">
+                    <div className="flex flex-col items-center gap-4">
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-[0.3em] rotate-90 mb-12 origin-right whitespace-nowrap">Scroll Down</p>
+                        <div className="w-[1px] h-20 bg-primary/20 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-1/2 bg-primary animate-scrollIndicator"></div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
         </footer>
     );
 };

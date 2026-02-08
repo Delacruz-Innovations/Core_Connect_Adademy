@@ -22,20 +22,32 @@ const SetPasswordPage = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
-    const token = searchParams.get('token') || searchParams.get('access_token');
-    const type = searchParams.get('type');
+    // Supabase can put tokens in query params OR the hash
+    const [hasToken, setHasToken] = useState(false);
 
     useEffect(() => {
-        // Validate that we have a token
-        if (!token) {
-            setError('Invalid or missing password reset link. Please check your email for the correct link.');
-        }
+        const checkAuth = async () => {
+            // 1. Check if we already have a session (Supabase handles hash parsing automatically)
+            const { data: { session } } = await supabase.auth.getSession();
 
-        // Check if this is an invite link
-        if (type === 'invite' || type === 'signup') {
-            console.log('Password setup for new user invitation');
-        }
-    }, [token, type]);
+            // 2. Check query params as fallback
+            const token = searchParams.get('token') || searchParams.get('access_token');
+            const type = searchParams.get('type');
+
+            if (session || token || window.location.hash.includes('access_token')) {
+                setHasToken(true);
+                setError('');
+            } else {
+                setError('Invalid or missing password reset link. Please use the link sent to your email.');
+            }
+
+            if (type === 'invite' || type === 'signup') {
+                console.log('Password setup for new user invitation');
+            }
+        };
+
+        checkAuth();
+    }, [searchParams]);
 
     const validation = validatePassword(formData.password);
     const passwordsFeedback = getPasswordFeedback(formData.password);
@@ -55,21 +67,48 @@ const SetPasswordPage = () => {
             return;
         }
 
-        if (!token) {
-            setError('Invalid password reset link');
-            return;
-        }
-
         setIsSubmitting(true);
+        console.log('🚀 Starting password update process...');
 
         try {
-            // Update password using the token
-            const { data, error: updateError } = await supabase.auth.updateUser({
+            // 1. Force a session check
+            let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+            if (sessionError) {
+                console.error('Session error:', sessionError);
+                throw new Error('Auth session could not be established. Please try using the link in your email again.');
+            }
+
+            if (!session) {
+                console.log('No session found, checking URL for recovery...');
+                // If we have a recovery token in the hash, wait a moment for Supabase to process it
+                // or try to get it again.
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const { data: { session: retrySession } } = await supabase.auth.getSession();
+                session = retrySession;
+            }
+
+            if (!session) {
+                throw new Error('Your session is missing or expired. Please click the "Set Password" link in your invitation email again.');
+            }
+
+            console.log('✅ Session active for user:', session.user.email);
+
+            // 2. Update password with a safety timeout
+            const updatePromise = supabase.auth.updateUser({
                 password: formData.password
             });
 
+            // Create a 15-second timeout
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Update request timed out. The database might be slow. Please refresh and try again.')), 15000)
+            );
+
+            const { data, error: updateError } = await Promise.race([updatePromise, timeoutPromise]);
+
             if (updateError) throw updateError;
 
+            console.log('🎉 Password updated successfully!');
             setSuccess(true);
 
             // Redirect to login after 3 seconds
@@ -78,8 +117,8 @@ const SetPasswordPage = () => {
             }, 3000);
 
         } catch (err) {
-            console.error('Password setup error:', err);
-            setError(err.message || 'Failed to set password. Please try again or request a new link.');
+            console.error('❌ Password setup error:', err);
+            setError(err.message || 'Failed to set password. This usually happens if the link is old or your internet connection dropped.');
         } finally {
             setIsSubmitting(false);
         }

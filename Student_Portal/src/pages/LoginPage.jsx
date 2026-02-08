@@ -2,13 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, User, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 
 const LoginPage = () => {
     useEffect(() => {
         window.scrollTo(0, 0);
+    }, []);
+
+    const images = [
+        "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+        "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+        "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"
+    ];
+
+    const [currentImage, setCurrentImage] = useState(0);
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentImage((prev) => (prev + 1) % images.length);
+        }, 5000);
+        return () => clearInterval(timer);
     }, []);
 
     const navigate = useNavigate();
@@ -63,22 +77,56 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-black flex flex-col justify-between">
+        <div className="min-h-screen relative font-sans text-black flex flex-col">
+            {/* Full Page Fixed Background Slideshow */}
+            <div className="fixed inset-0 z-0 bg-black overflow-hidden">
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={currentImage}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 2, ease: "easeInOut" }}
+                        className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-fixed"
+                        style={{
+                            backgroundImage: `url("${images[currentImage]}")`,
+                        }}
+                    >
+                        {/* Dark Overlay for contrast */}
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
+                    </motion.div>
+                </AnimatePresence>
+            </div>
+
             <Navbar />
 
-            <div className="flex-1 flex items-center justify-center p-4 sm:px-6 lg:px-8">
+            <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 sm:px-6 lg:px-8 py-20">
+                <div className="text-center text-white mb-12">
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8 }}
+                    >
+                        <span className="text-secondary font-black uppercase tracking-[0.4em] text-xs mb-4 block">Student Portal</span>
+                        <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none">
+                            Welcome <span className="text-primary">Back</span>
+                        </h1>
+                    </motion.div>
+                </div>
+
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="w-full max-w-md bg-white border border-gray-100 shadow-2xl overflow-hidden relative"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="w-full max-w-md bg-white border border-white/10 shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)] overflow-hidden relative"
                 >
-                    <div className="bg-black text-white p-8 text-center">
+                    <div className="bg-black text-white p-8 text-center border-b border-white/5">
                         <User className="mx-auto h-12 w-12 text-primary mb-4" />
-                        <h2 className="text-3xl font-black italic uppercase tracking-tighter leading-none">Student Portal</h2>
-                        <p className="mt-2 text-sm text-gray-400 font-medium uppercase tracking-widest">Secure Access</p>
+                        <h2 className="text-3xl font-black italic uppercase tracking-tighter leading-none">Secure Login</h2>
+                        <p className="mt-2 text-sm text-gray-400 font-medium uppercase tracking-widest">Access your dashboard</p>
                     </div>
 
-                    <form className="p-8 space-y-6" onSubmit={handleLogin}>
+                    <form className="p-8 space-y-6 bg-white" onSubmit={handleLogin}>
                         {error && (
                             <div className="bg-red-50 border-2 border-red-200 p-4 rounded flex items-start gap-3">
                                 <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
@@ -97,7 +145,7 @@ const LoginPage = () => {
                                     required
                                     value={formData.username}
                                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all"
+                                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all text-black"
                                     placeholder="Enter your username"
                                     disabled={loading}
                                 />
@@ -115,7 +163,7 @@ const LoginPage = () => {
                                     required
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all"
+                                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all text-black"
                                     placeholder="••••••••"
                                     disabled={loading}
                                 />
@@ -133,7 +181,7 @@ const LoginPage = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-primary text-white py-4 font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
+                            className="w-full bg-primary text-white py-5 font-black text-xs uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
                         >
                             {loading ? (
                                 <>
@@ -159,7 +207,6 @@ const LoginPage = () => {
                 </motion.div>
             </div>
 
-            <Footer />
         </div>
     );
 };

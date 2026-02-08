@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import LeadsList from '../components/LeadsList';
 import ApplicationsList from '../components/ApplicationsList';
 import {
     PlusCircle, Search, UserPlus,
     BookOpen, Calendar, ArrowRight,
-    Filter, CheckCircle2, History, List
+    Filter, CheckCircle2, History, List,
+    UserSearch
 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 const EnrolmentManagement = () => {
-    const [activeTab, setActiveTab] = useState('requests');
+    const [activeTab, setActiveTab] = useState('leads');
     const [manualForm, setManualForm] = useState({
         fullName: '',
         email: '',
@@ -16,6 +17,38 @@ const EnrolmentManagement = () => {
         accessType: 'Full Access',
         startDate: new Date().toISOString().split('T')[0]
     });
+    const [history, setHistory] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+
+    useEffect(() => {
+        if (activeTab === 'history') {
+            fetchHistory();
+        }
+    }, [activeTab]);
+
+    const fetchHistory = async () => {
+        setHistoryLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('enrollments')
+                .select(`
+                    id,
+                    created_at,
+                    status,
+                    payment_status,
+                    profiles:student_id (full_name),
+                    application:application_id (program_name)
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setHistory(data || []);
+        } catch (error) {
+            console.error('Error fetching enrollment history:', error);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
 
     const handleManualEnrol = async (e) => {
         e.preventDefault();
@@ -43,14 +76,20 @@ const EnrolmentManagement = () => {
 
             if (appError) throw appError;
 
-            // 2. Call Edge Function to create user & profile
-            const { error: inviteError } = await supabase.functions.invoke('invite-student', {
-                body: { applicationId: newApp.id }
+            // 3. Call RPC to handle enrollment logic (Pure SQL, no Edge Function)
+            const { error: rpcError } = await supabase.rpc('approve_application_v2', {
+                p_application_id: newApp.id,
+                p_admin_id: user?.id,
+                p_courses: [manualForm.course],
+                p_payment_amount: 0, // Manual enrollments default to 0 for now
+                p_payment_method: 'manual',
+                p_payment_status: 'paid',
+                p_admin_notes: `Manual Enrollment by ${user?.email}`
             });
 
-            if (inviteError) throw inviteError;
+            if (rpcError) throw rpcError;
 
-            alert(`Successfully enrolled and invited ${manualForm.fullName}!`);
+            alert(`Successfully enrolled ${manualForm.fullName} via direct database authority!`);
 
             // Reset form
             setManualForm({
@@ -67,11 +106,6 @@ const EnrolmentManagement = () => {
         }
     };
 
-    const history = [
-        { id: 1, user: "John Smith", course: "Business Analysis", date: "Feb 05, 2026", type: "Paid" },
-        { id: 2, user: "Sarah Williams", course: "Project Management", date: "Feb 04, 2026", type: "Trial" },
-        { id: 3, user: "Michael Chen", course: "Cybersecurity", date: "Feb 02, 2026", type: "Paid" }
-    ];
 
     return (
         <div className="space-y-12">
@@ -86,10 +120,16 @@ const EnrolmentManagement = () => {
             {/* Tabs */}
             <div className="flex border-b border-gray-100 space-x-8">
                 <button
+                    onClick={() => setActiveTab('leads')}
+                    className={`pb-4 text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'leads' ? 'text-primary border-b-2 border-primary' : 'text-gray-400 hover:text-black'}`}
+                >
+                    New Leads
+                </button>
+                <button
                     onClick={() => setActiveTab('requests')}
                     className={`pb-4 text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'requests' ? 'text-primary border-b-2 border-primary' : 'text-gray-400 hover:text-black'}`}
                 >
-                    Pending Requests
+                    Program Applications
                 </button>
                 <button
                     onClick={() => setActiveTab('manual')}
@@ -108,11 +148,21 @@ const EnrolmentManagement = () => {
             {/* Content Area */}
             <div className="min-h-[60vh]">
 
+                {/* New Leads Tab */}
+                {activeTab === 'leads' && (
+                    <div className="max-w-5xl">
+                        <div className="bg-white border border-gray-100 shadow-xl p-10">
+                            <h2 className="text-xl font-black italic uppercase tracking-tight mb-8">Visitor Leads (Stage 1)</h2>
+                            <LeadsList />
+                        </div>
+                    </div>
+                )}
+
                 {/* Pending Requests Tab */}
                 {activeTab === 'requests' && (
                     <div className="max-w-5xl">
                         <div className="bg-white border border-gray-100 shadow-xl p-10">
-                            <h2 className="text-xl font-black italic uppercase tracking-tight mb-8">Pending Applications</h2>
+                            <h2 className="text-xl font-black italic uppercase tracking-tight mb-8">Deep Enrollment (Stage 2)</h2>
                             <ApplicationsList />
                         </div>
                     </div>
@@ -219,27 +269,37 @@ const EnrolmentManagement = () => {
                             </div>
                             <div className="p-8">
                                 <div className="space-y-6">
-                                    {history.map((item) => (
-                                        <div key={item.id} className="flex items-center justify-between p-6 bg-gray-50/50 group hover:bg-white border border-transparent hover:border-gray-100 transition-all">
-                                            <div className="flex items-center gap-6">
-                                                <div className="w-12 h-12 bg-white border border-gray-100 flex items-center justify-center text-primary font-black">
-                                                    {item.user[0]}
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-bold text-black text-sm">{item.user}</h4>
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                                                        <BookOpen size={10} className="text-primary" /> {item.course}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-xs font-bold text-black mb-1">{item.date}</p>
-                                                <span className="text-[9px] font-black uppercase tracking-widest bg-white px-2 py-0.5 border border-gray-100 italic">
-                                                    {item.type}
-                                                </span>
-                                            </div>
+                                    {historyLoading ? (
+                                        <div className="py-12 flex justify-center"><RefreshCw className="animate-spin text-gray-200" size={32} /></div>
+                                    ) : history.length === 0 ? (
+                                        <div className="py-20 text-center border border-dashed border-gray-100 rounded-lg">
+                                            <History className="mx-auto text-gray-200 mb-4" size={48} />
+                                            <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No enrolment records found</p>
                                         </div>
-                                    ))}
+                                    ) : (
+                                        history.map((item) => (
+                                            <div key={item.id} className="flex items-center justify-between p-6 bg-gray-50/50 group hover:bg-white border border-transparent hover:border-gray-100 transition-all">
+                                                <div className="flex items-center gap-6">
+                                                    <div className="w-12 h-12 bg-white border border-gray-100 flex items-center justify-center text-primary font-black">
+                                                        {item.profiles?.full_name ? item.profiles.full_name[0] : 'S'}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-black text-sm">{item.profiles?.full_name || 'Generic Student'}</h4>
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                                                            <BookOpen size={10} className="text-primary" /> {item.application?.program_name || 'Assigned Course'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-xs font-bold text-black mb-1">{new Date(item.created_at).toLocaleDateString()}</p>
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border italic ${item.status === 'active' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-orange-50 text-orange-600 border-orange-100'
+                                                        }`}>
+                                                        {item.status} ({item.payment_status})
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
                                 </div>
 
                                 <button className="w-full py-4 mt-8 border border-gray-100 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:bg-gray-50 transition-all">

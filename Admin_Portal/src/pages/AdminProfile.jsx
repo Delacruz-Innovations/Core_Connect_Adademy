@@ -56,26 +56,22 @@ const AdminProfile = () => {
                             <div className="flex items-center gap-10 border-b border-gray-50 pb-12">
                                 <div className="relative group">
                                     <div className="w-32 h-32 bg-primary/5 flex items-center justify-center text-primary font-black text-3xl border border-primary/10 transition-transform group-hover:scale-105">
-                                        {profile?.first_name?.[0]}{profile?.last_name?.[0]}
+                                        {profile?.full_name ? profile.full_name.split(' ').map(n => n[0]).join('') : 'A'}
                                     </div>
                                     <button className="absolute -bottom-4 -right-4 w-10 h-10 bg-black text-white flex items-center justify-center hover:bg-primary transition-all shadow-xl">
                                         <Camera size={16} />
                                     </button>
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black italic tracking-tight">{profile?.first_name} {profile?.last_name}</h3>
+                                    <h3 className="text-2xl font-black italic tracking-tight">{profile?.full_name || 'Admin User'}</h3>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-primary mt-1">Authorized Administrator</p>
                                 </div>
                             </div>
 
                             <form className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">First Name</label>
-                                    <input type="text" defaultValue={profile?.first_name} className="w-full bg-gray-50 border-0 p-4 font-bold text-sm outline-none focus:ring-1 focus:ring-primary h-14" />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Last Name</label>
-                                    <input type="text" defaultValue={profile?.last_name} className="w-full bg-gray-50 border-0 p-4 font-bold text-sm outline-none focus:ring-1 focus:ring-primary h-14" />
+                                <div className="md:col-span-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Full Name</label>
+                                    <input type="text" defaultValue={profile?.full_name} className="w-full bg-gray-50 border-0 p-4 font-bold text-sm outline-none focus:ring-1 focus:ring-primary h-14" />
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Official Email Address</label>
@@ -150,7 +146,7 @@ const AdminProfile = () => {
 
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

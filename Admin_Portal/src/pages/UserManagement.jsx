@@ -1,21 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import {
     Users, Search, Filter, Mail, Shield,
-    ChevronRight, CheckCircle2, XCircle, MoreVertical
+    ChevronRight, CheckCircle2, XCircle, MoreVertical,
+    RefreshCw
 } from 'lucide-react';
 
 const UserManagement = () => {
     const navigate = useNavigate();
     const [filter, setFilter] = useState('all');
+    const [users, setUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const users = [
-        { id: 1, name: "John Smith", email: "john@example.com", role: "student", verified: true, enrolment: "Active" },
-        { id: 2, name: "Sarah Williams", email: "sarah@example.com", role: "lead", verified: true, enrolment: "None" },
-        { id: 3, name: "Michael Chen", email: "michael@example.com", role: "student", verified: false, enrolment: "Active" },
-        { id: 4, name: "Emily Brown", email: "emily@example.com", role: "admin", verified: true, enrolment: "N/A" },
-        { id: 5, name: "David Miller", email: "david@example.com", role: "student", verified: true, enrolment: "Active" }
-    ];
+    useEffect(() => {
+        fetchUsers();
+    }, [filter]);
+
+    const fetchUsers = async () => {
+        setLoading(true);
+        try {
+            let query = supabase.from('profiles').select('*');
+            if (filter !== 'all') query = query.eq('role', filter);
+            const { data, error } = await query.order('full_name');
+            if (error) throw error;
+            setUsers(data || []);
+        } catch (err) { console.error(err); }
+        finally { setLoading(false); }
+    };
 
     return (
         <div className="space-y-12">
@@ -70,49 +82,52 @@ const UserManagement = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                        {users.map((user) => (
-                            <tr key={user.id} className="group hover:bg-gray-50/50 transition-colors">
-                                <td className="px-8 py-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-primary/5 text-primary flex items-center justify-center font-bold text-sm">
-                                            {user.name.split(' ').map(n => n[0]).join('')}
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-black text-sm">{user.name}</p>
-                                            <p className="text-gray-400 text-xs font-medium">{user.email}</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 ${user.role === 'admin' ? 'text-red-500 bg-red-50' : user.role === 'student' ? 'text-primary bg-primary/5' : 'text-gray-500 bg-gray-100'
-                                        }`}>
-                                        {user.role}
-                                    </span>
-                                </td>
-                                <td className="px-8 py-6">
-                                    {user.verified ? (
-                                        <div className="flex items-center gap-2 text-green-500 text-[10px] font-black uppercase tracking-widest">
-                                            <CheckCircle2 size={14} /> Verified
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2 text-orange-500 text-[10px] font-black uppercase tracking-widest">
-                                            <XCircle size={14} /> Pending
-                                        </div>
-                                    )}
-                                </td>
-                                <td className="px-8 py-6">
-                                    <p className="text-sm font-bold text-gray-600">{user.enrolment}</p>
-                                </td>
-                                <td className="px-8 py-6 text-right">
-                                    <Link
-                                        to={`/admin/users/${user.id}`}
-                                        className="inline-flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest hover:text-black transition-colors"
-                                    >
-                                        Manage Profile <ChevronRight size={14} />
-                                    </Link>
-                                </td>
+                        {loading ? (
+                            <tr>
+                                <td colSpan="5" className="py-20 text-center"><RefreshCw className="animate-spin mx-auto text-gray-200" size={32} /></td>
                             </tr>
-                        ))}
+                        ) : users.length === 0 ? (
+                            <tr>
+                                <td colSpan="5" className="py-20 text-center text-gray-400 font-bold uppercase tracking-widest text-xs">No users found matching filter</td>
+                            </tr>
+                        ) : (
+                            users.map((user) => (
+                                <tr key={user.id} className="group hover:bg-gray-50/50 transition-colors">
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 bg-primary text-white flex items-center justify-center font-bold text-sm">
+                                                {user.full_name ? user.full_name.split(' ').map(n => n[0]).join('') : 'U'}
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-black text-sm">{user.full_name || 'Anonymous User'}</p>
+                                                <p className="text-gray-400 text-xs font-medium">{user.email || 'No email provided'}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 ${user.role === 'admin' ? 'text-red-500 bg-red-50' : 'text-primary bg-primary/5'}`}>
+                                            {user.role}
+                                        </span>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-2 text-green-500 text-[10px] font-black uppercase tracking-widest">
+                                            <CheckCircle2 size={14} /> Active
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <p className="text-sm font-bold text-gray-600">{user.role === 'admin' ? 'N/A' : 'Managed'}</p>
+                                    </td>
+                                    <td className="px-8 py-6 text-right">
+                                        <Link
+                                            to={`/admin/users/${user.id}`}
+                                            className="inline-flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest hover:text-black transition-colors"
+                                        >
+                                            Manage Profile <ChevronRight size={14} />
+                                        </Link>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>

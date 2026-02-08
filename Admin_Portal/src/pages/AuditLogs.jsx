@@ -7,21 +7,21 @@ const AuditLogs = () => {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
-        eventType: 'all',
+        action: 'all',
         dateFrom: '',
         dateTo: '',
         searchTerm: ''
     });
     const [expandedId, setExpandedId] = useState(null);
 
-    const eventTypes = [
-        { value: 'all', label: 'All Events', icon: '📋' },
+    const actionTypes = [
+        { value: 'all', label: 'All Actions', icon: '📋' },
         { value: 'application_submitted', label: 'Application Submitted', icon: '📝' },
         { value: 'application_approved', label: 'Application Approved', icon: '✅' },
-        { value: 'application_rejected', label: 'Application Rejected', icon: '❌' },
         { value: 'enrollment_created', label: 'Enrollment Created', icon: '🎓' },
-        { value: 'user_created', label: 'User Created', icon: '👤' },
-        { value: 'password_reset', label: 'Password Reset', icon: '🔑' }
+        { value: 'course_created', label: 'Course Created', icon: '📚' },
+        { value: 'module_created', label: 'Module Created', icon: '📦' },
+        { value: 'SYSTEM_BOOTSTRAP', label: 'System Bootstrap', icon: '🚀' }
     ];
 
     useEffect(() => {
@@ -33,13 +33,13 @@ const AuditLogs = () => {
         try {
             let query = supabase
                 .from('audit_logs')
-                .select('*, profiles!audit_logs_admin_id_fkey(full_name, username)')
+                .select('*, profiles!audit_logs_actor_id_fkey(full_name)')
                 .order('created_at', { ascending: false })
                 .limit(100);
 
             // Apply filters
-            if (filters.eventType !== 'all') {
-                query = query.eq('event_type', filters.eventType);
+            if (filters.action !== 'all') {
+                query = query.eq('action', filters.action);
             }
 
             if (filters.dateFrom) {
@@ -61,8 +61,8 @@ const AuditLogs = () => {
             if (filters.searchTerm) {
                 const searchLower = filters.searchTerm.toLowerCase();
                 filteredData = filteredData.filter(log =>
-                    log.event_type.toLowerCase().includes(searchLower) ||
-                    JSON.stringify(log.details).toLowerCase().includes(searchLower) ||
+                    log.action.toLowerCase().includes(searchLower) ||
+                    JSON.stringify(log.metadata).toLowerCase().includes(searchLower) ||
                     log.profiles?.full_name?.toLowerCase().includes(searchLower)
                 );
             }
@@ -77,14 +77,14 @@ const AuditLogs = () => {
     };
 
     const exportToCSV = () => {
-        const headers = ['Timestamp', 'Event Type', 'Admin', 'Entity Type', 'Entity ID', 'Details'];
+        const headers = ['Timestamp', 'Action', 'Actor', 'Entity Type', 'Entity ID', 'Metadata'];
         const rows = logs.map(log => [
             new Date(log.created_at).toLocaleString(),
-            log.event_type,
+            log.action,
             log.profiles?.full_name || 'System',
             log.entity_type || '',
             log.entity_id || '',
-            JSON.stringify(log.details)
+            JSON.stringify(log.metadata)
         ]);
 
         const csvContent = [
@@ -100,15 +100,16 @@ const AuditLogs = () => {
         a.click();
     };
 
-    const getEventIcon = (eventType) => {
-        const event = eventTypes.find(e => e.value === eventType);
-        return event?.icon || '📋';
+    const getActionIcon = (action) => {
+        const type = actionTypes.find(a => a.value === action);
+        return type?.icon || '📋';
     };
 
-    const getEventColor = (eventType) => {
-        if (eventType.includes('approved') || eventType.includes('created')) return 'text-green-600 bg-green-50';
-        if (eventType.includes('rejected')) return 'text-red-600 bg-red-50';
-        if (eventType.includes('submitted')) return 'text-blue-600 bg-blue-50';
+    const getActionColor = (action) => {
+        const lowAction = action.toLowerCase();
+        if (lowAction.includes('approved') || lowAction.includes('created') || lowAction.includes('bootstrap')) return 'text-green-600 bg-green-50';
+        if (lowAction.includes('rejected') || lowAction.includes('deleted')) return 'text-red-600 bg-red-50';
+        if (lowAction.includes('submitted')) return 'text-blue-600 bg-blue-50';
         return 'text-gray-600 bg-gray-50';
     };
 
@@ -131,14 +132,14 @@ const AuditLogs = () => {
                     {/* Event Type Filter */}
                     <div>
                         <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">
-                            Event Type
+                            Action Type
                         </label>
                         <select
-                            value={filters.eventType}
-                            onChange={(e) => setFilters({ ...filters, eventType: e.target.value })}
+                            value={filters.action}
+                            onChange={(e) => setFilters({ ...filters, action: e.target.value })}
                             className="w-full border border-gray-200 p-3 font-medium text-sm focus:outline-none focus:border-primary"
                         >
-                            {eventTypes.map(type => (
+                            {actionTypes.map(type => (
                                 <option key={type.value} value={type.value}>
                                     {type.icon} {type.label}
                                 </option>
@@ -209,23 +210,23 @@ const AuditLogs = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-white border border-gray-200 p-6 rounded-lg">
                     <div className="text-3xl font-black text-black mb-1">{logs.length}</div>
-                    <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Total Events</div>
+                    <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Total Actions</div>
                 </div>
                 <div className="bg-white border border-gray-200 p-6 rounded-lg">
                     <div className="text-3xl font-black text-green-600 mb-1">
-                        {logs.filter(l => l.event_type.includes('approved')).length}
+                        {logs.filter(l => l.action.toLowerCase().includes('approved')).length}
                     </div>
                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Approvals</div>
                 </div>
                 <div className="bg-white border border-gray-200 p-6 rounded-lg">
                     <div className="text-3xl font-black text-blue-600 mb-1">
-                        {logs.filter(l => l.event_type.includes('submitted')).length}
+                        {logs.filter(l => l.action.toLowerCase().includes('submitted')).length}
                     </div>
                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Submissions</div>
                 </div>
                 <div className="bg-white border border-gray-200 p-6 rounded-lg">
                     <div className="text-3xl font-black text-purple-600 mb-1">
-                        {logs.filter(l => l.event_type.includes('created')).length}
+                        {logs.filter(l => l.action.toLowerCase().includes('created')).length}
                     </div>
                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Created</div>
                 </div>
@@ -256,15 +257,16 @@ const AuditLogs = () => {
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-start gap-4 flex-1">
                                         {/* Icon */}
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${getEventColor(log.event_type)}`}>
-                                            {getEventIcon(log.event_type)}
+                                        {/* Icon */}
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${getActionColor(log.action)}`}>
+                                            {getActionIcon(log.action)}
                                         </div>
 
                                         {/* Content */}
                                         <div className="flex-1">
                                             <div className="flex items-center gap-3 mb-2">
                                                 <h3 className="font-black text-sm uppercase tracking-wide text-black">
-                                                    {log.event_type.replace(/_/g, ' ')}
+                                                    {log.action.replace(/_/g, ' ')}
                                                 </h3>
                                                 <span className="text-xs text-gray-400 font-medium">
                                                     {new Date(log.created_at).toLocaleString()}
@@ -275,12 +277,12 @@ const AuditLogs = () => {
                                                 <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
                                                     <User size={12} />
                                                     <span className="font-medium">
-                                                        {log.profiles.full_name} (@{log.profiles.username})
+                                                        {log.profiles.full_name}
                                                     </span>
                                                 </div>
                                             )}
 
-                                            {log.details && Object.keys(log.details).length > 0 && (
+                                            {log.metadata && Object.keys(log.metadata).length > 0 && (
                                                 <div className="mt-2">
                                                     <button
                                                         onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
@@ -293,7 +295,7 @@ const AuditLogs = () => {
                                                     {expandedId === log.id && (
                                                         <div className="mt-3 p-3 bg-gray-50 rounded border border-gray-200">
                                                             <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap">
-                                                                {JSON.stringify(log.details, null, 2)}
+                                                                {JSON.stringify(log.metadata, null, 2)}
                                                             </pre>
                                                         </div>
                                                     )}

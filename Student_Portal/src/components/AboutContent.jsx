@@ -10,10 +10,10 @@ const AboutContent = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
                         <div className="space-y-8">
                             <div>
-                                <span className="text-secondary font-bold uppercase tracking-widest text-xs mb-4 block">Our Story</span>
-                                <h2 className="text-4xl lg:text-5xl font-bold text-black mb-6 font-sans leading-tight">Why this academy exists</h2>
+                                <span className="text-secondary font-black uppercase tracking-[0.3em] text-[10px] mb-6 block">Our Story</span>
+                                <h2 className="text-3xl md:text-5xl lg:text-7xl font-black text-black mb-10 leading-[0.9] italic uppercase tracking-tighter">Why this <br /><span className="text-primary italic">Academy</span> exists</h2>
 
-                                <div className="text-gray-600 text-lg leading-relaxed font-medium space-y-6">
+                                <div className="text-gray-600 text-[18px] leading-relaxed font-medium space-y-8 italic">
                                     <p>
                                         CoreConnectAcademy was created because too many capable people were locked out of opportunity simply because no one explained things properly.
                                     </p>
@@ -60,11 +60,11 @@ const AboutContent = () => {
                             </div>
                         </div>
 
-                        <div className="order-1 lg:order-2 space-y-8">
-                            <span className="text-secondary font-bold uppercase tracking-widest text-xs mb-4 block">What We Believe</span>
-                            <h2 className="text-4xl lg:text-5xl font-bold text-black font-sans leading-tight">Our core belief</h2>
+                        <div className="order-1 lg:order-2 space-y-10">
+                            <span className="text-secondary font-black uppercase tracking-[0.3em] text-[10px] mb-6 block">What We Believe</span>
+                            <h2 className="text-3xl md:text-5xl lg:text-7xl font-black text-black leading-[0.9] italic uppercase tracking-tighter">Our Core <br /><span className="text-primary italic">Belief</span></h2>
 
-                            <div className="space-y-6 text-xl text-gray-600 font-medium leading-relaxed">
+                            <div className="space-y-8 text-2xl text-gray-600 font-medium leading-relaxed italic border-l-2 border-primary/20 pl-8">
                                 <p>
                                     You are not incapable.<br />
                                     <span className="text-gray-900 font-bold bg-white/50 px-2">You are unstructured.</span>

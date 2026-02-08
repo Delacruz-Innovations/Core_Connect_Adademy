@@ -1,8 +1,24 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
 @theme {
+    --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
     --color-primary: #0066CC;
     --color-secondary: #F37021;
+}
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply font-sans antialiased text-gray-900;
+    }
+
+    ::selection {
+        @apply bg-primary/20 text-primary;
+    }
 }
 
 @keyframes scrollIndicator {

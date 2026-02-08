@@ -39,7 +39,6 @@ const AdminLayout = () => {
         { label: 'Enrolments', icon: GraduationCap, href: '/admin/enrolments' },
         { label: 'AI Knowledge', icon: Database, href: '/admin/ai-knowledge' },
         { label: 'Audit Logs', icon: History, href: '/admin/audit-logs' },
-        { label: 'Profile Settings', icon: UserCircle, href: '/admin/profile' },
     ];
 
     return (
@@ -55,7 +54,7 @@ const AdminLayout = () => {
                     </Link>
                 </div>
 
-                <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-160px)]">
+                <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-80px)]">
                     {navItems.map((item) => (
                         <SidebarItem
                             key={item.href}
@@ -64,16 +63,6 @@ const AdminLayout = () => {
                         />
                     ))}
                 </nav>
-
-                <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100">
-                    <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                        <LogOut size={20} />
-                        <span>Logout</span>
-                    </button>
-                </div>
             </aside>
 
             {/* Main Content */}
@@ -104,13 +93,13 @@ const AdminLayout = () => {
 
                         <div className="flex items-center gap-3">
                             <div className="flex flex-col items-end leading-tight">
-                                <span className="text-sm font-bold text-black">{profile?.first_name} {profile?.last_name}</span>
+                                <span className="text-sm font-bold text-black">Master Admin</span>
                                 <span className="text-[10px] font-bold text-primary uppercase tracking-widest flex items-center gap-1">
-                                    <ShieldCheck size={10} /> {profile?.role}
+                                    <ShieldCheck size={10} /> Root Authority
                                 </span>
                             </div>
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold">
-                                {profile?.first_name?.[0]}{profile?.last_name?.[0]}
+                            <div className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center font-bold">
+                                HQ
                             </div>
                         </div>
                     </div>

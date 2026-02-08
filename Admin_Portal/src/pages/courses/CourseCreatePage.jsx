@@ -40,14 +40,14 @@ export default function CourseCreatePage() {
         setLoading(true);
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('Not authenticated properly.');
+            const { data: authData } = await supabase.auth.getUser();
+            const userId = authData?.user?.id || null;
 
             const { data, error } = await supabase
                 .from('courses')
                 .insert([{
                     ...formData,
-                    author_id: user.id
+                    author_id: userId
                 }])
                 .select()
                 .single();

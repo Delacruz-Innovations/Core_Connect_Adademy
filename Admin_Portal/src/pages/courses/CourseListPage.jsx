@@ -4,37 +4,70 @@ import { supabase } from '../../lib/supabase';
 import { PlusCircle, Search, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
 export default function CourseListPage() {
-    const [courses, setCourses] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [courses, setCourses] = useState(() => {
+        const cached = localStorage.getItem('academy_courses_cache');
+        return cached ? JSON.parse(cached) : [];
+    });
+    const [loading, setLoading] = useState(courses.length === 0);
     const [error, setError] = useState(null);
+    const [retryCount, setRetryCount] = useState(0);
 
     useEffect(() => {
         fetchCourses();
-    }, []);
+    }, [retryCount]);
 
     const fetchCourses = async () => {
-        setLoading(true);
+        console.log("🚀 Starting Course Fetch (Attempt " + (retryCount + 1) + ")...");
+        // If we have courses, don't show the full page loader, just sync in background
+        if (courses.length === 0) setLoading(true);
         setError(null);
+
         try {
+            // Direct query with no complex joins
             const { data, error: sbError } = await supabase
                 .from('courses')
-                .select(`
-          *,
-          modules:modules(count)
-        `)
+                .select('*')
                 .order('created_at', { ascending: false });
 
-            if (sbError) throw sbError;
-            setCourses(data || []);
+            if (sbError) {
+                console.error("❌ Supabase Select Error:", sbError);
+                throw sbError;
+            }
+
+            const fetchedCourses = data || [];
+            console.log("✅ Fetch Successful. Found " + fetchedCourses.length + " courses.");
+
+            setCourses(fetchedCourses);
+            localStorage.setItem('academy_courses_cache', JSON.stringify(fetchedCourses));
+            setError(null);
         } catch (err) {
-            console.error('Error fetching courses:', err);
-            setError(err.message || 'Failed to connect to server');
+            // Ignore abort errors (user navigated away)
+            if (err.name === 'AbortError' || err.code === 20) {
+                console.log('Fetch aborted - user navigated away');
+                return;
+            }
+            console.error('❌ Catch Block Course Fetch Error:', err);
+            // If it's a fetch error, it might be CORS or network issue
+            const errorMessage = err.message || 'Failed to connect to the academy database.';
+
+            if (courses.length === 0) {
+                setError(errorMessage);
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    if (loading) return <div className="p-12 text-center text-gray-400 font-bold animate-pulse uppercase tracking-[0.2em] text-[10px]">Synchronizing Academy Data...</div>;
+    const handleRetry = () => {
+        setRetryCount(prev => prev + 1);
+    };
+
+    if (loading && courses.length === 0) return (
+        <div className="p-12 text-center flex flex-col items-center justify-center space-y-4">
+            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+            <p className="text-gray-400 font-bold uppercase tracking-[0.2em] text-[10px]">Synchronizing Academy Data...</p>
+        </div>
+    );
 
     if (error) {
         return (
@@ -47,7 +80,7 @@ export default function CourseListPage() {
                     We encountered a secure connection issue ({error}). This is usually a transient network glitch.
                 </p>
                 <button
-                    onClick={fetchCourses}
+                    onClick={handleRetry}
                     className="mt-4 px-8 py-3 bg-black text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-gray-800 transition-all shadow-lg"
                 >
                     Try Re-Syncing

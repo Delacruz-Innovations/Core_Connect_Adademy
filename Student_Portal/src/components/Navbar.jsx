@@ -50,27 +50,28 @@ const Navbar = () => {
                         </div>
                     </Link>
 
-                    {/* Desktop Navigation */}
-                    <div className="hidden lg:flex items-center space-x-6">
-                        <div className="flex space-x-1">
+                    <div className="hidden lg:flex items-center space-x-10">
+                        <div className="flex space-x-8">
                             {navLinks.map((link) => (
                                 <Link
                                     key={link.name}
                                     to={link.href}
-                                    className={`px-3 py-2 text-[13px] font-semibold transition-colors ${isTop ? 'text-white/80 hover:text-white' : 'text-gray-600 hover:text-primary'
+                                    className={`px-3 py-2 text-[14px] font-bold uppercase tracking-widest transition-all hover:-translate-y-0.5 ${isTop ? 'text-white/90 hover:text-white' : 'text-gray-700 hover:text-primary'
                                         }`}
                                 >
                                     {link.name}
                                 </Link>
                             ))}
                         </div>
-                        <div className="flex items-center gap-4">
-                            <Link to="/login" className={`text-[13px] font-bold uppercase tracking-wide transition-colors ${isTop ? 'text-white hover:text-white/80' : 'text-black hover:text-primary'}`}>
+                        <div className="flex items-center gap-6">
+                            <Link to="/login" className={`text-[14px] font-extrabold uppercase tracking-widest transition-all hover:scale-105 ${isTop ? 'text-white hover:text-white/80' : 'text-gray-900 hover:text-primary'}`}>
                                 Login
                             </Link>
                             <Link to="/show-interest">
-                                <button className={`${isTop ? 'bg-white/10 border border-white/20 hover:bg-white/20' : 'bg-primary hover:bg-primary/90'
-                                    } text-white px-6 py-2 rounded-md text-[13px] font-bold transition-all`}>
+                                <button className={`${isTop
+                                    ? 'bg-white/10 border border-white/20 hover:bg-white text-white hover:text-primary'
+                                    : 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20'
+                                    } text-white px-8 py-2.5 rounded-full text-[12px] font-black uppercase tracking-widest transition-all hover:-translate-y-0.5 active:translate-y-0`}>
                                     Register Interest
                                 </button>
                             </Link>

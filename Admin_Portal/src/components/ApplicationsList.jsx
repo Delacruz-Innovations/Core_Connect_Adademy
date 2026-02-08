@@ -4,29 +4,55 @@ import { CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, User } from 'lucid
 import ApprovalModal from './ApprovalModal';
 
 const ApplicationsList = () => {
-    const [applications, setApplications] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [applications, setApplications] = useState(() => {
+        const cached = localStorage.getItem('academy_applications_cache');
+        return cached ? JSON.parse(cached) : [];
+    });
+    const [loading, setLoading] = useState(applications.length === 0);
     const [expandedId, setExpandedId] = useState(null);
     const [showApprovalModal, setShowApprovalModal] = useState(false);
     const [selectedApplication, setSelectedApplication] = useState(null);
+    const [error, setError] = useState(null);
 
     const fetchApplications = async () => {
-        setLoading(true);
-        // Supabase query to get pending applications
-        const { data, error } = await supabase
-            .from('applications')
-            .select('*')
-            .eq('status', 'pending')
-            .order('created_at', { ascending: false });
+        // If we have cached apps, sync in background without blocking
+        if (applications.length === 0) setLoading(true);
+        setError(null);
 
-        if (error) {
-            console.error('Error fetching applications:', error);
-            // Fallback for demo if table doesn't exist yet
-            setApplications([]);
-        } else {
-            setApplications(data || []);
+        // Safety Timeout
+        const timeout = setTimeout(() => {
+            if (loading && applications.length === 0) {
+                setLoading(false);
+                setError("Application sync timeout. Using offline data if available.");
+            }
+        }, 12000);
+
+        try {
+            const { data, error: sbError } = await supabase
+                .from('applications')
+                .select('*')
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false });
+
+            if (sbError) throw sbError;
+
+            const fetchedApps = data || [];
+            setApplications(fetchedApps);
+            localStorage.setItem('academy_applications_cache', JSON.stringify(fetchedApps));
+        } catch (err) {
+            // Ignore abort errors (user navigated away)
+            if (err.name === 'AbortError' || err.code === 20) {
+                console.log('Fetch aborted');
+                return;
+            }
+            console.error('Error fetching applications:', err);
+            if (applications.length === 0) {
+                setError(err.message || 'Failed to connect to server');
+            }
+        } finally {
+            clearTimeout(timeout);
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useEffect(() => {
@@ -40,34 +66,49 @@ const ApplicationsList = () => {
 
     const handleApproveWithDetails = async (enrollmentData) => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            // 1. Create a temporary client for signUp (to avoid session conflict)
+            const { createClient } = await import('@supabase/supabase-js');
+            const tempClient = createClient(
+                import.meta.env.VITE_SUPABASE_URL,
+                import.meta.env.VITE_SUPABASE_ANON_KEY,
+                { auth: { persistSession: false } }
+            );
 
-            // SQL-Native Workflow: Just update the application status.
-            // The Database Trigger (tr_on_approval) will handle user creation and emails automatically!
-            const { error } = await supabase
-                .from('applications')
-                .update({
-                    status: 'approved',
-                    admin_id: user?.id,
-                    approved_at: new Date().toISOString()
-                })
-                .eq('id', selectedApplication.id);
+            const tempPassword = Math.random().toString(36).slice(-12) + "Tt1!";
+            const studentPortalUrl = 'http://localhost:5174/set-password';
 
-            if (error) throw error;
-
-            // Also create enrollment record (Trigger can do this too, but frontend control is fine here)
-            await supabase.from('enrollments').insert({
-                application_id: selectedApplication.id,
-                student_id: null, // Will be filled by trigger/sync later
-                courses: enrollmentData.courses,
-                payment_amount: enrollmentData.paymentAmount,
-                payment_method: enrollmentData.paymentMethod,
-                payment_status: enrollmentData.paymentStatus,
-                admin_id: user?.id,
-                status: 'active'
+            console.log('Inviting student via Auth...');
+            const { error: signUpError } = await tempClient.auth.signUp({
+                email: selectedApplication.email,
+                password: tempPassword,
+                options: {
+                    emailRedirectTo: studentPortalUrl,
+                    data: {
+                        full_name: selectedApplication.full_name,
+                        role: 'student'
+                    }
+                }
             });
 
-            alert(`Application for ${selectedApplication.full_name} is being processed! The system is sending the invitation emails now.`);
+            // We ignore "already registered" errors as we just want to ensure they exist
+            if (signUpError && !signUpError.message.includes('already registered')) {
+                throw signUpError;
+            }
+
+            // 2. Perform atomic DB updates via RPC
+            console.log('Finalizing enrollment record...');
+            const { data: rpcData, error: rpcError } = await supabase.rpc('approve_application_final', {
+                p_application_id: selectedApplication.id,
+                p_courses: enrollmentData.courses || [],
+                p_payment_amount: String(enrollmentData.paymentAmount || '0'),
+                p_payment_method: enrollmentData.paymentMethod || 'pending',
+                p_payment_status: enrollmentData.paymentStatus || 'pending',
+                p_admin_notes: enrollmentData.adminNotes || ''
+            });
+
+            if (rpcError) throw rpcError;
+
+            alert(`Success! Application for ${selectedApplication.full_name} has been approved and enrolled. The student has been invited to set their password.`);
 
             // Optimistic UI update
             setApplications(applications.filter(a => a.id !== selectedApplication.id));
@@ -94,10 +135,25 @@ const ApplicationsList = () => {
         }
     };
 
-    if (loading) {
+    if (loading && applications.length === 0) {
         return (
             <div className="p-12 text-center text-gray-400 font-medium italic animate-pulse">
                 Loading pending applications...
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="p-8 text-center bg-red-50 border border-red-100 rounded-lg">
+                <p className="text-red-600 font-bold uppercase tracking-widest text-xs mb-2">Sync Error</p>
+                <p className="text-red-400 text-[10px] mb-4">{error}</p>
+                <button
+                    onClick={fetchApplications}
+                    className="px-4 py-2 bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest rounded"
+                >
+                    Try Again
+                </button>
             </div>
         );
     }

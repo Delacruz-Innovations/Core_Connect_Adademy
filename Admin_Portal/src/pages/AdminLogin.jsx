@@ -100,9 +100,9 @@ const AdminLogin = () => {
                                 )}
                             </button>
                         </div>
-                        <div className="text-center pt-4 border-t border-gray-100 mt-4">
-                            <p className="text-xs font-bold text-gray-400">
-                                Don't have an account? <Link to="/admin/signup" className="text-primary hover:text-black transition-colors">Sign Up Now</Link>
+                        <div className="text-center pt-8 border-t border-gray-100 mt-4">
+                            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest leading-relaxed">
+                                Access to this system is restricted to authorized personnel. <br />Identity creation is governed by Canonical Bootstrap.
                             </p>
                         </div>
                     </form>

@@ -79,7 +79,8 @@ export default function LessonCreatePage() {
                 await supabase.from('lessons').update(payload).eq('id', lessonId);
             } else {
                 // Create
-                const { data: { user } } = await supabase.auth.getUser();
+                const { data: authData } = await supabase.auth.getUser();
+                const userId = authData?.user?.id || null;
 
                 // Get next order index
                 const { count } = await supabase.from('lessons')
@@ -89,7 +90,7 @@ export default function LessonCreatePage() {
                 await supabase.from('lessons').insert({
                     ...payload,
                     module_id: moduleId,
-                    created_by: user.id,
+                    created_by: userId,
                     order_index: (count || 0) + 1
                 });
             }

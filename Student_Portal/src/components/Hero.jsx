@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Award, Briefcase, Users, Star } from 'lucide-react';
+import { Award, Briefcase, Users, Star, ArrowRight } from 'lucide-react';
 
 const Hero = () => {
     // Video background replaces the image slideshow
@@ -38,27 +38,29 @@ const Hero = () => {
                             New Cohort Enrolling Now
                         </div>
 
-                        <h1 className="text-5xl lg:text-7xl font-bold mb-8 leading-tight tracking-tight">
-                            Learn properly. <br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
-                                Transition confidently.
+                        <h1 className="text-4xl md:text-6xl lg:text-8xl font-black mb-8 leading-[0.9] tracking-tighter uppercase italic">
+                            Learn <span className="text-white">properly</span>. <br />
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-secondary to-white">
+                                Transition
                             </span>
+                            <br />
+                            confidently.
                         </h1>
 
-                        <p className="text-xl text-white/90 mb-10 leading-relaxed font-medium max-w-lg border-l-4 border-secondary/50 pl-6">
+                        <p className="text-xl text-white/80 mb-12 leading-relaxed font-medium max-w-xl border-l-2 border-secondary pl-8 py-2">
                             A structured, mentor-led academy for anyone ready to move into tech-adjacent careers — even if you're starting from zero.
                         </p>
 
-                        <div className="flex flex-col sm:flex-row items-start gap-6">
+                        <div className="flex flex-col sm:flex-row items-center gap-8">
                             <Link to="/show-interest">
-                                <button className="bg-white text-primary px-10 py-4 rounded-md font-bold text-sm tracking-wide uppercase shadow-xl shadow-black/20 hover:shadow-2xl transition-all hover:-translate-y-1 w-full sm:w-auto flex items-center justify-center gap-2 group">
+                                <button className="bg-white text-primary px-12 py-5 rounded-full font-black text-xs tracking-[0.2em] uppercase shadow-2xl shadow-primary/40 hover:shadow-primary/60 transition-all hover:-translate-y-1 w-full sm:w-auto flex items-center justify-center gap-3 group active:translate-y-0">
                                     Register Interest
-                                    <span className="group-hover:translate-x-1 transition-transform">→</span>
+                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                                 </button>
                             </Link>
-                            <div className="flex flex-col justify-center h-full py-2">
-                                <p className="text-sm text-white/80 italic">
-                                    No pressure. No promises. Just clarity.
+                            <div className="flex flex-col justify-center h-full">
+                                <p className="text-xs text-secondary font-black uppercase tracking-widest opacity-80">
+                                    No pressure. Just clarity.
                                 </p>
                             </div>
                         </div>

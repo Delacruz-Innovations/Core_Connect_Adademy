@@ -33,6 +33,10 @@ export const AuthProvider = ({ children }) => {
                     }
                 }
             } catch (err) {
+                // Ignore AbortError - it's noise from fast refreshes or navigation
+                if (err.name === 'AbortError' || err.code === 20 || err.message?.includes('aborted')) {
+                    return;
+                }
                 console.error('Auth initialization failed:', err);
             } finally {
                 if (mounted) setLoading(false);
@@ -45,20 +49,25 @@ export const AuthProvider = ({ children }) => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
 
-            console.log('Auth event change:', event);
+            console.log('🔄 Auth Event:', event, session?.user?.email);
 
             if (session?.user) {
                 setUser(session.user);
-                await fetchProfile(session.user.id);
-            } else {
+                // Only trigger profile fetch on actual sign-in or refresh
+                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+                    await fetchProfile(session.user.id);
+                }
+            } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
                 setUser(null);
                 setProfile(null);
                 localStorage.removeItem('admin_profile_cache');
             }
 
-            // On refresh, 'INITIAL_SESSION' or similar events might fire.
-            // We ensure loading is false.
-            setLoading(false);
+            // ONLY set loading to false if we've already done the mount-time 'initializeAuth'
+            // or if it's a definitive event.
+            if (event !== 'INITIAL_SESSION') {
+                setLoading(false);
+            }
         });
 
         // Safety timeout
@@ -83,12 +92,16 @@ export const AuthProvider = ({ children }) => {
 
             if (!error && data) {
                 setProfile(data);
-                // Cache it for next refresh
                 localStorage.setItem('admin_profile_cache', JSON.stringify(data));
             } else {
+                // Ignore abort errors
+                if (error?.message?.includes('aborted') || error?.code === '20' || error?.name === 'AbortError') {
+                    return;
+                }
                 console.warn('Profile fetch issue:', error);
             }
         } catch (error) {
+            if (error.name === 'AbortError' || error.message?.includes('aborted')) return;
             console.error('Profile error:', error);
         }
     };

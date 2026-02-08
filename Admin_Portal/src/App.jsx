@@ -72,8 +72,8 @@ function App() {
           </Route>
 
           {/* Root Redirects */}
-          <Route path="/" element={<Navigate to="/admin/login" replace />} />
-          <Route path="*" element={<Navigate to="/admin/login" replace />} />
+          <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
         </Routes>
       </AuthProvider>
     </Router>

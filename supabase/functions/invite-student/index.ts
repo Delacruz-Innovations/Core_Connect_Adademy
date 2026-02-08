@@ -32,7 +32,8 @@ serve(async (req) => {
             paymentMethod = 'pending',
             paymentStatus = 'pending',
             paymentNotes,
-            adminNotes
+            adminNotes,
+            skipDbUpdates = false
         } = await req.json()
 
         if (!applicationId) throw new Error('Application ID is required')
@@ -47,7 +48,6 @@ serve(async (req) => {
         if (appError || !appData) throw new Error('Application not found')
 
         // 4. Create/Get User and Generate Invite Link
-        // We use inviteUserByEmail but suppress the default email so we can send our own via Resend
         const { data: authData, error: authError } = await supabaseClient.auth.admin.inviteUserByEmail(
             appData.email,
             {
@@ -55,7 +55,6 @@ serve(async (req) => {
                     full_name: appData.full_name,
                     username: appData.username
                 },
-                // This option redirects the user after they click the link in our Resend email
                 redirectTo: `${Deno.env.get('STUDENT_PORTAL_URL') || 'http://localhost:5174'}/set-password`
             }
         )
@@ -64,9 +63,7 @@ serve(async (req) => {
 
         const userId = authData.user.id
 
-        // 5. Generate a setup link manually if we want to bypass default email completely
-        // Actually, Supabase's inviteUserByEmail sends an email immediately unless configured otherwise.
-        // To use Resend for the INITIAL invite, we'd normally use generateLink.
+        // 5. Generate a setup link for Resend
         const { data: linkData, error: linkError } = await supabaseClient.auth.admin.generateLink({
             type: 'invite',
             email: appData.email,
@@ -78,75 +75,80 @@ serve(async (req) => {
         if (linkError) throw linkError
         const setupLink = linkData.properties.action_link
 
-        // 6. Create Profile Record
-        const { error: profileError } = await supabaseClient
+        // 6. Create/Update Profile Record
+        await supabaseClient
             .from('profiles')
-            .insert({
+            .upsert({
                 id: userId,
                 username: appData.username,
                 full_name: appData.full_name,
+                email: appData.email,
                 role: 'student'
             })
-            // Use upsert in case profile already exists from a previous attempt
-            .select()
 
-        // 7. Create Enrollment Record
-        const { data: enrollmentData, error: enrollmentError } = await supabaseClient
-            .from('enrollments')
-            .insert({
-                application_id: applicationId,
-                student_id: userId,
-                courses: courses,
-                payment_amount: paymentAmount,
-                payment_method: paymentMethod,
-                payment_status: paymentStatus,
-                payment_notes: paymentNotes,
+        // 7. Conditional DB Updates (Skip if already handled by RPC/Trigger)
+        if (!skipDbUpdates) {
+            // Create Enrollment Record
+            await supabaseClient
+                .from('enrollments')
+                .insert({
+                    application_id: applicationId,
+                    student_id: userId,
+                    courses: courses,
+                    payment_amount: paymentAmount,
+                    payment_method: paymentMethod,
+                    payment_status: paymentStatus,
+                    payment_notes: paymentNotes,
+                    admin_id: adminId,
+                    admin_notes: adminNotes,
+                    status: 'active'
+                })
+
+            // Update Application Status
+            await supabaseClient
+                .from('applications')
+                .update({
+                    status: 'approved',
+                    approved_at: new Date().toISOString(),
+                    admin_id: adminId
+                })
+                .eq('id', applicationId)
+
+            // Create Audit Log
+            await supabaseClient.from('audit_logs').insert({
+                event_type: 'application_approved',
+                user_id: userId,
                 admin_id: adminId,
-                admin_notes: adminNotes,
-                status: 'active'
+                entity_type: 'application',
+                entity_id: applicationId,
+                details: {
+                    student_name: appData.full_name,
+                    courses: courses,
+                    payment_amount: paymentAmount
+                }
             })
-            .select()
-            .single()
 
-        if (enrollmentError) throw enrollmentError
-
-        // 8. Update Application Status
-        await supabaseClient
-            .from('applications')
-            .update({
-                status: 'approved',
-                approved_at: new Date().toISOString(),
-                admin_id: adminId
+            // Create Notification
+            await supabaseClient.from('notifications').insert({
+                recipient_id: userId,
+                title: 'Welcome to Core Connect!',
+                message: `Your application has been approved for ${courses.length} courses.`,
+                type: 'success',
+                link: '/student/dashboard'
             })
-            .eq('id', applicationId)
+        } else {
+            // If skipDbUpdates is true, we still want to update the student_id in the enrollment record
+            await supabaseClient
+                .from('enrollments')
+                .update({ student_id: userId })
+                .eq('application_id', applicationId)
+                .eq('status', 'active');
+        }
 
-        // 9. Create Audit Log
-        await supabaseClient.from('audit_logs').insert({
-            event_type: 'application_approved',
-            user_id: userId,
-            admin_id: adminId,
-            entity_type: 'application',
-            entity_id: applicationId,
-            details: {
-                student_name: appData.full_name,
-                courses: courses,
-                payment_amount: paymentAmount
-            }
-        })
-
-        // 10. Create Notification
-        await supabaseClient.from('notifications').insert({
-            recipient_id: userId,
-            title: 'Welcome to Core Connect!',
-            message: `Your application has been approved for ${courses.length} courses.`,
-            type: 'success',
-            link: '/student/dashboard'
-        })
-
-        // 11. Send Emails via Resend (send-email function)
+        // 8. Send Emails via Resend (send-email function)
+        const courseNames = courses.join(', ')
 
         // A. Send Approval Success Email
-        const courseNames = courses.join(', ')
         await supabaseClient.functions.invoke('send-email', {
             body: {
                 templateName: 'application_approved',
@@ -161,7 +163,7 @@ serve(async (req) => {
             }
         })
 
-        // B. Send Password Setup Email (The important one with the link)
+        // B. Send Password Setup Email
         await supabaseClient.functions.invoke('send-email', {
             body: {
                 templateName: 'password_setup',
@@ -178,9 +180,8 @@ serve(async (req) => {
         return new Response(
             JSON.stringify({
                 success: true,
-                message: 'Enrollment complete. Emails sent via Resend.',
-                userId,
-                enrollmentId: enrollmentData.id
+                message: 'Onboarding process completed.',
+                userId
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
         )

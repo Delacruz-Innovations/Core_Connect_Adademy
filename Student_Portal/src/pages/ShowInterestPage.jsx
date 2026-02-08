@@ -71,79 +71,30 @@ const ShowInterestPage = () => {
         setIsChecking(true);
 
         try {
-            // Check username availability
-            const isAvailable = await checkUsername(formData.username);
-            if (!isAvailable) {
-                alert("Username is already taken. Please choose another username.");
-                setIsChecking(false);
-                return;
-            }
+            // 1. Split full name into first and last
+            const nameParts = formData.fullName.trim().split(' ');
+            const firstName = nameParts[0];
+            const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Applicant';
 
-            // Insert Application
-            const { data: newApplication, error } = await supabase.from('applications').insert({
-                full_name: formData.fullName,
-                username: formData.username,
+            // 2. Insert Lead (VISITOR -> LEAD)
+            const { error } = await supabase.from('leads').insert({
+                first_name: firstName,
+                last_name: lastName,
                 email: formData.email,
-                country: formData.country,
-                city: formData.stateCity,
-                postcode: formData.postcode,
-                phone: formData.phone,
-                job_role: formData.currentRole, // Mapped from state
-                program_type: formData.programType || 'Mentorship', // Default if empty
-                program_name: formData.programName,
-                reason: formData.reason,
-                computer_literacy: formData.computerLiteracy,
-                referrer_source: formData.referrerSource,
-                referrer_name: formData.referrerName,
-                notified_at: new Date().toISOString()
-            }).select().single();
+                course_interest: formData.programName || formData.programType,
+                notes: formData.reason,
+            });
 
             if (error) throw error;
 
             // SUCCESS! 
-            // We no longer call the Edge Function or Audit Logs from here.
-            // THE DATABASE TRIGGER (fn_handle_new_application) handles emails and logging 
-            // automatically on the server side, which is faster and avoids CORS errors.
-
             setIsSubmitted(true);
             setShowForm(false);
-            // Reset form
-            setFormData({
-                fullName: '',
-                username: '',
-                email: '',
-                country: '',
-                stateCity: '',
-                postcode: '',
-                phone: '',
-                currentRole: '',
-                programType: '',
-                programName: '',
-                reason: '',
-                computerLiteracy: 5,
-                referrerSource: '',
-                referrerName: ''
-            });
             window.scrollTo(0, 0);
 
         } catch (error) {
             console.error('Submission error:', error);
-
-            // Handle specific error codes
-            if (error.code === '23505') {
-                // Unique constraint violation
-                if (error.message.includes('username')) {
-                    alert("This username is already taken. Please choose a different username.");
-                } else if (error.message.includes('email')) {
-                    alert("This email is already registered. Please use a different email or contact support.");
-                } else {
-                    alert("This information is already registered. Please check your details.");
-                }
-            } else if (error.message?.includes('Failed to fetch')) {
-                alert("Connection error. Please check your internet connection and try again.");
-            } else {
-                alert(`Error submitting application: ${error.message || 'Unknown error'}`);
-            }
+            alert(`Error submitting application: ${error.message || 'Unknown error'}`);
         } finally {
             setIsChecking(false);
         }
@@ -199,15 +150,17 @@ const ShowInterestPage = () => {
                     className="absolute inset-0 z-0 opacity-40 bg-fixed bg-cover bg-center"
                     style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1531403009284-440f080d1e12?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80")' }}
                 ></div>
-                <div className="relative z-10 text-center text-white px-4 max-w-4xl mx-auto">
-                    <motion.h1
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-5xl lg:text-7xl font-black mb-6 italic uppercase tracking-tighter leading-none"
+                <div className="relative z-10 text-center text-white px-4 max-w-5xl mx-auto">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 1 }}
                     >
-                        Begin Your Journey
-                    </motion.h1>
-                    <div className="w-24 h-1 bg-primary mx-auto"></div>
+                        <span className="text-secondary font-black uppercase tracking-[0.4em] text-xs mb-6 block">Join the Cohort</span>
+                        <h1 className="text-5xl md:text-7xl lg:text-[10rem] font-black mb-10 italic uppercase tracking-tighter leading-[0.8]">
+                            Apply <br /><span className="text-primary italic">Now</span>
+                        </h1>
+                    </motion.div>
                 </div>
             </section>
 
@@ -216,25 +169,26 @@ const ShowInterestPage = () => {
                 <div className="max-w-5xl mx-auto">
 
                     {!showForm ? (
-                        <div className="text-center space-y-12">
-                            <div className="space-y-6">
-                                <h2 className="text-4xl lg:text-5xl font-bold leading-tight text-gray-900">
-                                    Registration is <span className="text-primary italic">by application only</span>.
+                        <div className="space-y-16">
+                            <div className="space-y-10">
+                                <h2 className="text-3xl md:text-5xl lg:text-7xl font-black leading-[0.85] text-gray-900 uppercase italic tracking-tighter text-center">
+                                    Registration is <br /><span className="text-primary">by application only</span>.
                                 </h2>
 
-                                <div className="bg-gray-50 border border-gray-100 p-12 lg:p-16 my-12 text-left shadow-lg max-w-4xl mx-auto">
-                                    <h3 className="text-xl font-black uppercase tracking-widest text-gray-400 mb-8">Before Applying:</h3>
-                                    <ul className="space-y-6">
+                                <div className="bg-white border border-gray-100 p-12 lg:p-20 text-left shadow-2xl max-w-4xl mx-auto relative overflow-hidden group">
+                                    <div className="absolute top-0 left-0 w-2 h-full bg-secondary"></div>
+                                    <h3 className="text-xs font-black uppercase tracking-[0.3em] text-gray-400 mb-10">Requirements Checklist</h3>
+                                    <ul className="space-y-10">
                                         {[
-                                            "You must be ready to commit to a structured program.",
-                                            "You understand this requires computer literacy.",
-                                            "You are willing to verify your location and identity."
+                                            "Ready to commit to a structured 12-week program.",
+                                            "Basic computer literacy (Laptop/PC required).",
+                                            "Willingness to join group mentoring sessions."
                                         ].map((item, i) => (
-                                            <div key={i} className="flex gap-4 items-center group">
-                                                <div className="w-10 h-10 border border-gray-200 flex items-center justify-center text-primary bg-white group-hover:bg-primary group-hover:text-white transition-all shrink-0">
-                                                    <Check size={20} strokeWidth={3} />
+                                            <div key={i} className="flex gap-6 items-center group/item">
+                                                <div className="w-12 h-12 border border-gray-100 flex items-center justify-center text-primary bg-gray-50 group-hover/item:bg-primary group-hover/item:text-white transition-all shrink-0 shadow-inner">
+                                                    <Check size={24} strokeWidth={3} />
                                                 </div>
-                                                <span className="text-xl font-bold text-gray-800">{item}</span>
+                                                <span className="text-lg md:text-2xl font-black text-gray-800 italic uppercase tracking-tighter transition-all group-hover/item:pl-2">{item}</span>
                                             </div>
                                         ))}
                                     </ul>
@@ -243,9 +197,9 @@ const ShowInterestPage = () => {
 
                             <button
                                 onClick={handleInterestClick}
-                                className="bg-primary text-white px-12 py-6 rounded-md font-bold text-lg tracking-widest uppercase shadow-2xl shadow-primary/30 hover:-translate-y-1 transition-transform flex items-center gap-4 mx-auto group"
+                                className="bg-primary text-white px-16 py-6 rounded-full font-black text-sm tracking-[0.2em] uppercase shadow-2xl shadow-primary/40 hover:shadow-primary/60 hover:-translate-y-1 transition-all flex items-center gap-4 mx-auto group active:translate-y-0"
                             >
-                                Start Registration <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                Start Registration <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
                             </button>
                         </div>
                     ) : (
@@ -534,10 +488,10 @@ const ShowInterestPage = () => {
                         </motion.div>
                     )}
                 </div>
-            </section>
+            </section >
 
             <Footer />
-        </div>
+        </div >
     );
 };
 
