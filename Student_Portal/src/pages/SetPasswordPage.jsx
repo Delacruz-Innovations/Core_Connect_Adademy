@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { validatePassword, passwordsMatch, getPasswordFeedback } from '../utils/passwordValidation';
-import { Lock, Eye, EyeOff, Check, X, Shield, Loader2 } from 'lucide-react';
+import { validatePassword, passwordsMatch } from '../utils/passwordValidation';
+import { Lock, Eye, EyeOff, Check, X, Shield, Loader2, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
 import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const SetPasswordPage = () => {
     const [searchParams] = useSearchParams();
@@ -21,28 +20,36 @@ const SetPasswordPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    const [username, setUsername] = useState('');
 
-    // Supabase can put tokens in query params OR the hash
-    const [hasToken, setHasToken] = useState(false);
+    const images = [
+        "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+        "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+        "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"
+    ];
+
+    const [currentImage, setCurrentImage] = useState(0);
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentImage((prev) => (prev + 1) % images.length);
+        }, 5000);
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         const checkAuth = async () => {
-            // 1. Check if we already have a session (Supabase handles hash parsing automatically)
             const { data: { session } } = await supabase.auth.getSession();
 
-            // 2. Check query params as fallback
-            const token = searchParams.get('token') || searchParams.get('access_token');
-            const type = searchParams.get('type');
+            if (session?.user?.user_metadata?.username) {
+                setUsername(session.user.user_metadata.username);
+            }
 
+            const token = searchParams.get('token') || searchParams.get('access_token');
             if (session || token || window.location.hash.includes('access_token')) {
-                setHasToken(true);
                 setError('');
             } else {
                 setError('Invalid or missing password reset link. Please use the link sent to your email.');
-            }
-
-            if (type === 'invite' || type === 'signup') {
-                console.log('Password setup for new user invitation');
             }
         };
 
@@ -50,7 +57,6 @@ const SetPasswordPage = () => {
     }, [searchParams]);
 
     const validation = validatePassword(formData.password);
-    const passwordsFeedback = getPasswordFeedback(formData.password);
     const doPasswordsMatch = passwordsMatch(formData.password, formData.confirmPassword);
 
     const handleSubmit = async (e) => {
@@ -68,57 +74,36 @@ const SetPasswordPage = () => {
         }
 
         setIsSubmitting(true);
-        console.log('🚀 Starting password update process...');
 
         try {
-            // 1. Force a session check
             let { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-            if (sessionError) {
-                console.error('Session error:', sessionError);
-                throw new Error('Auth session could not be established. Please try using the link in your email again.');
-            }
+            if (sessionError) throw new Error('Auth session could not be established.');
 
             if (!session) {
-                console.log('No session found, checking URL for recovery...');
-                // If we have a recovery token in the hash, wait a moment for Supabase to process it
-                // or try to get it again.
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 const { data: { session: retrySession } } = await supabase.auth.getSession();
                 session = retrySession;
             }
 
             if (!session) {
-                throw new Error('Your session is missing or expired. Please click the "Set Password" link in your invitation email again.');
+                throw new Error('Your session is missing or expired. Please click the link in your email again.');
             }
 
-            console.log('✅ Session active for user:', session.user.email);
-
-            // 2. Update password with a safety timeout
-            const updatePromise = supabase.auth.updateUser({
+            const { error: updateError } = await supabase.auth.updateUser({
                 password: formData.password
             });
 
-            // Create a 15-second timeout
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Update request timed out. The database might be slow. Please refresh and try again.')), 15000)
-            );
-
-            const { data, error: updateError } = await Promise.race([updatePromise, timeoutPromise]);
-
             if (updateError) throw updateError;
 
-            console.log('🎉 Password updated successfully!');
             setSuccess(true);
-
-            // Redirect to login after 3 seconds
             setTimeout(() => {
                 navigate('/login');
             }, 3000);
 
         } catch (err) {
-            console.error('❌ Password setup error:', err);
-            setError(err.message || 'Failed to set password. This usually happens if the link is old or your internet connection dropped.');
+            console.error('Password setup error:', err);
+            setError(err.message || 'Failed to set password. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -126,211 +111,196 @@ const SetPasswordPage = () => {
 
     if (success) {
         return (
-            <div className="min-h-screen bg-white font-sans text-black flex flex-col">
+            <div className="min-h-screen relative font-sans text-black flex flex-col">
+                <div className="fixed inset-0 z-0 bg-gray-900 overflow-hidden">
+                    <div className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-fixed opacity-40" style={{ backgroundImage: `url("${images[0]}")` }}></div>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
+                </div>
                 <Navbar />
-                <div className="flex-1 flex items-center justify-center p-4">
+                <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-4">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="max-w-md w-full text-center space-y-6"
+                        className="max-w-md w-full bg-white shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)] overflow-hidden"
                     >
-                        <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto text-green-500 mb-4">
-                            <Check size={40} strokeWidth={3} />
+                        <div className="bg-green-600 text-white p-12 text-center">
+                            <Check size={64} className="mx-auto mb-6" strokeWidth={3} />
+                            <h2 className="text-3xl font-bold italic uppercase tracking-tighter leading-none mb-4">Password Set!</h2>
+                            <p className="text-sm text-white/80 font-medium uppercase tracking-widest leading-relaxed">
+                                Security protocol complete. Redirecting you to the portal...
+                            </p>
                         </div>
-                        <h2 className="text-3xl font-black uppercase tracking-tight">Password Set Successfully!</h2>
-                        <p className="text-gray-600 font-medium">
-                            Your password has been set. You will be redirected to the login page shortly.
-                        </p>
-                        <div className="pt-4">
-                            <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <div className="p-8 text-center bg-white flex flex-col items-center gap-6">
+                            <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Initializing Dashboard...</p>
                         </div>
+                        <div className="h-1 bg-green-600 w-full"></div>
                     </motion.div>
                 </div>
-                <Footer />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-white font-sans text-black flex flex-col">
+        <div className="min-h-screen relative font-sans text-black flex flex-col">
+            {/* Full Page Fixed Background Slideshow */}
+            <div className="fixed inset-0 z-0 bg-gray-900 overflow-hidden">
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={currentImage}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 2, ease: "easeInOut" }}
+                        className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-fixed"
+                        style={{
+                            backgroundImage: `url("${images[currentImage]}")`,
+                        }}
+                    >
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
+                    </motion.div>
+                </AnimatePresence>
+            </div>
+
             <Navbar />
 
-            <div className="flex-1 flex items-center justify-center p-4 py-12">
+            <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 sm:px-6 lg:px-8 py-20">
+                <div className="text-center text-white mb-12">
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8 }}
+                    >
+                        <span className="text-secondary font-bold uppercase tracking-[0.4em] text-xs mb-4 block">Account Security</span>
+                        <h1 className="text-3xl md:text-5xl font-bold italic uppercase tracking-tighter leading-none">
+                            Secure your <span className="text-primary">Future</span>
+                        </h1>
+                    </motion.div>
+                </div>
+
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="max-w-2xl w-full"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="w-full max-w-lg bg-white border border-white/10 shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)] overflow-hidden relative"
                 >
-                    {/* Header */}
-                    <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Shield size={32} className="text-primary" />
-                        </div>
-                        <h1 className="text-4xl font-black uppercase tracking-tight mb-2">Set Your Password</h1>
-                        <p className="text-gray-600 font-medium">
-                            Create a strong password to secure your account
-                        </p>
+                    <div className="bg-primary text-white p-8 text-center border-b border-white/5">
+                        <Shield className="mx-auto h-12 w-12 text-white mb-4" />
+                        <h2 className="text-3xl font-bold italic uppercase tracking-tighter leading-none">Set Password</h2>
+                        {username && (
+                            <p className="mt-2 text-xs text-white/80 font-black uppercase tracking-[0.2em]">
+                                Verification for @{username}
+                            </p>
+                        )}
                     </div>
 
-                    {error && (
-                        <div className="bg-red-50 border-2 border-red-200 p-4 rounded-lg mb-6 flex items-start gap-3">
-                            <X size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
-                            <p className="text-red-800 font-medium text-sm">{error}</p>
-                        </div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Password Input */}
-                        <div>
-                            <label className="text-xs font-black uppercase tracking-widest text-gray-900 mb-3 block">
-                                Password <span className="text-primary">*</span>
-                            </label>
-                            <div className="relative">
-                                <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    required
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    className="w-full border-2 border-gray-200 pl-12 pr-12 py-4 font-medium focus:outline-none focus:border-primary transition-all"
-                                    placeholder="Enter your password"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                >
-                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
+                    <form className="p-8 space-y-6 bg-white" onSubmit={handleSubmit}>
+                        {error && (
+                            <div className="bg-red-50 border-2 border-red-200 p-4 rounded flex items-start gap-3">
+                                <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-red-800 font-medium text-sm">{error}</p>
                             </div>
+                        )}
 
-                            {/* Password Strength Indicator */}
-                            {formData.password && (
-                                <div className="mt-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-xs font-bold text-gray-500">Password Strength:</span>
-                                        <span className={`text-xs font-black uppercase px-2 py-1 rounded bg-${validation.strength.color}-100 text-${validation.strength.color}-700`}>
-                                            {validation.strength.label}
-                                        </span>
-                                    </div>
-                                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full bg-${validation.strength.color}-500 transition-all duration-300`}
-                                            style={{
-                                                width: validation.strength.level === 'strong' ? '100%' :
-                                                    validation.strength.level === 'good' ? '75%' :
-                                                        validation.strength.level === 'fair' ? '50%' : '25%'
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Confirm Password Input */}
-                        <div>
-                            <label className="text-xs font-black uppercase tracking-widest text-gray-900 mb-3 block">
-                                Confirm Password <span className="text-primary">*</span>
-                            </label>
-                            <div className="relative">
-                                <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input
-                                    type={showConfirmPassword ? 'text' : 'password'}
-                                    required
-                                    value={formData.confirmPassword}
-                                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                    className="w-full border-2 border-gray-200 pl-12 pr-12 py-4 font-medium focus:outline-none focus:border-primary transition-all"
-                                    placeholder="Confirm your password"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                >
-                                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
-                            </div>
-
-                            {formData.confirmPassword && (
-                                <div className="mt-2 flex items-center gap-2">
-                                    {doPasswordsMatch ? (
-                                        <>
-                                            <Check size={16} className="text-green-600" />
-                                            <span className="text-xs font-bold text-green-600">Passwords match</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <X size={16} className="text-red-600" />
-                                            <span className="text-xs font-bold text-red-600">Passwords do not match</span>
-                                        </>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Password Requirements Checklist */}
-                        <div className="bg-gray-50 border border-gray-200 p-6 rounded-lg">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-gray-900 mb-4">
-                                Password Requirements:
-                            </h3>
+                        <div className="space-y-4">
                             <div className="space-y-2">
-                                <RequirementItem
-                                    met={validation.requirements.minLength}
-                                    text="At least 12 characters long"
-                                />
-                                <RequirementItem
-                                    met={validation.requirements.hasUppercase}
-                                    text="At least one uppercase letter (A-Z)"
-                                />
-                                <RequirementItem
-                                    met={validation.requirements.hasLowercase}
-                                    text="At least one lowercase letter (a-z)"
-                                />
-                                <RequirementItem
-                                    met={validation.requirements.hasNumber}
-                                    text="At least one number (0-9)"
-                                />
-                                <RequirementItem
-                                    met={validation.requirements.hasSpecial}
-                                    text="At least one special character (!@#$%^&*...)"
-                                />
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                    New Password <span className="text-primary">*</span>
+                                </label>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        required
+                                        value={formData.password}
+                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                        className="w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-200 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all text-black"
+                                        placeholder="Enter your new password"
+                                        disabled={isSubmitting}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                    Confirm Password <span className="text-primary">*</span>
+                                </label>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                    <input
+                                        type={showConfirmPassword ? 'text' : 'password'}
+                                        required
+                                        value={formData.confirmPassword}
+                                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                        className="w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-200 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all text-black"
+                                        placeholder="Confirm your password"
+                                        disabled={isSubmitting}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors"
+                                    >
+                                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Submit Button */}
+                        {/* Password Requirements UI */}
+                        <div className="bg-gray-50 border border-gray-200 p-5 space-y-3">
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                                <Sparkles size={12} className="text-primary" />
+                                Requirements Baseline
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                                <RequirementItem met={validation.requirements.minLength} text="12+ Characters" />
+                                <RequirementItem met={validation.requirements.hasUppercase} text="Uppercase Letter" />
+                                <RequirementItem met={validation.requirements.hasLowercase} text="Lowercase Letter" />
+                                <RequirementItem met={validation.requirements.hasNumber} text="Numerical Digit" />
+                                <RequirementItem met={validation.requirements.hasSpecial} text="Special Char" />
+                                <RequirementItem met={doPasswordsMatch && formData.confirmPassword !== ''} text="Passwords Match" />
+                            </div>
+                        </div>
+
                         <button
                             type="submit"
                             disabled={isSubmitting || !validation.isValid || !doPasswordsMatch}
-                            className="w-full bg-black text-white py-5 font-black text-sm uppercase tracking-widest hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black flex items-center justify-center gap-3"
+                            className="w-full bg-primary text-white py-5 font-bold text-xs uppercase tracking-[0.2em] hover:bg-secondary transition-all shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed rounded-sm"
                         >
                             {isSubmitting ? (
                                 <>
-                                    <Loader2 size={20} className="animate-spin" />
-                                    Setting Password...
+                                    <Loader2 size={16} className="animate-spin" />
+                                    Synchronizing...
                                 </>
                             ) : (
                                 <>
-                                    <Shield size={20} />
-                                    Set Password & Continue
+                                    Complete Setup <ArrowRight size={16} />
                                 </>
                             )}
                         </button>
                     </form>
+
+                    <div className="h-1 bg-primary w-full"></div>
                 </motion.div>
             </div>
-
-            <Footer />
         </div>
     );
 };
 
 const RequirementItem = ({ met, text }) => (
-    <div className="flex items-center gap-3">
-        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${met ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'
-            }`}>
-            {met ? <Check size={14} strokeWidth={3} /> : <X size={14} />}
+    <div className="flex items-center gap-2">
+        <div className={`shrink-0 w-4 h-4 rounded-full flex items-center justify-center ${met ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
+            {met ? <Check size={10} strokeWidth={4} /> : <div className="w-1 h-1 bg-current rounded-full" />}
         </div>
-        <span className={`text-sm font-medium ${met ? 'text-green-700' : 'text-gray-600'}`}>
+        <span className={`text-[11px] font-bold uppercase tracking-tight ${met ? 'text-gray-900' : 'text-gray-400'}`}>
             {text}
         </span>
     </div>

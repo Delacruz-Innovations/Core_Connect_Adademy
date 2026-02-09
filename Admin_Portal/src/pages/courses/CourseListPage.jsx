@@ -2,32 +2,35 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { PlusCircle, Search, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import BrandedLoader from '../../components/BrandedLoader';
 
 export default function CourseListPage() {
     const [courses, setCourses] = useState(() => {
         const cached = localStorage.getItem('academy_courses_cache');
         return cached ? JSON.parse(cached) : [];
     });
-    const [loading, setLoading] = useState(courses.length === 0);
-    const [error, setError] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
     const [retryCount, setRetryCount] = useState(0);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         fetchCourses();
-    }, [retryCount]);
+    }, [retryCount, searchTerm]);
 
     const fetchCourses = async () => {
         console.log("🚀 Starting Course Fetch (Attempt " + (retryCount + 1) + ")...");
-        // If we have courses, don't show the full page loader, just sync in background
         if (courses.length === 0) setLoading(true);
         setError(null);
 
         try {
-            // Direct query with no complex joins
-            const { data, error: sbError } = await supabase
-                .from('courses')
-                .select('*')
-                .order('created_at', { ascending: false });
+            let query = supabase.from('courses').select('*');
+
+            if (searchTerm) {
+                query = query.or(`title.ilike.%${searchTerm}%,short_description.ilike.%${searchTerm}%`);
+            }
+
+            const { data, error: sbError } = await query.order('created_at', { ascending: false });
 
             if (sbError) {
                 console.error("❌ Supabase Select Error:", sbError);
@@ -62,12 +65,7 @@ export default function CourseListPage() {
         setRetryCount(prev => prev + 1);
     };
 
-    if (loading && courses.length === 0) return (
-        <div className="p-12 text-center flex flex-col items-center justify-center space-y-4">
-            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-            <p className="text-gray-400 font-bold uppercase tracking-[0.2em] text-[10px]">Synchronizing Academy Data...</p>
-        </div>
-    );
+    if (loading && courses.length === 0) return <BrandedLoader message="Synchronizing Academy Data..." />;
 
     if (error) {
         return (
@@ -97,13 +95,25 @@ export default function CourseListPage() {
                     <h1 className="text-2xl font-black text-gray-900 tracking-tight">All Courses</h1>
                     <p className="text-gray-500 text-sm mt-1">Manage your academy curriculum and content.</p>
                 </div>
-                <Link
-                    to="/admin/courses/new"
-                    className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg font-bold text-sm tracking-wide hover:bg-gray-800 transition-colors shadow-sm"
-                >
-                    <PlusCircle size={16} />
-                    Create New Course
-                </Link>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-gray-400 bg-white border border-gray-100 px-4 py-2 rounded-lg shadow-sm">
+                        <Search size={16} />
+                        <input
+                            type="text"
+                            placeholder="Find a course..."
+                            className="bg-transparent border-none outline-none text-sm w-48 font-bold"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <Link
+                        to="/admin/courses/new"
+                        className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg font-bold text-sm tracking-wide hover:bg-gray-800 transition-colors shadow-sm"
+                    >
+                        <PlusCircle size={16} />
+                        Create New Course
+                    </Link>
+                </div>
             </div>
 
             {/* Courses Grid */}

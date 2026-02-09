@@ -3,7 +3,10 @@ import { supabase } from '../lib/supabase';
 import { CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, User } from 'lucide-react';
 import ApprovalModal from './ApprovalModal';
 
+import { useModal } from '../context/ModalContext';
+
 const ApplicationsList = () => {
+    const { showAlert, showConfirm } = useModal();
     const [applications, setApplications] = useState(() => {
         const cached = localStorage.getItem('academy_applications_cache');
         return cached ? JSON.parse(cached) : [];
@@ -97,18 +100,14 @@ const ApplicationsList = () => {
 
             // 2. Perform atomic DB updates via RPC
             console.log('Finalizing enrollment record...');
-            const { data: rpcData, error: rpcError } = await supabase.rpc('approve_application_final', {
-                p_application_id: selectedApplication.id,
-                p_courses: enrollmentData.courses || [],
-                p_payment_amount: String(enrollmentData.paymentAmount || '0'),
-                p_payment_method: enrollmentData.paymentMethod || 'pending',
-                p_payment_status: enrollmentData.paymentStatus || 'pending',
-                p_admin_notes: enrollmentData.adminNotes || ''
+            const { error: rpcError } = await supabase.rpc('approve_application', {
+                target_application_id: selectedApplication.id,
+                final_course_id: enrollmentData.courses[0] // New RPC takes a single course ID
             });
 
             if (rpcError) throw rpcError;
 
-            alert(`Success! Application for ${selectedApplication.full_name} has been approved and enrolled. The student has been invited to set their password.`);
+            await showAlert(`Success! Application for ${selectedApplication.full_name} has been approved and enrolled. The student has been invited to set their password.`, 'Application Approved', 'success');
 
             // Optimistic UI update
             setApplications(applications.filter(a => a.id !== selectedApplication.id));
@@ -116,12 +115,12 @@ const ApplicationsList = () => {
             setSelectedApplication(null);
         } catch (error) {
             console.error('Error approving application:', error);
-            alert("Error approving application: " + (error.message || "Unknown error"));
+            await showAlert("Error approving application: " + (error.message || "Unknown error"), 'Approval Error', 'error');
         }
     };
 
     const handleReject = async (id) => {
-        if (!confirm("Are you sure you want to reject this application?")) return;
+        if (!await showConfirm("Are you sure you want to reject this application?", 'Confirm Rejection')) return;
 
         const { error } = await supabase
             .from('applications')
@@ -129,7 +128,7 @@ const ApplicationsList = () => {
             .eq('id', id);
 
         if (error) {
-            alert("Error rejecting application");
+            await showAlert("Error rejecting application", 'Rejection Error', 'error');
         } else {
             setApplications(applications.filter(a => a.id !== id));
         }
@@ -179,14 +178,14 @@ const ApplicationsList = () => {
                             <div>
                                 <h3 className="font-bold text-lg text-black leading-tight">{app.full_name}</h3>
                                 <p className="text-xs text-primary font-bold uppercase tracking-wider mb-2">
-                                    @{app.username} • {app.program_type}
+                                    @{app.username} • {app.program_interest}
                                 </p>
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 font-medium">
                                     <span className="flex items-center gap-1">
                                         <Clock size={12} /> {new Date(app.created_at).toLocaleDateString()}
                                     </span>
                                     <span>•</span>
-                                    <span>{app.program_name || 'No Program Selected'}</span>
+                                    <span>Course ID: {app.requested_course_id?.slice(0, 8)}...</span>
                                 </div>
                             </div>
                         </div>
@@ -236,7 +235,7 @@ const ApplicationsList = () => {
                                 <div>
                                     <span className="font-bold text-gray-400 block mb-1">Reason for Joining:</span>
                                     <p className="text-gray-600 italic leading-relaxed bg-white p-3 border border-gray-100 rounded text-xs">
-                                        "{app.reason}"
+                                        "{app.motivation_text}"
                                     </p>
                                 </div>
                                 <div className="flex gap-4 mt-2">
@@ -244,13 +243,13 @@ const ApplicationsList = () => {
                                         <span className="font-bold text-gray-400 text-xs">Computer Literacy:</span>
                                         <div className="flex mt-1">
                                             {[...Array(10)].map((_, i) => (
-                                                <div key={i} className={`w-1.5 h-3 rounded-full mr-0.5 ${i < app.computer_literacy ? 'bg-primary' : 'bg-gray-200'}`}></div>
+                                                <div key={i} className={`w-1.5 h-3 rounded-full mr-0.5 ${i < app.computer_literacy_score ? 'bg-primary' : 'bg-gray-200'}`}></div>
                                             ))}
                                         </div>
                                     </div>
                                     <div>
                                         <span className="font-bold text-gray-400 text-xs">Referral:</span>
-                                        <p className="font-medium text-xs text-black">{app.referrer_source} {app.referrer_name && `(${app.referrer_name})`}</p>
+                                        <p className="font-medium text-xs text-black">{app.discovery_source} {app.referral_name && `(${app.referral_name})`}</p>
                                     </div>
                                 </div>
                             </div>

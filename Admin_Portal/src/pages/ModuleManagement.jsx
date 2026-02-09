@@ -80,7 +80,7 @@ const ModuleManagement = () => {
                     </button>
                     <div>
                         <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 block">Course Curriculum</span>
-                        <h1 className="text-5xl font-black italic tracking-tighter text-ellipsis overflow-hidden whitespace-nowrap max-w-xl">
+                        <h1 className="text-5xl font-black italic tracking-tighter text-ellipsis overflow-hidden whitespace-nowrap">
                             Business Analysis Mastery
                         </h1>
                     </div>

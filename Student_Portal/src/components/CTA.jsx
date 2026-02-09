@@ -1,7 +1,9 @@
-import React from 'react';
 import { ArrowRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const CTA = () => {
+    const { user } = useAuth();
     return (
         <section className="py-20 bg-white">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -19,12 +21,26 @@ const CTA = () => {
                             Unlock your potential with our expert-led training at <span className="text-white">CORE CONNECT ACADEMY</span> and join thousands of successful graduates worldwide.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                            <button className="bg-primary text-white px-12 py-5 rounded-md font-bold text-sm tracking-[0.2em] uppercase hover:bg-white hover:text-black transition-all flex items-center gap-3">
-                                Apply Now <ArrowRight size={18} />
-                            </button>
-                            <button className="border border-white/20 text-white px-12 py-5 rounded-md font-bold text-sm tracking-[0.2em] uppercase hover:bg-white/10 transition-all">
-                                Contact Sales
-                            </button>
+                            {user ? (
+                                <Link to="/student/dashboard">
+                                    <button className="bg-primary text-white px-12 py-5 rounded-md font-bold text-sm tracking-[0.2em] uppercase hover:bg-white hover:text-black transition-all flex items-center gap-3">
+                                        Continue to Dashboard <ArrowRight size={18} />
+                                    </button>
+                                </Link>
+                            ) : (
+                                <>
+                                    <Link to="/show-interest">
+                                        <button className="bg-primary text-white px-12 py-5 rounded-md font-bold text-sm tracking-[0.2em] uppercase hover:bg-white hover:text-black transition-all flex items-center gap-3">
+                                            Apply Now <ArrowRight size={18} />
+                                        </button>
+                                    </Link>
+                                    <Link to="/contact">
+                                        <button className="border border-white/20 text-white px-12 py-5 rounded-md font-bold text-sm tracking-[0.2em] uppercase hover:bg-white/10 transition-all">
+                                            Contact Sales
+                                        </button>
+                                    </Link>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

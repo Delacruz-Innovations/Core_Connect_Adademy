@@ -7,6 +7,7 @@ import {
     UserPlus, PlusCircle, CheckSquare, BrainCircuit,
     AlertCircle, RefreshCw
 } from 'lucide-react';
+import BrandedLoader from '../components/BrandedLoader';
 
 const StatCard = ({ icon: Icon, label, value, loading }) => (
     <div className="bg-white p-8 border border-gray-100 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all group">
@@ -52,7 +53,7 @@ const AdminDashboard = () => {
         try {
             // Fetch Counts in parallel
             const responses = await Promise.all([
-                supabase.from('leads').select('*', { count: 'exact', head: true }),
+                supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
                 supabase.from('profiles').select('*', { count: 'exact', head: true }),
                 supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
                 supabase.from('courses').select('*', { count: 'exact', head: true }),
@@ -88,7 +89,7 @@ const AdminDashboard = () => {
                     created_at,
                     status,
                     profiles:student_id (full_name),
-                    application:application_id (program_name)
+                    application:application_id (program_interest)
                 `)
                 .order('created_at', { ascending: false })
                 .limit(5);
@@ -101,6 +102,8 @@ const AdminDashboard = () => {
             setLoading(false);
         }
     };
+
+    if (loading) return <BrandedLoader message="Syncing Dashboard Metrics..." />;
 
     return (
         <div className="space-y-12">
@@ -183,7 +186,7 @@ const AdminDashboard = () => {
                                     {recentEnrollments.map((row) => (
                                         <tr key={row.id} className="group hover:bg-gray-50/50 transition-colors">
                                             <td className="py-4 text-sm font-bold text-black">{row.profiles?.full_name || 'Generic Student'}</td>
-                                            <td className="py-4 text-sm text-gray-500 font-medium">{row.application?.program_name || 'Enrolled Course'}</td>
+                                            <td className="py-4 text-sm text-gray-500 font-medium">{row.application?.program_interest || 'Enrolled Course'}</td>
                                             <td className="py-4 text-xs text-gray-400 font-bold uppercase tracking-widest">
                                                 {new Date(row.created_at).toLocaleDateString()}
                                             </td>

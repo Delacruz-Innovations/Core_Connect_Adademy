@@ -1,20 +1,20 @@
 import React from 'react';
 
-const LoadingSpinner = () => {
+const LoadingSpinner = ({ fullScreen = true }) => {
     return (
-        <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center">
+        <div className={`${fullScreen ? 'fixed inset-0 z-[9999]' : 'absolute inset-0 z-40'} bg-white flex items-center justify-center`}>
             <div className="relative">
                 {/* Spinning Border */}
                 <div className="absolute inset-0 animate-spin">
-                    <div className="w-32 h-32 border-4 border-gray-100 border-t-primary rounded-full"></div>
+                    <div className={`${fullScreen ? 'w-32 h-32' : 'w-20 h-20'} border-4 border-gray-100 border-t-primary rounded-full`}></div>
                 </div>
 
                 {/* Logo Center */}
-                <div className="w-32 h-32 flex items-center justify-center">
+                <div className={`${fullScreen ? 'w-32 h-32' : 'w-20 h-20'} flex items-center justify-center`}>
                     <img
                         src="/logo.png"
                         alt="Core Connect Academy"
-                        className="w-20 h-auto animate-pulse"
+                        className={`${fullScreen ? 'w-20' : 'w-12'} h-auto animate-pulse`}
                     />
                 </div>
             </div>

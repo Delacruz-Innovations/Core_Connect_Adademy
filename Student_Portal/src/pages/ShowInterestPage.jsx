@@ -32,10 +32,29 @@ const ShowInterestPage = () => {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isChecking, setIsChecking] = useState(false);
 
+    const [courses, setCourses] = useState([]);
+
+    useEffect(() => {
+        fetchCourses();
+    }, []);
+
+    const fetchCourses = async () => {
+        try {
+            const { data, error } = await supabase.from('courses').select('id, title');
+            if (error) throw error;
+            setCourses(data || []);
+        } catch (err) {
+            console.error('Error fetching courses:', err);
+        }
+    };
+
     const handleInterestClick = () => {
         setShowForm(true);
         setTimeout(() => {
-            document.getElementById('interest-form').scrollIntoView({ behavior: 'smooth' });
+            const element = document.getElementById('interest-form');
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+            }
         }, 100);
     };
 
@@ -71,21 +90,34 @@ const ShowInterestPage = () => {
         setIsChecking(true);
 
         try {
-            // 1. Split full name into first and last
-            const nameParts = formData.fullName.trim().split(' ');
-            const firstName = nameParts[0];
-            const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Applicant';
 
-            // 2. Insert Lead (VISITOR -> LEAD)
-            const { error } = await supabase.from('leads').insert({
-                first_name: firstName,
-                last_name: lastName,
+
+            // 2. Insert Application (VISITOR -> APPLICANT)
+            // Aligned with Phase 0 Master Enrollment System
+            const { error } = await supabase.from('applications').insert({
+                full_name: formData.fullName,
+                username: formData.username,
                 email: formData.email,
-                course_interest: formData.programName || formData.programType,
-                notes: formData.reason,
+                country: formData.country,
+                city: formData.stateCity,
+                postcode: formData.postcode,
+                phone: formData.phone,
+                job_role: formData.currentRole,
+                program_interest: formData.programType === 'Mentorship' ? 'Mentorship Program' : 'Apprenticeship Program',
+                motivation_text: formData.reason,
+                computer_literacy_score: parseInt(formData.computerLiteracy),
+                discovery_source: formData.referrerSource,
+                referral_name: formData.referrerName || null,
+                requested_course_id: formData.programName, // This is the course UUID
+                status: 'pending'
             });
 
-            if (error) throw error;
+            if (error) {
+                if (error.message.includes('applications_username_key')) {
+                    throw new Error('This username is already reserved by another applicant. Please choose another one.');
+                }
+                throw error;
+            }
 
             // SUCCESS! 
             setIsSubmitted(true);
@@ -100,15 +132,7 @@ const ShowInterestPage = () => {
         }
     };
 
-    const programs = [
-        "Business Analysis",
-        "Product Owner",
-        "Product Analyst",
-        "Digital Operations Analyst",
-        "Cybersecurity",
-        "AI Vibe Coding",
-        "None"
-    ];
+    // programs removed - replaced by dynamic courses fetch
 
     if (isSubmitted) {
         return (
@@ -386,7 +410,7 @@ const ShowInterestPage = () => {
                                                         className="w-full bg-white border-2 border-primary/10 p-4 font-bold text-sm focus:outline-none focus:border-primary transition-all appearance-none"
                                                     >
                                                         <option value="">Select a track...</option>
-                                                        {programs.map(p => <option key={p} value={p}>{p}</option>)}
+                                                        {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                                                     </select>
                                                 </div>
                                             )}

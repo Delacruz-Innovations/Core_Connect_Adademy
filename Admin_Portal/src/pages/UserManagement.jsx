@@ -6,22 +6,32 @@ import {
     ChevronRight, CheckCircle2, XCircle, MoreVertical,
     RefreshCw
 } from 'lucide-react';
+import BrandedLoader from '../components/BrandedLoader';
 
 const UserManagement = () => {
     const navigate = useNavigate();
     const [filter, setFilter] = useState('all');
     const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        fetchUsers();
-    }, [filter]);
+        const handler = setTimeout(() => {
+            fetchUsers();
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [filter, searchTerm]);
 
     const fetchUsers = async () => {
         setLoading(true);
         try {
             let query = supabase.from('profiles').select('*');
             if (filter !== 'all') query = query.eq('role', filter);
+
+            if (searchTerm) {
+                query = query.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
+            }
+
             const { data, error } = await query.order('full_name');
             if (error) throw error;
             setUsers(data || []);
@@ -31,6 +41,7 @@ const UserManagement = () => {
 
     return (
         <div className="space-y-12">
+            {loading && <BrandedLoader message="Fetching User Registry..." />}
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
@@ -40,7 +51,13 @@ const UserManagement = () => {
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 text-gray-400 bg-white border border-gray-100 px-4 py-3 rounded-none shadow-sm">
                         <Search size={18} />
-                        <input type="text" placeholder="Search by name or email..." className="bg-transparent border-none outline-none text-sm w-64 font-bold" />
+                        <input
+                            type="text"
+                            placeholder="Search by name or email..."
+                            className="bg-transparent border-none outline-none text-sm w-64 font-bold"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
                     <button className="bg-primary text-white p-3 shadow-xl shadow-primary/20 hover:bg-black transition-all">
                         <Filter size={20} />
@@ -82,11 +99,7 @@ const UserManagement = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                        {loading ? (
-                            <tr>
-                                <td colSpan="5" className="py-20 text-center"><RefreshCw className="animate-spin mx-auto text-gray-200" size={32} /></td>
-                            </tr>
-                        ) : users.length === 0 ? (
+                        {users.length === 0 && !loading ? (
                             <tr>
                                 <td colSpan="5" className="py-20 text-center text-gray-400 font-bold uppercase tracking-widest text-xs">No users found matching filter</td>
                             </tr>

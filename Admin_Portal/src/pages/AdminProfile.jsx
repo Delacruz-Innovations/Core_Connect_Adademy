@@ -87,7 +87,7 @@ const AdminProfile = () => {
                     )}
 
                     {activeTab === 'security' && (
-                        <div className="space-y-12 max-w-2xl">
+                        <div className="space-y-12">
                             <h3 className="text-xl font-black italic uppercase tracking-tight border-b border-gray-50 pb-6">Change Cryptographic Key</h3>
                             <form className="space-y-6">
                                 <div>

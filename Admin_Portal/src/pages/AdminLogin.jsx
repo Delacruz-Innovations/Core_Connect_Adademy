@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Lock, Mail, ArrowRight, AlertCircle, Loader2, ShieldCheck } from 'lucide-react';
+import BrandedLoader from '../components/BrandedLoader';
 
 const AdminLogin = () => {
     const { login } = useAuth();
@@ -18,99 +19,111 @@ const AdminLogin = () => {
 
         try {
             await login(email, password);
-            // We don't necessarily need to navigate here if AuthContext 
-            // state changes trigger a re-render of AdminGuard, but it's safe.
             navigate('/admin/dashboard');
         } catch (err) {
             console.error('Login error:', err);
-            setError(err.message || 'Invalid email or password. Please try again.');
+            setError(err.message || 'Authentication failed. Verify credentials.');
         } finally {
             setLoading(false);
         }
     };
 
+    if (loading) return <BrandedLoader message="Verifying Identity..." />;
+
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
-            <div className="max-w-md w-full">
-                {/* Logo Section */}
-                <div className="text-center mb-10">
-                    <div className="inline-flex items-center gap-3 mb-4">
-                        <img src="/logo.png" alt="Core Connect Academy" className="h-16 w-auto" />
+        <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4 relative overflow-hidden brand-watermark-bg font-sans">
+            {/* Top Accent Line */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-secondary" />
+
+            <div className="max-w-md w-full relative z-10">
+                {/* Brand Header */}
+                <div className="text-center mb-12">
+                    <div className="inline-block p-4 bg-white rounded-2xl shadow-xl shadow-primary/5 mb-6 border border-gray-100">
+                        <img src="/logo.png" alt="Core Connect Academy" className="h-12 w-auto" />
                     </div>
-                    <h1 className="text-3xl font-black text-black italic">Welcome Back, Admin</h1>
-                    <p className="text-gray-400 mt-2 font-medium">Please enter your details to sign in</p>
+                    <h1 className="text-3xl font-black text-gray-900 tracking-tight mb-2">Admin Console</h1>
+                    <div className="flex items-center justify-center gap-2 text-primary">
+                        <ShieldCheck size={14} />
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Restricted Access</span>
+                    </div>
                 </div>
 
-                {/* Form Container */}
-                <div className="bg-white p-10 shadow-2xl border border-gray-100">
+                {/* Login Card */}
+                <div className="bg-white p-10 shadow-2xl border-t-4 border-primary/20 rounded-sm">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {error && (
-                            <div className="bg-red-50 text-red-600 p-4 text-sm font-bold flex items-center gap-3 border-l-4 border-red-600">
-                                <AlertCircle size={18} />
-                                {error}
+                            <div className="bg-red-50 text-red-600 p-4 text-xs font-bold flex items-center gap-3 border-l-4 border-red-500 animate-in fade-in slide-in-from-top-2">
+                                <AlertCircle size={16} />
+                                <span className="uppercase tracking-wide">{error}</span>
                             </div>
                         )}
 
-                        <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Email Address</label>
-                            <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Authorized Email</label>
+                            <div className="relative group">
+                                <div className="absolute left-0 top-0 bottom-0 w-10 flex items-center justify-center text-gray-300 group-focus-within:text-primary transition-colors">
+                                    <Mail size={16} />
+                                </div>
                                 <input
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-gray-50 border-0 p-4 pl-12 font-bold text-sm outline-none focus:ring-1 focus:ring-primary transition-all"
+                                    className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold pl-10 pr-4 py-3 outline-none focus:border-primary focus:bg-white transition-all placeholder:text-gray-300 uppercase tracking-wide"
                                     placeholder="admin@coreconnect.com"
                                     required
                                 />
                             </div>
                         </div>
 
-                        <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Password</label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Secure Password</label>
+                            <div className="relative group">
+                                <div className="absolute left-0 top-0 bottom-0 w-10 flex items-center justify-center text-gray-300 group-focus-within:text-primary transition-colors">
+                                    <Lock size={16} />
+                                </div>
                                 <input
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-gray-50 border-0 p-4 pl-12 font-bold text-sm outline-none focus:ring-1 focus:ring-primary transition-all"
+                                    className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold pl-10 pr-4 py-3 outline-none focus:border-primary focus:bg-white transition-all placeholder:text-gray-300"
                                     placeholder="••••••••"
                                     required
                                 />
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" className="rounded-none border-gray-300 text-primary focus:ring-primary" />
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Remember me</span>
-                            </label>
-                            <Link to="#" className="text-xs font-bold text-primary uppercase tracking-widest hover:text-black transition-colors">Forgot Password?</Link>
-                        </div>
-
-                        <div className="space-y-4 pt-2">
+                        <div className="pt-4">
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full bg-primary text-white py-5 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-primary text-white py-4 font-black text-xs uppercase tracking-[0.2em] hover:bg-[#0052a3] transition-all flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5"
                             >
-                                {loading ? 'Authenticating...' : (
-                                    <>Sign In Securely <ArrowRight size={16} /></>
+                                {loading ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        Verifying Identity...
+                                    </>
+                                ) : (
+                                    <>
+                                        Authenticate <ArrowRight size={16} />
+                                    </>
                                 )}
                             </button>
-                        </div>
-                        <div className="text-center pt-8 border-t border-gray-100 mt-4">
-                            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest leading-relaxed">
-                                Access to this system is restricted to authorized personnel. <br />Identity creation is governed by Canonical Bootstrap.
-                            </p>
                         </div>
                     </form>
                 </div>
 
-                <p className="text-center mt-8 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">
-                    &copy; 2026 Core Connect Academy. Authorized Access Only.
-                </p>
+                {/* Footer */}
+                <div className="mt-8 text-center space-y-4">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                        Core Connect Academy &bull; System V2.4
+                    </p>
+                    <div className="flex justify-center gap-1">
+                        <div className="w-1 h-1 bg-primary rounded-full animate-pulse" />
+                        <div className="w-1 h-1 bg-secondary rounded-full animate-pulse delay-75" />
+                        <div className="w-1 h-1 bg-gray-300 rounded-full animate-pulse delay-150" />
+                    </div>
+                </div>
             </div>
         </div>
     );

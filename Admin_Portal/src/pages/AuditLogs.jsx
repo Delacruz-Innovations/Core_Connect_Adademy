@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { FileText, Filter, Download, Calendar, User, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useModal } from '../context/ModalContext';
+import BrandedLoader from '../components/BrandedLoader';
 
 const AuditLogs = () => {
+    const { showAlert } = useModal();
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
@@ -70,7 +73,7 @@ const AuditLogs = () => {
             setLogs(filteredData);
         } catch (error) {
             console.error('Error fetching audit logs:', error);
-            alert('Error loading audit logs');
+            showAlert('Error loading audit logs', 'Error', 'error');
         } finally {
             setLoading(false);
         }
@@ -234,12 +237,8 @@ const AuditLogs = () => {
 
             {/* Logs List */}
             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                {loading ? (
-                    <div className="p-12 text-center">
-                        <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-                        <p className="text-gray-500 font-medium">Loading audit logs...</p>
-                    </div>
-                ) : logs.length === 0 ? (
+                {loading && <BrandedLoader message="Fetching System Logs..." />}
+                {logs.length === 0 && !loading ? (
                     <div className="p-12 text-center">
                         <FileText size={48} className="mx-auto text-gray-300 mb-4" />
                         <p className="text-gray-500 font-medium">No audit logs found</p>

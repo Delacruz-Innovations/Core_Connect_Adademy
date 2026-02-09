@@ -15,81 +15,41 @@ export default function LessonAccessGuard() {
             return;
         }
 
-        const checkLessonAccess = async () => {
+        const checkLessonLink = async () => {
             try {
-                // 1. Get current lesson order
-                const { data: currentLesson, error: currError } = await supabase
-                    .from('lessons')
-                    .select('order_index')
-                    .eq('id', lessonId)
-                    .single();
-
-                if (currError || !currentLesson) {
-                    // Lesson not found? Block.
-                    setAccess(false);
-                    return;
-                }
-
-                // If it's the very first possible lesson (index 1), allow.
-                if (currentLesson.order_index === 1) {
-                    setAccess(true);
-                    return;
-                }
-
-                // 2. Find THE immediate predecessor (robust to gaps)
-                const { data: prevLesson, error: prevError } = await supabase
+                // Verify lesson exists and belongs to the specified module
+                const { data: lesson } = await supabase
                     .from('lessons')
                     .select('id')
+                    .eq('id', lessonId)
                     .eq('module_id', moduleId)
-                    .lt('order_index', currentLesson.order_index) // Less than current
-                    .order('order_index', { ascending: false })   // Highest index below current
-                    .limit(1)
-                    .maybeSingle();
+                    .single();
 
-                if (prevError) {
-                    console.error('Error finding previous lesson:', prevError);
-                    setAccess(false);
-                    return;
-                }
-
-                if (!prevLesson) {
-                    // No previous lesson exists (e.g. current is index 5 but 1-4 deleted/missing?)
-                    // If no predecessor, treat as first lesson.
-                    setAccess(true);
-                    return;
-                }
-
-                // 3. Check if previous is completed
-                const { data: progress } = await supabase
-                    .from('lesson_progress')
-                    .select('is_completed')
-                    .eq('user_id', user.id)
-                    .eq('lesson_id', prevLesson.id)
-                    .maybeSingle();
-
-                if (progress && progress.is_completed) {
+                if (lesson) {
                     setAccess(true);
                 } else {
-                    // Previous lesson NOT completed -> Block
                     setAccess(false);
                 }
-
             } catch (err) {
-                console.error('Guard Check Failed', err);
-                setAccess(false);
+                console.error('Guard Check Failed (Fail-Open)', err);
+                setAccess(true);
             }
         };
 
-        checkLessonAccess();
+        checkLessonLink();
     }, [user, moduleId, lessonId]);
 
     if (access === null) {
-        return <div className="h-screen flex items-center justify-center"><LoadingSpinner /></div>;
+        return (
+            <div className="h-screen w-screen bg-white flex flex-col items-center justify-center gap-6">
+                <LoadingSpinner />
+                <div className="font-black uppercase tracking-[0.4em] text-gray-400 text-[10px] animate-pulse">Initializing Stream...</div>
+            </div>
+        );
     }
 
     if (access === false) {
-        // Redirect to Module Overview if lesson locked
-        return <Navigate to={`/student/course/${courseId}/module/${moduleId}`} replace />;
+        return <Navigate to={`/student/course/${courseId}`} replace />;
     }
 
     return <Outlet />;

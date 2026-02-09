@@ -39,25 +39,21 @@ const LoginPage = () => {
         setError('');
 
         try {
-            // Step 1: Lookup email by username from profiles table
-            const { data: profileData, error: profileError } = await supabase
-                .from('profiles')
-                .select('id, email, username, full_name, role')
-                .eq('username', formData.username)
-                .single();
+            console.log('Attempting login for:', formData.username);
 
-            if (profileError || !profileData) {
+            // Step 1: Secure email lookup via RPC (to prevent enumeration)
+            const { data: resolvedEmail, error: rpcError } = await supabase
+                .rpc('get_email_from_username', { p_username: formData.username });
+
+            // Fail generic error even if RPC fails or returns no email
+            if (rpcError || !resolvedEmail) {
+                console.warn('Username resolution failed or not found');
                 throw new Error('Invalid username or password');
-            }
-
-            // Check if user is a student
-            if (profileData.role !== 'student') {
-                throw new Error('This portal is for students only. Please use the admin portal.');
             }
 
             // Step 2: Authenticate with Supabase using email and password
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email: profileData.email,
+                email: resolvedEmail,
                 password: formData.password
             });
 
@@ -65,12 +61,24 @@ const LoginPage = () => {
                 throw new Error('Invalid username or password');
             }
 
-            // Step 3: Redirect to student dashboard
+            // Step 3: Verify role strictly after auth
+            const { data: profile, error: profileErr } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', authData.user.id)
+                .single();
+
+            if (profileErr || profile.role !== 'student') {
+                await supabase.auth.signOut();
+                throw new Error('This portal is for students only. Access denied.');
+            }
+
+            // Step 4: Success
             navigate('/student/dashboard');
 
         } catch (err) {
-            console.error('Login error:', err);
-            setError(err.message || 'Login failed. Please try again.');
+            console.error('Login process error:', err);
+            setError(err.message || 'Verification failed. Please check your credentials.');
         } finally {
             setLoading(false);
         }
@@ -79,7 +87,7 @@ const LoginPage = () => {
     return (
         <div className="min-h-screen relative font-sans text-black flex flex-col">
             {/* Full Page Fixed Background Slideshow */}
-            <div className="fixed inset-0 z-0 bg-black overflow-hidden">
+            <div className="fixed inset-0 z-0 bg-gray-900 overflow-hidden">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={currentImage}
@@ -107,8 +115,8 @@ const LoginPage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8 }}
                     >
-                        <span className="text-secondary font-black uppercase tracking-[0.4em] text-xs mb-4 block">Student Portal</span>
-                        <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none">
+                        <span className="text-secondary font-bold uppercase tracking-[0.4em] text-xs mb-4 block">Student Portal</span>
+                        <h1 className="text-3xl md:text-5xl font-bold italic uppercase tracking-tighter leading-none">
                             Welcome <span className="text-primary">Back</span>
                         </h1>
                     </motion.div>
@@ -120,10 +128,10 @@ const LoginPage = () => {
                     transition={{ duration: 0.5 }}
                     className="w-full max-w-md bg-white border border-white/10 shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)] overflow-hidden relative"
                 >
-                    <div className="bg-black text-white p-8 text-center border-b border-white/5">
-                        <User className="mx-auto h-12 w-12 text-primary mb-4" />
-                        <h2 className="text-3xl font-black italic uppercase tracking-tighter leading-none">Secure Login</h2>
-                        <p className="mt-2 text-sm text-gray-400 font-medium uppercase tracking-widest">Access your dashboard</p>
+                    <div className="bg-primary text-white p-8 text-center border-b border-white/5">
+                        <User className="mx-auto h-12 w-12 text-white mb-4" />
+                        <h2 className="text-3xl font-bold italic uppercase tracking-tighter leading-none">Secure Login</h2>
+                        <p className="mt-2 text-sm text-white/80 font-medium uppercase tracking-widest">Access your dashboard</p>
                     </div>
 
                     <form className="p-8 space-y-6 bg-white" onSubmit={handleLogin}>
@@ -181,7 +189,7 @@ const LoginPage = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-primary text-white py-5 font-black text-xs uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
+                            className="w-full bg-primary text-white py-5 font-bold text-xs uppercase tracking-[0.2em] hover:bg-secondary transition-all shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary rounded-sm"
                         >
                             {loading ? (
                                 <>

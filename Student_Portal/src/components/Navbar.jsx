@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [isTop, setIsTop] = useState(true);
     const [showNavbar, setShowNavbar] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
+    const { user, signOut } = useAuth();
 
     useEffect(() => {
         const handleScroll = () => {
@@ -64,17 +66,33 @@ const Navbar = () => {
                             ))}
                         </div>
                         <div className="flex items-center gap-6">
-                            <Link to="/login" className={`text-[14px] font-extrabold uppercase tracking-widest transition-all hover:scale-105 ${isTop ? 'text-white hover:text-white/80' : 'text-gray-900 hover:text-primary'}`}>
-                                Login
-                            </Link>
-                            <Link to="/show-interest">
-                                <button className={`${isTop
-                                    ? 'bg-white/10 border border-white/20 hover:bg-white text-white hover:text-primary'
-                                    : 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20'
-                                    } text-white px-8 py-2.5 rounded-full text-[12px] font-black uppercase tracking-widest transition-all hover:-translate-y-0.5 active:translate-y-0`}>
-                                    Register Interest
-                                </button>
-                            </Link>
+                            {user ? (
+                                <>
+                                    <Link to="/student/dashboard" className="px-8 py-2.5 bg-black text-white hover:bg-primary transition-all rounded-full text-[12px] font-black uppercase tracking-widest flex items-center gap-2">
+                                        Dashboard
+                                    </Link>
+                                    <button
+                                        onClick={() => signOut()}
+                                        className={`text-[12px] font-black uppercase tracking-widest transition-all ${isTop ? 'text-white hover:text-white/80' : 'text-gray-400 hover:text-red-500'}`}
+                                    >
+                                        Logout
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <Link to="/login" className={`text-[14px] font-extrabold uppercase tracking-widest transition-all hover:scale-105 ${isTop ? 'text-white hover:text-white/80' : 'text-gray-900 hover:text-primary'}`}>
+                                        Login
+                                    </Link>
+                                    <Link to="/show-interest">
+                                        <button className={`${isTop
+                                            ? 'bg-white/10 border border-white/20 hover:bg-white text-white hover:text-primary'
+                                            : 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20'
+                                            } text-white px-8 py-2.5 rounded-full text-[12px] font-black uppercase tracking-widest transition-all hover:-translate-y-0.5 active:translate-y-0`}>
+                                            Register Interest
+                                        </button>
+                                    </Link>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -147,29 +165,63 @@ const Navbar = () => {
                                         </Link>
                                     </motion.div>
                                 ))}
-                                <motion.div
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: navLinks.length * 0.05 }}
-                                >
-                                    <Link
-                                        to="/login"
-                                        className="block px-4 py-3 text-sm font-bold text-gray-700 hover:bg-primary/5 hover:text-primary rounded-lg transition-all uppercase tracking-wider"
-                                        onClick={() => setIsOpen(false)}
+                                {user ? (
+                                    <>
+                                        <motion.div
+                                            initial={{ opacity: 0, x: 20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: navLinks.length * 0.05 }}
+                                        >
+                                            <Link
+                                                to="/student/dashboard"
+                                                className="block px-4 py-3 text-sm font-bold text-primary bg-primary/5 rounded-lg transition-all uppercase tracking-wider"
+                                                onClick={() => setIsOpen(false)}
+                                            >
+                                                My Dashboard
+                                            </Link>
+                                        </motion.div>
+                                        <motion.div
+                                            initial={{ opacity: 0, x: 20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: (navLinks.length + 1) * 0.05 }}
+                                        >
+                                            <button
+                                                onClick={() => {
+                                                    signOut();
+                                                    setIsOpen(false);
+                                                }}
+                                                className="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-all uppercase tracking-wider"
+                                            >
+                                                Log Out
+                                            </button>
+                                        </motion.div>
+                                    </>
+                                ) : (
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: navLinks.length * 0.05 }}
                                     >
-                                        Login / Signup
-                                    </Link>
-                                </motion.div>
+                                        <Link
+                                            to="/login"
+                                            className="block px-4 py-3 text-sm font-bold text-gray-700 hover:bg-primary/5 hover:text-primary rounded-lg transition-all uppercase tracking-wider"
+                                            onClick={() => setIsOpen(false)}
+                                        >
+                                            Login / Signup
+                                        </Link>
+                                    </motion.div>
+                                )}
                             </nav>
 
-                            {/* CTA Button */}
-                            <div className="p-6 border-t border-gray-100 mt-auto">
-                                <Link to="/show-interest" onClick={() => setIsOpen(false)}>
-                                    <button className="w-full bg-primary text-white px-6 py-4 rounded-lg text-sm font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-primary/20">
-                                        Register Interest
-                                    </button>
-                                </Link>
-                            </div>
+                            {!user && (
+                                <div className="p-6 border-t border-gray-100 mt-auto">
+                                    <Link to="/show-interest" onClick={() => setIsOpen(false)}>
+                                        <button className="w-full bg-primary text-white px-6 py-4 rounded-lg text-sm font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-primary/20">
+                                            Register Interest
+                                        </button>
+                                    </Link>
+                                </div>
+                            )}
                         </motion.div>
                     </>
                 )}

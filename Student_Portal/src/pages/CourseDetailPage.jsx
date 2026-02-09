@@ -4,74 +4,102 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Clock, BarChart, CheckCircle2,
     ChevronDown, ChevronUp, Download,
-    PlayCircle, FileText, Users,
-    Target, Briefcase, GraduationCap,
-    MessageCircle, ArrowLeft
+    PlayCircle, Users, MessageCircle, ArrowLeft
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { supabase } from '../lib/supabaseClient';
 
 const CourseDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [activeModule, setActiveModule] = useState(0);
+    const [course, setCourse] = useState(null);
+    const [modules, setModules] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         window.scrollTo(0, 0);
-    }, []);
+        fetchCourse();
+    }, [id]);
 
-    const courseData = {
-        title: "Project Management and Business Analysis",
-        description: "Master the dual expertise of project management and business analysis. Drive change and deliver results with this comprehensive 12-week program that transforms you into a versatile asset for any organization. This is one part of a full course which includes Business Analysis.",
-        duration: "12 weeks",
-        level: "Beginner to Intermediate",
-        highlights: [
-            "Project Manager",
-            "Business Analyst",
-            "Project Coordinator",
-            "PMO Analyst",
-            "Business Systems Analyst",
-            "Process Analyst",
-            "Consultant (Project Management or Business Analysis)",
-            "AI-Enhanced Project Lead",
-            "Operations Manager (with a project focus)"
-        ],
-        curriculum: [
-            { id: 1, title: "Module 1: Foundations of Project Management", content: "Introduction to PM methodologies, lifecycle phases, and core project documents." },
-            { id: 2, title: "Module 2: Project Planning & Scheduling", content: "Mastering Work Breakdown Structures (WBS), Gantt charts, and resource allocation." },
-            { id: 3, title: "Module 3: Project Execution & Control", content: "Leading teams, monitoring progress, and managing change requests effectively." },
-            { id: 4, title: "Module 4: Introduction to Business Analysis", content: "Defining the role of a BA and understanding the Business Analysis Body of Knowledge (BABOK)." },
-            { id: 5, title: "Module 5: Requirements Elicitation & Collaboration", content: "Bridging the gap between stakeholders and technical teams through effective interviewing." },
-            { id: 6, title: "Module 6: Requirements Analysis & Solution Design", content: "Documenting requirements, process mapping, and verifying vendor solutions." },
-            { id: 7, title: "Module 7: Agile Project Management with Business Analysis", content: "Combining BA skills with Scrum and Kanban frameworks for rapid delivery." },
-            { id: 8, title: "Module 8: AI in Project Management", content: "Leveraging generative AI for automated scheduling and risk prediction." },
-            { id: 9, title: "Module 9: AI in Business Analysis", content: "Using AI for data synthesis, requirement generation, and competitive research." },
-            { id: 10, title: "Module 10: Tools & Techniques for PM & BA", content: "Deep dive into Jira, Confluence, MS Project, and Miro." },
-            { id: 11, title: "Module 11: Capstone Project / Real-World Application", content: "Applying learned concepts to a real-world business case with mentor feedback." }
-        ],
-        prerequisites: [
-            "A keen interest in project management and business analysis.",
-            "Strong communication and problem-solving aptitude.",
-            "No formal prior experience is strictly required, but some professional exposure can be beneficial.",
-            "Proficiency in English."
-        ]
+    const fetchCourse = async () => {
+        setLoading(true);
+        try {
+            // Check if 'id' is a valid UUID to avoid Postgres error
+            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+            let query = supabase.from('courses').select('*');
+
+            if (isUUID) {
+                query = query.or(`id.eq.${id},slug.eq.${id}`);
+            } else {
+                query = query.eq('slug', id);
+            }
+
+            const { data: courseData, error: courseError } = await query.single();
+
+            if (courseError) throw courseError;
+            setCourse(courseData);
+
+            // 2. Fetch Curriculum (Modules)
+            const { data: moduleData, error: moduleError } = await supabase
+                .from('modules')
+                .select('*')
+                .eq('course_id', courseData.id)
+                .order('order_index', { ascending: true });
+
+            if (moduleError) throw moduleError;
+            setModules(moduleData);
+
+        } catch (err) {
+            console.error('Error fetching course:', err);
+            setError('Course not found or failed to load.');
+        } finally {
+            setLoading(false);
+        }
     };
+
+    if (loading) return (
+        <div className="min-h-screen bg-white flex flex-col pt-32">
+            <Navbar />
+            <div className="flex-1 flex items-center justify-center">
+                <div className="w-16 h-16 border-4 border-black border-t-primary rounded-full animate-spin"></div>
+            </div>
+            <Footer />
+        </div>
+    );
+
+    if (error || !course) return (
+        <div className="min-h-screen bg-white flex flex-col pt-32">
+            <Navbar />
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                <h2 className="text-3xl font-black italic uppercase text-gray-900 mb-4">Course Not Found</h2>
+                <p className="text-gray-500 mb-8">{error}</p>
+                <Link to="/courses" className="bg-primary text-white px-8 py-3 rounded-full font-bold uppercase text-[10px] tracking-widest">
+                    Browse All Courses
+                </Link>
+            </div>
+            <Footer />
+        </div>
+    );
 
     return (
         <div className="min-h-screen bg-[#FDFDFD]">
             <Navbar />
 
-            {/* Hero Section - The big white card on dark background */}
+            {/* Hero Section */}
             <section className="bg-primary pt-32 pb-24 px-4 overflow-hidden">
                 <div className="max-w-7xl mx-auto">
-                    <motion.button
+                    {/* <motion.button
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         onClick={() => navigate('/courses')}
                         className="flex items-center gap-2 text-white/60 hover:text-white mb-8 text-xs font-bold uppercase tracking-widest transition-colors"
                     >
                         <ArrowLeft size={16} /> Back to Courses
-                    </motion.button>
+                    </motion.button> */}
 
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}
@@ -81,21 +109,21 @@ const CourseDetailPage = () => {
                         <div className="p-10 lg:p-20 lg:w-3/5 space-y-8">
                             <div className="space-y-4">
                                 <h1 className="text-4xl lg:text-6xl font-black text-black leading-tight tracking-tighter">
-                                    {courseData.title}
+                                    {course.title}
                                 </h1>
                                 <p className="text-lg text-gray-500 leading-relaxed font-medium">
-                                    {courseData.description}
+                                    {course.short_description || course.description}
                                 </p>
                             </div>
 
                             <div className="flex flex-wrap gap-6 pt-4">
                                 <div className="flex items-center gap-3 px-5 py-3 bg-gray-50 rounded-full border border-gray-100">
                                     <Clock size={18} className="text-primary" />
-                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest leading-none mt-0.5">Duration: {courseData.duration}</span>
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest leading-none mt-0.5">Duration: {course.duration || 'Flexible'}</span>
                                 </div>
                                 <div className="flex items-center gap-3 px-5 py-3 bg-gray-50 rounded-full border border-gray-100">
                                     <BarChart size={18} className="text-primary" />
-                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest leading-none mt-0.5">Level: {courseData.level}</span>
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest leading-none mt-0.5">Level: {course.level || 'Beginner'}</span>
                                 </div>
                             </div>
 
@@ -110,8 +138,8 @@ const CourseDetailPage = () => {
 
                         <div className="lg:w-2/5 relative min-h-[400px]">
                             <img
-                                src="https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
-                                alt="Course Collaboration"
+                                src={course.thumbnail_url || "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"}
+                                alt={course.title}
                                 className="absolute inset-0 w-full h-full object-cover"
                             />
                             <div className="absolute inset-0 bg-gradient-to-r from-white via-transparent to-transparent hidden lg:block"></div>
@@ -120,7 +148,7 @@ const CourseDetailPage = () => {
                 </div>
             </section>
 
-            {/* Content Section - 2 Column Layout */}
+            {/* Content Section */}
             <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-20">
 
@@ -129,13 +157,13 @@ const CourseDetailPage = () => {
                         <div className="space-y-10">
                             <div className="inline-block">
                                 <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 block">Course</span>
-                                <h2 className="text-3xl font-black italic tracking-tighter text-black uppercase">{courseData.title}</h2>
+                                <h2 className="text-3xl font-black italic tracking-tighter text-black uppercase">{course.title}</h2>
                                 <div className="w-12 h-1 bg-primary mt-2"></div>
                             </div>
 
                             <div className="aspect-video bg-gray-100 rounded-none overflow-hidden group relative">
                                 <img
-                                    src="https://images.unsplash.com/photo-1522071823907-b93933cb6681?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
+                                    src={course.thumbnail_url || "https://images.unsplash.com/photo-1522071823907-b93933cb6681?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"}
                                     alt="Training session"
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                 />
@@ -145,57 +173,45 @@ const CourseDetailPage = () => {
                             </div>
 
                             <div className="prose prose-lg max-w-none">
-                                <h3 className="text-2xl font-black italic uppercase tracking-tight text-black mb-6">Unlock Your Dual Expertise: Master Project Management & Business Analysis</h3>
+                                <h3 className="text-2xl font-black italic uppercase tracking-tight text-black mb-6">{course.title}</h3>
                                 <p className="text-gray-600 leading-relaxed font-medium">
-                                    In today's fast-paced business world, effective project management with modern business analysis are essential for organizational success. This comprehensive course is designed to empower you with an integrated skill set, enabling you to not only plan and execute projects flawlessly but also to identify, analyze, and solve complex business challenges.
+                                    {course.description}
                                 </p>
-                                <p className="text-gray-600 leading-relaxed font-medium mt-6">
-                                    At Core Connect Academy, we've designed this programme to transform you into a versatile asset for any organization. You'll learn to bridge the gap between business objectives and project delivery, ensuring that projects are not just completed on time and within budget, but that they also deliver real, tangible value. Get ready to become a strategic thinker, a problem solver, and a leader who can deliver successful outcomes.
-                                </p>
-
-                                <h3 className="text-2xl font-black italic uppercase tracking-tight text-black mt-16 mb-8">What You Will Master!</h3>
-                                <div className="space-y-6">
-                                    {[
-                                        "Initiate & Plan Projects: Define project scope, objectives, and deliverables; develop comprehensive project plans, timelines, and budgets.",
-                                        "Execute & Monitor: Lead project teams, manage resources effectively, track progress, and implement quality control measures.",
-                                        "Manage Risks & Stakeholders: Identify potential project risks, develop mitigation strategies, and engage effectively with stakeholders at all levels.",
-                                        "Elicit & Manage Requirements: Master techniques for gathering, documenting, analyzing, and managing business and stakeholder requirements.",
-                                        "Analyze & Model Processes: Understand and model business processes to identify areas for improvement and design effective solutions.",
-                                        "Bridge Business & Technology: Translate business needs into technical specifications and communicate effectively with both business and technical teams.",
-                                        "Agile & Waterfall Methodologies: Gain an understanding of different project management methodologies and when to apply them.",
-                                        "Leverage AI: Understand the application of Artificial Intelligence in streamlining project management tasks and enhancing business analysis insights.",
-                                        "Deliver Value: Ensure projects align with strategic goals and deliver measurable business benefits."
-                                    ].map((item, i) => (
-                                        <div key={i} className="flex gap-4">
-                                            <div className="mt-1.5 shrink-0">
-                                                <CheckCircle2 size={18} className="text-primary" />
-                                            </div>
-                                            <p className="text-gray-600 font-bold leading-relaxed">
-                                                <span className="text-black uppercase text-xs tracking-widest">{item.split(':')[0]}:</span>
-                                                {item.split(':')[1]}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <h3 className="text-2xl font-black italic uppercase tracking-tight text-black mt-16 mb-8">Who Should Enroll?</h3>
-                                <p className="text-gray-600 font-medium mb-6 italic">This course is ideal for:</p>
-                                <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 list-none p-0">
-                                    {[
-                                        "Aspiring Project Managers or Business Analysts",
-                                        "Professionals looking to transition into tech roles",
-                                        "Existing PMs or BAs wanting to formalize their knowledge",
-                                        "Team leads, managers, or consultants",
-                                        "Entrepreneurs and small business owners",
-                                        "Anyone whose role involves project work or solving problems"
-                                    ].map((item, i) => (
-                                        <li key={i} className="flex items-center gap-3 bg-gray-50 p-4 border border-gray-100">
-                                            <Users size={16} className="text-primary shrink-0" />
-                                            <span className="text-xs font-bold text-gray-700">{item}</span>
-                                        </li>
-                                    ))}
-                                </ul>
                             </div>
+
+                            {course.learning_outcomes && course.learning_outcomes.length > 0 && (
+                                <>
+                                    <h3 className="text-2xl font-black italic uppercase tracking-tight text-black mt-16 mb-8">What You Will Master!</h3>
+                                    <div className="space-y-6">
+                                        {course.learning_outcomes.map((item, i) => (
+                                            <div key={i} className="flex gap-4">
+                                                <div className="mt-1.5 shrink-0">
+                                                    <CheckCircle2 size={18} className="text-primary" />
+                                                </div>
+                                                <p className="text-gray-600 font-bold leading-relaxed">
+                                                    <span className="text-black uppercase text-xs tracking-widest">{item.includes(':') ? item.split(':')[0] : 'Feature'}:</span>
+                                                    {item.includes(':') ? item.split(':')[1] : item}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+
+                            {course.target_audience && course.target_audience.length > 0 && (
+                                <>
+                                    <h3 className="text-2xl font-black italic uppercase tracking-tight text-black mt-16 mb-8">Who Should Enroll?</h3>
+                                    <p className="text-gray-600 font-medium mb-6 italic">This course is ideal for:</p>
+                                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 list-none p-0">
+                                        {course.target_audience.map((item, i) => (
+                                            <li key={i} className="flex items-center gap-3 bg-gray-50 p-4 border border-gray-100">
+                                                <Users size={16} className="text-primary shrink-0" />
+                                                <span className="text-xs font-bold text-gray-700">{item}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -208,19 +224,19 @@ const CourseDetailPage = () => {
                                 <div className="flex items-center justify-between mb-10">
                                     <div>
                                         <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 block">Curriculum</span>
-                                        <h3 className="text-2xl font-black italic tracking-tighter text-black uppercase">Course Highlights</h3>
+                                        <h3 className="text-2xl font-black italic tracking-tighter text-black uppercase">Course Structure</h3>
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    {courseData.curriculum.map((module, i) => (
+                                    {modules.length > 0 ? modules.map((module, i) => (
                                         <div key={i} className="border-b border-gray-50 last:border-none">
                                             <button
                                                 onClick={() => setActiveModule(activeModule === i ? -1 : i)}
                                                 className="w-full py-5 flex items-center justify-between text-left group"
                                             >
                                                 <span className={`text-sm font-black uppercase tracking-widest transition-colors ${activeModule === i ? 'text-primary' : 'text-gray-400 group-hover:text-black'}`}>
-                                                    {module.title}
+                                                    Module {i + 1}: {module.title}
                                                 </span>
                                                 {activeModule === i ? <ChevronUp size={16} className="text-primary" /> : <ChevronDown size={16} className="text-gray-300" />}
                                             </button>
@@ -234,42 +250,48 @@ const CourseDetailPage = () => {
                                                         className="overflow-hidden"
                                                     >
                                                         <p className="pb-6 text-sm text-gray-500 font-medium leading-relaxed italic">
-                                                            {module.content}
+                                                            This module covers foundational concepts and practical applications within the course structure.
                                                         </p>
                                                     </motion.div>
                                                 )}
                                             </AnimatePresence>
                                         </div>
-                                    ))}
+                                    )) : (
+                                        <p className="text-xs text-gray-400 italic">Curriculum details coming soon...</p>
+                                    )}
                                 </div>
                             </div>
 
                             {/* Transform Your Career */}
-                            <div className="p-8 lg:p-12 border-l-4 border-primary bg-gray-50">
-                                <h3 className="text-2xl font-black italic tracking-tighter text-black uppercase mb-8">Transform Your Career Potential</h3>
-                                <p className="text-sm font-medium text-gray-500 mb-8 italic">Graduates of this programme will be well-equipped to pursue a variety of rewarding roles, including:</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
-                                    {courseData.highlights.map((role, i) => (
-                                        <div key={i} className="flex items-start gap-3">
-                                            <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2 shrink-0"></div>
-                                            <span className="text-xs font-bold text-gray-800">{role}</span>
-                                        </div>
-                                    ))}
+                            {course.career_prospects && course.career_prospects.length > 0 && (
+                                <div className="p-8 lg:p-12 border-l-4 border-primary bg-gray-50">
+                                    <h3 className="text-2xl font-black italic tracking-tighter text-black uppercase mb-8">Career Potential</h3>
+                                    <p className="text-sm font-medium text-gray-500 mb-8 italic">Graduates will be equipped for roles including:</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
+                                        {course.career_prospects.map((role, i) => (
+                                            <div key={i} className="flex items-start gap-3">
+                                                <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2 shrink-0"></div>
+                                                <span className="text-xs font-bold text-gray-800">{role}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Prerequisites */}
-                            <div className="p-8 lg:p-12 border border-gray-100 bg-white">
-                                <h3 className="text-2xl font-black italic tracking-tighter text-black uppercase mb-8">Prerequisites</h3>
-                                <div className="space-y-4">
-                                    {courseData.prerequisites.map((req, i) => (
-                                        <div key={i} className="flex gap-4">
-                                            <CheckCircle2 size={16} className="text-gray-300 shrink-0 mt-0.5" />
-                                            <p className="text-xs font-bold text-gray-500 leading-relaxed italic">{req}</p>
-                                        </div>
-                                    ))}
+                            {course.prerequisites && course.prerequisites.length > 0 && (
+                                <div className="p-8 lg:p-12 border border-gray-100 bg-white">
+                                    <h3 className="text-2xl font-black italic tracking-tighter text-black uppercase mb-8">Prerequisites</h3>
+                                    <div className="space-y-4">
+                                        {course.prerequisites.map((req, i) => (
+                                            <div key={i} className="flex gap-4">
+                                                <CheckCircle2 size={16} className="text-gray-300 shrink-0 mt-0.5" />
+                                                <p className="text-xs font-bold text-gray-500 leading-relaxed italic">{req}</p>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Final CTA */}
                             <div className="bg-black text-white p-10 lg:p-16 text-center space-y-8 relative overflow-hidden">
@@ -277,7 +299,7 @@ const CourseDetailPage = () => {
                                 <div className="relative z-10 w-full">
                                     <h3 className="text-3xl font-black italic tracking-tighter uppercase mb-6 leading-tight">Ready to Become an <br />Indispensable Asset?</h3>
                                     <p className="text-white/60 text-sm font-medium leading-relaxed mb-10 max-w-xs mx-auto">
-                                        Take the next step in your career journey. Secure your spot in the Core Connect Academy's Project Management & Business Analysis course.
+                                        Take the next step in your career journey. Secure your spot in the {course.title}.
                                     </p>
                                     <div className="flex flex-col gap-4">
                                         <Link to="/show-interest">
@@ -294,11 +316,10 @@ const CourseDetailPage = () => {
 
                         </div>
                     </div>
-
                 </div>
             </section>
 
-            {/* Floating WhatsApp - Just like in the image */}
+            {/* Floating WhatsApp */}
             <div className="fixed bottom-8 right-8 z-50">
                 <button className="bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center">
                     <MessageCircle size={32} />

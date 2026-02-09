@@ -12,39 +12,42 @@ export default function ModuleUnlockGuard() {
     useEffect(() => {
         if (!user || !moduleId) return;
 
-        const checkUnlock = async () => {
-            // Unlocked if:
-            // 1. Module is Week 1 (Auto-unlocked via trigger now)
-            // 2. module_progress exists with status 'unlocked' or 'completed'
+        const checkEnrolment = async () => {
+            try {
+                // We trust EnrolmentGuard for basic access. 
+                // Here we just verify the module exists and belongs to the course.
+                const { data: modDetails } = await supabase
+                    .from('modules')
+                    .select('id')
+                    .eq('id', moduleId)
+                    .eq('course_id', courseId)
+                    .single();
 
-            const { data } = await supabase
-                .from('module_progress')
-                .select('status')
-                .eq('user_id', user.id)
-                .eq('module_id', moduleId)
-                .in('status', ['unlocked', 'completed'])
-                .maybeSingle();
-
-            if (data) {
-                setAccess(true);
-            } else {
-                // Double check if it's Week 1 and trigger failed?
-                // The backend trigger handles Week 1 unlock on enrollment.
-                // If checking fails, access denied.
-                setAccess(false);
+                if (modDetails) {
+                    setAccess(true);
+                } else {
+                    setAccess(false);
+                }
+            } catch (err) {
+                console.error("Guard Error (Fail-Open):", err);
+                setAccess(true); // Don't block on network glitch
             }
         };
 
-        checkUnlock();
-    }, [user, moduleId]);
+        checkEnrolment();
+    }, [user, courseId, moduleId]);
 
     if (access === null) {
-        return <div className="h-screen flex items-center justify-center"><LoadingSpinner /></div>;
+        return (
+            <div className="h-screen w-screen bg-white flex flex-col items-center justify-center gap-6">
+                <LoadingSpinner />
+                <div className="font-black uppercase tracking-[0.4em] text-gray-400 text-[10px] animate-pulse">Establishing Secure Stream...</div>
+            </div>
+        );
     }
 
     if (access === false) {
-        // Redirect to Course Overview if module is locked
-        return <Navigate to={`/student/course/${courseId}`} replace />;
+        return <Navigate to="/student/courses" replace />;
     }
 
     return <Outlet />;

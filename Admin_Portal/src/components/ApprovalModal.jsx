@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { X, DollarSign, CreditCard, BookOpen, FileText } from 'lucide-react';
 import { DEMO_COURSES, PAYMENT_METHODS, calculateTotalPrice } from '../../../shared/constants/courses';
+import { useModal } from '../context/ModalContext'; // Import useModal
 
 const ApprovalModal = ({ application, onClose, onApprove }) => {
+    const { showAlert } = useModal(); // Destructure showAlert
     const [formData, setFormData] = useState({
         courses: [],
         paymentAmount: '',
@@ -35,12 +37,12 @@ const ApprovalModal = ({ application, onClose, onApprove }) => {
         e.preventDefault();
 
         if (formData.courses.length === 0) {
-            alert('Please select at least one course');
+            await showAlert('Please select at least one course', 'Validation Error', 'warning');
             return;
         }
 
         if (!formData.paymentAmount || parseFloat(formData.paymentAmount) <= 0) {
-            alert('Please enter a valid payment amount');
+            await showAlert('Please enter a valid payment amount', 'Validation Error', 'warning');
             return;
         }
 
@@ -54,7 +56,7 @@ const ApprovalModal = ({ application, onClose, onApprove }) => {
             onClose();
         } catch (error) {
             console.error('Approval error:', error);
-            alert('Error approving application: ' + error.message);
+            await showAlert('Error approving application: ' + error.message, 'Approval Failed', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -121,8 +123,8 @@ const ApprovalModal = ({ application, onClose, onApprove }) => {
                                 <label
                                     key={course.id}
                                     className={`border-2 p-4 rounded-lg cursor-pointer transition-all ${formData.courses.includes(course.id)
-                                            ? 'border-primary bg-primary/5'
-                                            : 'border-gray-200 hover:border-gray-300'
+                                        ? 'border-primary bg-primary/5'
+                                        : 'border-gray-200 hover:border-gray-300'
                                         }`}
                                 >
                                     <input
@@ -201,8 +203,8 @@ const ApprovalModal = ({ application, onClose, onApprove }) => {
                                     <label
                                         key={method.value}
                                         className={`border-2 p-4 rounded-lg cursor-pointer transition-all text-center ${formData.paymentMethod === method.value
-                                                ? 'border-primary bg-primary/5'
-                                                : 'border-gray-200 hover:border-gray-300'
+                                            ? 'border-primary bg-primary/5'
+                                            : 'border-gray-200 hover:border-gray-300'
                                             }`}
                                     >
                                         <input
@@ -219,8 +221,8 @@ const ApprovalModal = ({ application, onClose, onApprove }) => {
                                 ))}
                                 <label
                                     className={`border-2 p-4 rounded-lg cursor-pointer transition-all text-center ${formData.paymentMethod === 'pending'
-                                            ? 'border-primary bg-primary/5'
-                                            : 'border-gray-200 hover:border-gray-300'
+                                        ? 'border-primary bg-primary/5'
+                                        : 'border-gray-200 hover:border-gray-300'
                                         }`}
                                 >
                                     <input

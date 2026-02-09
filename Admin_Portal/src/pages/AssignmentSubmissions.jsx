@@ -1,21 +1,90 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import {
     ArrowLeft, Download, CheckCircle2,
     Clock, User, FileText, ChevronRight,
-    Filter, Search
+    Filter, Search, Loader2
 } from 'lucide-react';
+import BrandedLoader from '../components/BrandedLoader';
 
 const AssignmentSubmissions = () => {
-    const { id } = useParams();
+    const { id: moduleId } = useParams();
     const navigate = useNavigate();
+    const [submissions, setSubmissions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState('all');
 
-    const submissions = [
-        { id: 1001, student: "Alice Cooper", date: "Feb 05, 2026", time: "14:30", status: "Pending", file: "stakeholder_matrix_v1.pdf" },
-        { id: 1002, student: "Bob Dylan", date: "Feb 04, 2026", time: "09:15", status: "Reviewed", file: "assignment_week1_final.docx" },
-        { id: 1003, student: "Charlie Brown", date: "Feb 04, 2026", time: "11:45", status: "Reviewed", file: "matrix_analysis.pdf" },
-        { id: 1004, student: "Diane Ross", date: "Feb 03, 2026", time: "16:20", status: "Pending", file: "BA_Stakeholders.pdf" }
-    ];
+    useEffect(() => {
+        fetchSubmissions();
+    }, [moduleId]);
+
+    const fetchSubmissions = async () => {
+        try {
+            // Find assignment for this module
+            const { data: assignment } = await supabase
+                .from('assignments')
+                .select('id')
+                .eq('id', moduleId) // moduleId is likely correct from the route structure in App.jsx
+                .maybeSingle();
+
+            if (!assignment) {
+                // Try module_id search if id is actually moduleId
+                const { data: assignByMod } = await supabase
+                    .from('assignments')
+                    .select('id')
+                    .eq('module_id', moduleId)
+                    .maybeSingle();
+
+                if (!assignByMod) {
+                    setSubmissions([]);
+                    return;
+                }
+                var assignId = assignByMod.id;
+            } else {
+                var assignId = assignment.id;
+            }
+
+            const { data, error } = await supabase
+                .from('assignment_submissions')
+                .select(`
+                    *,
+                    profiles:user_id(full_name, email)
+                `)
+                .eq('assignment_id', assignId);
+
+            if (error) throw error;
+            setSubmissions(data || []);
+        } catch (err) {
+            console.error('Fetch error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleToggleReview = async (subId, currentStatus) => {
+        const newStatus = currentStatus === 'reviewed' ? 'pending' : 'reviewed';
+        try {
+            const { error } = await supabase
+                .from('assignment_submissions')
+                .update({
+                    reviewed_status: newStatus,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', subId);
+            if (error) throw error;
+            fetchSubmissions();
+        } catch (err) {
+            alert('Review update failed: ' + err.message);
+        }
+    };
+
+    const filteredSubmissions = submissions.filter(s => {
+        if (filter === 'all') return true;
+        return s.reviewed_status === filter;
+    });
+
+    if (loading) return <BrandedLoader message="Scanning Submissions..." />;
 
     return (
         <div className="space-y-12">
@@ -34,9 +103,24 @@ const AssignmentSubmissions = () => {
                     </div>
                 </div>
                 <div className="flex bg-white border border-gray-100 p-2 shadow-sm">
-                    <button className="px-6 py-3 bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20">All</button>
-                    <button className="px-6 py-3 text-gray-400 font-black text-[10px] uppercase tracking-widest hover:text-black">Pending</button>
-                    <button className="px-6 py-3 text-gray-400 font-black text-[10px] uppercase tracking-widest hover:text-black">Reviewed</button>
+                    <button
+                        onClick={() => setFilter('all')}
+                        className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'all' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-400 hover:text-black'}`}
+                    >
+                        All
+                    </button>
+                    <button
+                        onClick={() => setFilter('pending')}
+                        className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-400 hover:text-black'}`}
+                    >
+                        Pending
+                    </button>
+                    <button
+                        onClick={() => setFilter('reviewed')}
+                        className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'reviewed' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-400 hover:text-black'}`}
+                    >
+                        Reviewed
+                    </button>
                 </div>
             </div>
 
@@ -53,38 +137,62 @@ const AssignmentSubmissions = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                        {submissions.map((sub) => (
+                        {filteredSubmissions.length === 0 ? (
+                            <tr>
+                                <td colSpan="5" className="px-8 py-20 text-center uppercase font-black text-gray-300 tracking-widest">No submissions detected in this filter</td>
+                            </tr>
+                        ) : filteredSubmissions.map((sub) => (
                             <tr key={sub.id} className="group hover:bg-gray-50/50 transition-colors">
                                 <td className="px-8 py-6">
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 bg-primary/5 text-primary flex items-center justify-center font-bold text-sm">
-                                            {sub.student[0]}
+                                            {sub.profiles?.full_name?.[0] || 'U'}
                                         </div>
-                                        <p className="font-bold text-black text-sm">{sub.student}</p>
+                                        <div>
+                                            <p className="font-bold text-black text-sm">{sub.profiles?.full_name}</p>
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">{sub.profiles?.email}</p>
+                                        </div>
                                     </div>
                                 </td>
                                 <td className="px-8 py-6">
                                     <div className="space-y-1">
-                                        <p className="text-xs font-bold text-black">{sub.date}</p>
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">{sub.time}</p>
+                                        <p className="text-xs font-bold text-black">{new Date(sub.created_at).toLocaleDateString()}</p>
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">{new Date(sub.created_at).toLocaleTimeString()}</p>
                                     </div>
                                 </td>
                                 <td className="px-8 py-6">
-                                    <button className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest hover:underline decoration-2 underline-offset-4">
-                                        <FileText size={14} /> {sub.file}
+                                    <button
+                                        onClick={async () => {
+                                            const { data, error } = await supabase.storage.from('assignment-submissions').download(sub.file_path);
+                                            if (error) {
+                                                alert('Download error: ' + error.message);
+                                                return;
+                                            }
+                                            const url = URL.createObjectURL(data);
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.download = sub.file_path.split('/').pop();
+                                            link.click();
+                                        }}
+                                        className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest hover:underline decoration-2 underline-offset-4"
+                                    >
+                                        <FileText size={14} /> Download Asset
                                     </button>
                                 </td>
                                 <td className="px-8 py-6">
-                                    <span className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-3 py-1 ${sub.status === 'Reviewed' ? 'bg-green-50 text-green-500' : 'bg-orange-50 text-orange-500'
+                                    <span className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-3 py-1 ${sub.reviewed_status === 'reviewed' ? 'bg-green-50 text-green-500' : 'bg-orange-50 text-orange-500'
                                         }`}>
-                                        {sub.status === 'Reviewed' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                                        {sub.status}
+                                        {sub.reviewed_status === 'reviewed' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                                        {sub.reviewed_status === 'reviewed' ? 'Reviewed' : 'Pending'}
                                     </span>
                                 </td>
                                 <td className="px-8 py-6 text-right">
-                                    <button className="bg-primary/5 text-primary px-6 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all border border-primary/10">
-                                        Toggle Review
-                                    </button>
+                                    <Link
+                                        to={`/admin/submissions/${sub.id}/grade`}
+                                        className="bg-primary/5 text-primary px-6 py-2 text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all border border-primary/10 inline-flex items-center gap-2"
+                                    >
+                                        Critique & Grade <ChevronRight size={12} />
+                                    </Link>
                                 </td>
                             </tr>
                         ))}

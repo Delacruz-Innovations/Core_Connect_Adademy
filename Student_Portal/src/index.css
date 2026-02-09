@@ -1,23 +1,85 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
 
 @theme {
-    --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
     --color-primary: #0066CC;
     --color-secondary: #F37021;
+
+    /* Strict Border Radius Limits */
+    --radius-sm: 2px;
+    --radius-md: 4px;
+    --radius-lg: 4px;
+    --radius-xl: 4px;
+    --radius-2xl: 4px;
+    --radius-3xl: 4px;
+    --radius-full: 9999px;
+}
+
+:root {
+    font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    color: #1a1a1a;
+    background-color: #f8fafc;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+}
+
+/* Brand Watermark Overlay */
+.brand-watermark-bg {
+    position: relative;
+    z-index: 0;
+}
+
+.brand-watermark-bg::before {
+    content: "";
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    height: 600px;
+    background-image: url('/logo.png');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.02;
+    z-index: -1;
+    pointer-events: none;
+    filter: grayscale(100%);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-primary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #0052a3;
+}
+
+/* Utility to force branding on text selections */
+::selection {
+    background: var(--color-primary);
+    color: white;
 }
 
 @layer base {
     html {
         scroll-behavior: smooth;
-    }
-
-    body {
-        @apply font-sans antialiased text-gray-900;
-    }
-
-    ::selection {
-        @apply bg-primary/20 text-primary;
     }
 }
 

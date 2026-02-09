@@ -2,24 +2,37 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { CheckCircle, XCircle, Clock, Send, User, Trash2 } from 'lucide-react';
+import { useModal } from '../context/ModalContext';
 
 const LeadsList = () => {
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [processingId, setProcessingId] = useState(null);
+    const { showAlert, showConfirm } = useModal();
 
     const fetchLeads = async () => {
         setLoading(true);
         try {
             const { data, error: sbError } = await supabase
-                .from('leads')
-                .select('*')
+                .from('applications')
+                .select('*, courses!requested_course_id(title)')
                 .eq('status', 'pending')
                 .order('created_at', { ascending: false });
 
             if (sbError) throw sbError;
-            setLeads(data || []);
+            // Map the application data to the structure the component expects
+            const mappedLeads = (data || []).map(app => ({
+                id: app.id,
+                first_name: app.full_name.split(' ')[0],
+                last_name: app.full_name.split(' ').slice(1).join(' ') || '',
+                username: app.username,
+                email: app.email,
+                created_at: app.created_at,
+                course_interest: app.courses?.title || app.program_interest,
+                notes: app.motivation_text
+            }));
+            setLeads(mappedLeads);
         } catch (err) {
             console.error('Error fetching leads:', err);
             setError(err.message);
@@ -33,7 +46,7 @@ const LeadsList = () => {
     }, []);
 
     const handleApprove = async (lead) => {
-        if (!confirm(`Confirm approval for ${lead.first_name} ${lead.last_name}? This will grant access.`)) return;
+        if (!await showConfirm(`Confirm approval for ${lead.first_name} ${lead.last_name}? This will grant access.`, 'Confirm Approval')) return;
 
         setProcessingId(lead.id);
         try {
@@ -59,6 +72,7 @@ const LeadsList = () => {
                     emailRedirectTo: studentPortalUrl,
                     data: {
                         full_name: `${lead.first_name} ${lead.last_name}`,
+                        username: lead.username, // Passed from lead table
                         role: 'student'
                     }
                 }
@@ -111,45 +125,32 @@ const LeadsList = () => {
             console.log('Waiting for Auth sync (2s)...');
             await new Promise(resolve => setTimeout(resolve, 2000));
 
-            // 5. Finalize Approval via RPC with Retry Logic
-            let success = false;
-            let attempts = 0;
-            while (!success && attempts < 3) {
-                attempts++;
-                console.log(`Finalizing approval (Attempt ${attempts})...`);
-                const { data: rpcData, error: rpcError } = await supabase.rpc('approve_lead_unified', {
-                    p_lead_id: lead.id,
-                    p_user_id: newUserId,
-                    p_course_id: targetCourseId
-                });
+            // 5. Update Lead Status
+            const { error: updateError } = await supabase
+                .from('applications') // Changed from 'leads' to 'applications' based on context
+                .update({
+                    status: 'approved',
+                    user_id: newUserId, // Use newUserId obtained from auth
+                    requested_course_id: targetCourseId // Set the course ID
+                })
+                .eq('id', lead.id);
 
-                if (!rpcError && rpcData?.success) {
-                    success = true;
-                } else {
-                    const errMsg = rpcError?.message || rpcData?.message || 'Unknown error';
-                    if (attempts < 3 && (errMsg.includes('foreign key') || errMsg.includes('not found'))) {
-                        console.warn(`Sync lag detected, retrying in 1s...`);
-                        await new Promise(r => setTimeout(r, 1000));
-                    } else {
-                        throw new Error(errMsg);
-                    }
-                }
-            }
+            if (updateError) throw updateError;
 
-            alert(`Approval Successful! ${lead.email} is now enrolled.`);
-            setLeads(leads.filter(l => l.id !== lead.id));
+            await showAlert(`Approval Successful! ${lead.email} is now enrolled.`, 'Approval Success', 'success');
+            fetchLeads(); // Refresh list
 
         } catch (err) {
-            console.error('Approval process failed:', err);
-            alert(`Approval Failed: ${err.message || 'Unknown database error'}`);
+            console.error('Approval Process Error:', err);
+            await showAlert(`Approval Failed: ${err.message || 'Unknown database error'}`, 'Approval Failed', 'error');
         } finally {
             setProcessingId(null);
         }
     };
 
     const handleReject = async (id) => {
-        if (!confirm("Reject this lead?")) return;
-        const { error } = await supabase.from('leads').update({ status: 'rejected' }).eq('id', id);
+        if (!await showConfirm("Reject this lead?", "Reject Application")) return;
+        const { error } = await supabase.from('applications').update({ status: 'rejected' }).eq('id', id);
         if (!error) setLeads(leads.filter(l => l.id !== id));
     };
 
@@ -170,8 +171,11 @@ const LeadsList = () => {
                             {lead.first_name[0]}{lead.last_name[0]}
                         </div>
                         <div>
-                            <h3 className="font-bold text-gray-900 leading-none mb-1">{lead.first_name} {lead.last_name}</h3>
-                            <p className="text-[10px] font-black text-primary uppercase tracking-wider mb-2">{lead.email}</p>
+                            <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-bold text-gray-900 leading-none">{lead.first_name} {lead.last_name}</h3>
+                                <span className="text-[10px] font-black text-primary uppercase tracking-wider bg-primary/5 px-2 py-0.5 rounded">@{lead.username}</span>
+                            </div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{lead.email}</p>
                             <div className="flex gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                 <span className="flex items-center gap-1"><Clock size={12} /> {new Date(lead.created_at).toLocaleDateString()}</span>
                                 <span className="text-black italic">Interested in: {lead.course_interest}</span>

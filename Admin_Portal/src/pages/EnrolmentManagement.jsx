@@ -4,16 +4,20 @@ import {
     PlusCircle, Search, UserPlus,
     BookOpen, Calendar, ArrowRight,
     Filter, CheckCircle2, History, List,
-    UserSearch
+    UserSearch, RefreshCw
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { useModal } from '../context/ModalContext';
+import BrandedLoader from '../components/BrandedLoader';
 
 const EnrolmentManagement = () => {
     const [activeTab, setActiveTab] = useState('leads');
+    const [courses, setCourses] = useState([]);
     const [manualForm, setManualForm] = useState({
         fullName: '',
         email: '',
-        course: '',
+        courses: [], // Array for multi-select
         accessType: 'Full Access',
         startDate: new Date().toISOString().split('T')[0]
     });
@@ -21,10 +25,16 @@ const EnrolmentManagement = () => {
     const [historyLoading, setHistoryLoading] = useState(false);
 
     useEffect(() => {
+        fetchCourses();
         if (activeTab === 'history') {
             fetchHistory();
         }
     }, [activeTab]);
+
+    const fetchCourses = async () => {
+        const { data } = await supabase.from('courses').select('id, title').eq('is_published', true);
+        setCourses(data || []);
+    };
 
     const fetchHistory = async () => {
         setHistoryLoading(true);
@@ -37,7 +47,7 @@ const EnrolmentManagement = () => {
                     status,
                     payment_status,
                     profiles:student_id (full_name),
-                    application:application_id (program_name)
+                    application:application_id (program_interest)
                 `)
                 .order('created_at', { ascending: false });
 
@@ -53,22 +63,37 @@ const EnrolmentManagement = () => {
     const handleManualEnrol = async (e) => {
         e.preventDefault();
 
+        if (manualForm.courses.length === 0) {
+            await showAlert("Please select at least one course for manual enrollment.", "Selection Needed", "warning");
+            return;
+        }
+
         try {
             // 1. Get current Admin ID
             const { data: { user } } = await supabase.auth.getUser();
 
-            // 2. Create Application Record
+            // 2. Resolve Course IDs from the array
+            const selectedCourseIds = manualForm.courses;
+
+            // 3. Create Application Record as a 'record of intent'
             const { data: newApp, error: appError } = await supabase
                 .from('applications')
                 .insert({
                     full_name: manualForm.fullName,
                     email: manualForm.email,
-                    username: manualForm.email.split('@')[0] + Math.floor(Math.random() * 1000), // Temp username
-                    program_type: 'Mentorship', // Default or need mapping
-                    program_name: manualForm.course,
+                    username: manualForm.email.split('@')[0] + Math.floor(Math.random() * 1000),
+                    program_interest: 'Mentorship Program',
+                    requested_course_id: selectedCourseIds[0], // Use first as primary for schema legacy
+                    assigned_course_ids: selectedCourseIds,
                     status: 'approved',
-                    referrer_source: 'Manual Admin Enrolment',
-                    job_role: 'Student', // Default for manual enrol
+                    discovery_source: 'Manual Admin Enrolment',
+                    job_role: 'Student',
+                    country: 'Unknown',
+                    city: 'Unknown',
+                    postcode: '0000',
+                    phone: '0000000000',
+                    motivation_text: `Manually enrolled by administrator in ${selectedCourseIds.length} tracks.`,
+                    computer_literacy_score: 10,
                     admin_id: user?.id
                 })
                 .select()
@@ -76,33 +101,28 @@ const EnrolmentManagement = () => {
 
             if (appError) throw appError;
 
-            // 3. Call RPC to handle enrollment logic (Pure SQL, no Edge Function)
-            const { error: rpcError } = await supabase.rpc('approve_application_v2', {
-                p_application_id: newApp.id,
-                p_admin_id: user?.id,
-                p_courses: [manualForm.course],
-                p_payment_amount: 0, // Manual enrollments default to 0 for now
-                p_payment_method: 'manual',
-                p_payment_status: 'paid',
-                p_admin_notes: `Manual Enrollment by ${user?.email}`
+            // 4. Call the multi-course RPC 'approve_application'
+            const { error: rpcError } = await supabase.rpc('approve_application', {
+                target_application_id: newApp.id,
+                final_course_ids: selectedCourseIds // Send the array!
             });
 
             if (rpcError) throw rpcError;
 
-            alert(`Successfully enrolled ${manualForm.fullName} via direct database authority!`);
+            await showAlert(`Successfully enrolled ${manualForm.fullName} in ${selectedCourseIds.length} courses!`, "Enrollment Success", "success"); // Replaced alert
 
             // Reset form
             setManualForm({
                 fullName: '',
                 email: '',
-                course: '',
+                courses: [],
                 accessType: 'Full Access',
                 startDate: new Date().toISOString().split('T')[0]
             });
 
         } catch (error) {
             console.error('Enrolment error:', error);
-            alert(`Error enrolling student: ${error.message}`);
+            await showAlert(`Error enrolling student: ${error.message}`, "Enrollment Error", "error"); // Replaced alert
         }
     };
 
@@ -150,7 +170,7 @@ const EnrolmentManagement = () => {
 
                 {/* New Leads Tab */}
                 {activeTab === 'leads' && (
-                    <div className="max-w-5xl">
+                    <div className="">
                         <div className="bg-white border border-gray-100 shadow-xl p-10">
                             <h2 className="text-xl font-black italic uppercase tracking-tight mb-8">Visitor Leads (Stage 1)</h2>
                             <LeadsList />
@@ -160,7 +180,7 @@ const EnrolmentManagement = () => {
 
                 {/* Pending Requests Tab */}
                 {activeTab === 'requests' && (
-                    <div className="max-w-5xl">
+                    <div className="">
                         <div className="bg-white border border-gray-100 shadow-xl p-10">
                             <h2 className="text-xl font-black italic uppercase tracking-tight mb-8">Deep Enrollment (Stage 2)</h2>
                             <ApplicationsList />
@@ -173,7 +193,7 @@ const EnrolmentManagement = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                         {/* Left Column: Form */}
                         <div className="lg:col-span-12 space-y-8">
-                            <div className="bg-white border border-gray-100 shadow-xl p-10 max-w-3xl">
+                            <div className="bg-white border border-gray-100 shadow-xl p-10">
                                 <h2 className="text-xl font-black italic uppercase tracking-tight mb-8">Enrol Student Manually</h2>
 
                                 <form className="space-y-6" onSubmit={handleManualEnrol}>
@@ -203,17 +223,37 @@ const EnrolmentManagement = () => {
                                     </div>
 
                                     <div>
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Target Course</label>
-                                        <select
-                                            className="w-full bg-gray-50 border-0 p-4 font-bold text-sm outline-none focus:ring-1 focus:ring-primary transition-all appearance-none"
-                                            value={manualForm.course}
-                                            onChange={(e) => setManualForm({ ...manualForm, course: e.target.value })}
-                                        >
-                                            <option value="">Select a course...</option>
-                                            <option value="Business Analysis Mastery">Business Analysis Mastery</option>
-                                            <option value="Project Management Professional">Project Management Professional</option>
-                                            <option value="Cybersecurity Bootcamp">Cybersecurity Bootcamp</option>
-                                        </select>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Select Tracks (Multi-Select)</label>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar p-1">
+                                            {courses.map(course => (
+                                                <label
+                                                    key={course.id}
+                                                    className={`flex items-center gap-3 p-4 border transition-all cursor-pointer ${manualForm.courses.includes(course.id)
+                                                        ? 'bg-black border-black text-white shadow-lg'
+                                                        : 'bg-gray-50 border-transparent hover:border-gray-200'
+                                                        }`}
+                                                >
+                                                    <div className={`w-4 h-4 border flex items-center justify-center ${manualForm.courses.includes(course.id) ? 'bg-primary border-primary' : 'bg-white border-gray-300'
+                                                        }`}>
+                                                        {manualForm.courses.includes(course.id) && <div className="w-2 h-2 bg-white" />}
+                                                    </div>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="hidden"
+                                                        checked={manualForm.courses.includes(course.id)}
+                                                        onChange={() => {
+                                                            const current = manualForm.courses;
+                                                            if (current.includes(course.id)) {
+                                                                setManualForm({ ...manualForm, courses: current.filter(id => id !== course.id) });
+                                                            } else {
+                                                                setManualForm({ ...manualForm, courses: [...current, course.id] });
+                                                            }
+                                                        }}
+                                                    />
+                                                    <span className="text-[11px] font-black uppercase tracking-wider truncate">{course.title}</span>
+                                                </label>
+                                            ))}
+                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
@@ -257,7 +297,7 @@ const EnrolmentManagement = () => {
 
                 {/* History Tab */}
                 {activeTab === 'history' && (
-                    <div className="max-w-5xl">
+                    <div className="">
                         <div className="bg-white border border-gray-100 shadow-sm">
                             <div className="p-8 border-b border-gray-50 flex justify-between items-center">
                                 <h3 className="text-xl font-black italic uppercase tracking-tight flex items-center gap-3">
@@ -269,9 +309,8 @@ const EnrolmentManagement = () => {
                             </div>
                             <div className="p-8">
                                 <div className="space-y-6">
-                                    {historyLoading ? (
-                                        <div className="py-12 flex justify-center"><RefreshCw className="animate-spin text-gray-200" size={32} /></div>
-                                    ) : history.length === 0 ? (
+                                    {historyLoading && <BrandedLoader message="Syncing Enrollment Logs..." />}
+                                    {!historyLoading && history.length === 0 ? (
                                         <div className="py-20 text-center border border-dashed border-gray-100 rounded-lg">
                                             <History className="mx-auto text-gray-200 mb-4" size={48} />
                                             <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No enrolment records found</p>
@@ -286,7 +325,7 @@ const EnrolmentManagement = () => {
                                                     <div>
                                                         <h4 className="font-bold text-black text-sm">{item.profiles?.full_name || 'Generic Student'}</h4>
                                                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                                                            <BookOpen size={10} className="text-primary" /> {item.application?.program_name || 'Assigned Course'}
+                                                            <BookOpen size={10} className="text-primary" /> {item.application?.program_interest || 'Assigned Course'}
                                                         </p>
                                                     </div>
                                                 </div>

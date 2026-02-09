@@ -1,28 +1,109 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import {
     ArrowLeft, FileText, Trash2,
     Play, ClipboardList, Save,
-    CheckCircle2, Users, AlertCircle, Edit3
+    CheckCircle2, Users, AlertCircle, Edit3, Loader2
 } from 'lucide-react';
+import BrandedLoader from '../components/BrandedLoader';
 
 const AssignmentManagement = () => {
-    const { id } = useParams();
+    const { id: moduleId } = useParams();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('assignments');
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [assignment, setAssignment] = useState({
+        title: '',
+        brief: '',
+        submission_required: true,
+        allowed_file_types: ['pdf', 'doc', 'docx']
+    });
+    const [moduleData, setModuleData] = useState(null);
 
-    const assignment = {
-        title: "Stakeholder Matrix Analysis",
-        description: "Prepare a complete stakeholder matrix for the provided case study XYZ. Identify at least 5 key stakeholders and categorize them by power and interest.",
-        status: "Published",
-        submissions: 42
+    useEffect(() => {
+        fetchData();
+    }, [moduleId]);
+
+    const fetchData = async () => {
+        try {
+            const { data: module, error: modError } = await supabase
+                .from('modules')
+                .select('*, courses(title)')
+                .eq('id', moduleId)
+                .single();
+            if (modError) throw modError;
+            setModuleData(module);
+
+            const { data: assign, error: assignError } = await supabase
+                .from('assignments')
+                .select('*')
+                .eq('module_id', moduleId)
+                .maybeSingle();
+
+            if (assign) {
+                setAssignment(assign);
+            }
+        } catch (err) {
+            console.error('Fetch error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+
+            const payload = {
+                module_id: moduleId,
+                title: assignment.title || 'Untitled Assignment',
+                brief: assignment.brief || '',
+                submission_required: assignment.submission_required ?? true,
+                allowed_file_types: assignment.allowed_file_types || ['pdf', 'doc', 'docx'],
+                updated_at: new Date().toISOString()
+            };
+
+            // If we have a user, track them, otherwise proceed anonymously
+            if (user) {
+                payload.created_by = user.id;
+            }
+
+            const { error } = await supabase
+                .from('assignments')
+                .upsert(payload, { onConflict: 'module_id' });
+
+            if (error) throw error;
+            alert('Assignment strategy deployed.');
+        } catch (err) {
+            console.error('Save error:', err);
+            alert('Deployment failed: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!window.confirm('PROTOCOL OVERRIDE: Delete assignment and all student submissions?')) return;
+        try {
+            const { error } = await supabase.from('assignments').delete().eq('module_id', moduleId);
+            if (error) throw error;
+            setAssignment({ title: '', description: '', is_required: true });
+            alert('Assignment purged.');
+        } catch (err) {
+            alert('Purge failed.');
+        }
     };
 
     const tabs = [
-        { id: 'videos', icon: Play, label: 'Video Lectures', path: `/admin/modules/${id}/videos` },
-        { id: 'resources', icon: FileText, label: 'Reading Material', path: `/admin/modules/${id}/resources` },
-        { id: 'assignments', icon: ClipboardList, label: 'Assignments', path: `/admin/modules/${id}/assignments` }
+        { id: 'videos', icon: Play, label: 'Video Lectures', path: `/admin/modules/${moduleId}/videos` },
+        { id: 'resources', icon: FileText, label: 'Reading Material', path: `/admin/modules/${moduleId}/resources` },
+        { id: 'assignments', icon: ClipboardList, label: 'Assignments', path: `/admin/modules/${moduleId}/assignments` }
     ];
+
+    if (loading) return <BrandedLoader message="Syncing Assignment Engine..." />;
 
     return (
         <div className="space-y-12">
@@ -36,12 +117,19 @@ const AssignmentManagement = () => {
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 block">Module Content: Week 1</span>
+                        <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 block">
+                            Module Content: Week {moduleData?.week_number} • {moduleData?.courses?.title}
+                        </span>
                         <h1 className="text-5xl font-black italic tracking-tighter">Assignments</h1>
                     </div>
                 </div>
-                <button className="bg-primary text-white px-8 py-5 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-primary/20 flex items-center gap-3">
-                    <Save size={18} /> Save Update
+                <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-primary text-white px-8 py-5 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-primary/20 flex items-center gap-3"
+                >
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                    {saving ? 'Saving...' : 'Save Strategy'}
                 </button>
             </div>
 
@@ -75,7 +163,9 @@ const AssignmentManagement = () => {
                                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Task Title</label>
                                 <input
                                     type="text"
-                                    defaultValue={assignment.title}
+                                    value={assignment.title}
+                                    onChange={(e) => setAssignment({ ...assignment, title: e.target.value })}
+                                    placeholder="Enter assignment Title"
                                     className="w-full bg-gray-50 border-0 p-4 font-bold text-sm outline-none focus:ring-1 focus:ring-primary transition-all"
                                 />
                             </div>
@@ -84,9 +174,45 @@ const AssignmentManagement = () => {
                                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Brief / Instructions</label>
                                 <textarea
                                     rows={8}
-                                    defaultValue={assignment.description}
+                                    value={assignment.brief}
+                                    onChange={(e) => setAssignment({ ...assignment, brief: e.target.value })}
+                                    placeholder="Explain the technical requirements..."
                                     className="w-full bg-gray-50 border-0 p-4 font-bold text-sm outline-none focus:ring-1 focus:ring-primary transition-all resize-none"
                                 />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-8">
+                                <div className="space-y-4">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block">Allowed File Types</label>
+                                    <div className="flex gap-4">
+                                        {['pdf', 'doc', 'docx'].map(type => (
+                                            <button
+                                                key={type}
+                                                onClick={() => {
+                                                    const types = assignment.allowed_file_types || [];
+                                                    const next = types.includes(type) ? types.filter(t => t !== type) : [...types, type];
+                                                    setAssignment({ ...assignment, allowed_file_types: next });
+                                                }}
+                                                className={`px-4 py-2 text-[10px] font-black uppercase border transition-all ${assignment.allowed_file_types?.includes(type) ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-400'}`}
+                                            >
+                                                {type}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 pt-6">
+                                    <input
+                                        type="checkbox"
+                                        id="submission_required"
+                                        checked={assignment.submission_required}
+                                        onChange={(e) => setAssignment({ ...assignment, submission_required: e.target.checked })}
+                                        className="w-5 h-5 accent-primary"
+                                    />
+                                    <label htmlFor="submission_required" className="text-xs font-black uppercase tracking-widest text-gray-900 cursor-pointer">
+                                        Mandatory for Progression
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -96,13 +222,13 @@ const AssignmentManagement = () => {
                     <div className="bg-white p-10 border border-gray-100 shadow-sm text-center">
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-8 block">Submissions Status</h3>
                         <div className="w-24 h-24 bg-primary/5 rounded-full flex items-center justify-center text-primary font-black text-2xl mx-auto mb-6 border-4 border-white shadow-xl">
-                            {assignment.submissions}
+                            --
                         </div>
                         <p className="font-bold text-sm text-black mb-1">Total Submissions</p>
                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-8 italic">Ready for review</p>
 
                         <Link
-                            to={`/admin/assignments/${id}/submissions`}
+                            to={`/admin/assignments/${moduleId}/submissions`}
                             className="w-full flex items-center justify-center gap-3 py-4 bg-primary text-white font-bold text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-primary/20"
                         >
                             <Users size={16} /> Review Submissions
@@ -116,7 +242,10 @@ const AssignmentManagement = () => {
                         <p className="text-[10px] font-bold leading-relaxed">
                             Removing this assignment will also delete all student submissions associated with it. This action is irreversible.
                         </p>
-                        <button className="mt-6 text-[10px] font-black uppercase tracking-widest underline hover:text-black">
+                        <button
+                            onClick={handleDelete}
+                            className="mt-6 text-[10px] font-black uppercase tracking-widest underline hover:text-black"
+                        >
                             Proceed to Remove
                         </button>
                     </div>

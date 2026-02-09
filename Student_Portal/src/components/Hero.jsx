@@ -2,9 +2,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Award, Briefcase, Users, Star, ArrowRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Hero = () => {
-    // Video background replaces the image slideshow
+    const { user } = useAuth();
 
     const badges = [
         { icon: <Award className="text-secondary" />, text: "Quality Training Provider", label: "UK Accredited" },
@@ -52,15 +53,15 @@ const Hero = () => {
                         </p>
 
                         <div className="flex flex-col sm:flex-row items-center gap-8">
-                            <Link to="/show-interest">
+                            <Link to={user ? "/student/dashboard" : "/show-interest"}>
                                 <button className="bg-white text-primary px-12 py-5 rounded-full font-black text-xs tracking-[0.2em] uppercase shadow-2xl shadow-primary/40 hover:shadow-primary/60 transition-all hover:-translate-y-1 w-full sm:w-auto flex items-center justify-center gap-3 group active:translate-y-0">
-                                    Register Interest
+                                    {user ? "Access My Dashboard" : "Register Interest"}
                                     <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                                 </button>
                             </Link>
                             <div className="flex flex-col justify-center h-full">
                                 <p className="text-xs text-secondary font-black uppercase tracking-widest opacity-80">
-                                    No pressure. Just clarity.
+                                    {user ? "Welcome back to the Academy" : "No pressure. Just clarity."}
                                 </p>
                             </div>
                         </div>

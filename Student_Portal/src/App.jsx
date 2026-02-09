@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LoadingProvider, useLoading } from './context/LoadingContext';
 import { AuthProvider } from './context/AuthContext';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -34,19 +34,26 @@ import CourseCompletion from './pages/student/CourseCompletion';
 import AIFAQInterface from './pages/student/AIFAQInterface';
 import StudentProfile from './pages/student/StudentProfile';
 import ResourceLibrary from './pages/student/ResourceLibrary';
+import ApplicationForm from './pages/student/ApplicationForm';
 
 // Guards
 import AuthGuard from './components/guards/AuthGuard';
 import EnrolmentGuard from './components/guards/EnrolmentGuard';
 import ModuleUnlockGuard from './components/guards/ModuleUnlockGuard';
 import LessonAccessGuard from './components/guards/LessonAccessGuard';
+import GuestGuard from './components/guards/GuestGuard';
 
 function AppContent() {
   const { isLoading } = useLoading();
+  const location = useLocation();
+
+  // Disable full-screen spinner for private student routes
+  const isPrivateRoute = location.pathname.startsWith('/student/');
+  const showGlobalSpinner = isLoading && !isPrivateRoute;
 
   return (
     <>
-      {isLoading && <LoadingSpinner />}
+      {showGlobalSpinner && <LoadingSpinner />}
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
@@ -59,9 +66,14 @@ function AppContent() {
         <Route path="/resources" element={<ResourcesPage />} />
         <Route path="/faqs" element={<FAQPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
-        <Route path="/login" element={<LoginPage />} />
         <Route path="/set-password" element={<SetPasswordPage />} />
-        <Route path="/show-interest" element={<ShowInterestPage />} />
+
+        {/* Guest Routes (Redirect to dashboard if logged in) */}
+        <Route element={<GuestGuard />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/show-interest" element={<ShowInterestPage />} />
+        </Route>
+
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/courses/:id" element={<CourseDetailPage />} />
 
@@ -79,6 +91,7 @@ function AppContent() {
             <Route path="/student/ai-assistant" element={<AIFAQInterface />} />
             <Route path="/student/profile" element={<StudentProfile />} />
             <Route path="/student/resources" element={<ResourceLibrary />} />
+            <Route path="/student/apply" element={<ApplicationForm />} />
           </Route>
 
           {/* Immersive Learning Routes (No Layout) - Sequentially Guarded */}

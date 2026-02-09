@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import {
     ArrowLeft, Lock, CheckCircle,
-    PlayCircle, FileText, Layout
+    PlayCircle, FileText, Layout,
+    Loader2, ChevronRight, Play
 } from 'lucide-react';
 
 export default function CoursePlayerPage() {
     const { courseId } = useParams();
+    const navigate = useNavigate();
     const [course, setCourse] = useState(null);
     const [modules, setModules] = useState([]);
     const [progress, setProgress] = useState({});
     const [loading, setLoading] = useState(true);
+    const [redirecting, setRedirecting] = useState(false);
 
     useEffect(() => {
         fetchCourseData();
@@ -19,10 +22,13 @@ export default function CoursePlayerPage() {
 
     const fetchCourseData = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('Not authenticated');
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            if (!authUser) {
+                console.error("User not found in CoursePlayer - Redirecting to login");
+                navigate('/login');
+                return;
+            }
 
-            // 1. Get Course Info
             const { data: courseData } = await supabase
                 .from('courses')
                 .select('*')
@@ -30,22 +36,21 @@ export default function CoursePlayerPage() {
                 .single();
             setCourse(courseData);
 
-            // 2. Get Modules (Ordered)
             const { data: modulesData } = await supabase
                 .from('modules')
                 .select('*')
                 .eq('course_id', courseId)
                 .order('week_number', { ascending: true });
-            setModules(modulesData || []);
 
-            // 3. Get User Progress
+            const fetchedModules = modulesData || [];
+            setModules(fetchedModules);
+
             const { data: progressData } = await supabase
                 .from('module_progress')
                 .select('module_id, status')
-                .eq('user_id', user.id)
+                .eq('user_id', authUser.id)
                 .eq('course_id', courseId);
 
-            // Convert array to map for O(1) lookups
             const progressMap = {};
             if (progressData) {
                 progressData.forEach(p => {
@@ -54,86 +59,146 @@ export default function CoursePlayerPage() {
             }
             setProgress(progressMap);
 
+            // AUTO-START LOGIC: 
+            if (fetchedModules.length > 0 && window.location.pathname === `/student/course/${courseId}`) {
+                setRedirecting(true);
+
+                // 1. Try to resume from granular last-left-off position
+                const { data: lastLessonRecord } = await supabase
+                    .from('lesson_progress')
+                    .select('lesson_id, module_id')
+                    .eq('user_id', authUser.id)
+                    .eq('course_id', courseId)
+                    .order('updated_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (lastLessonRecord) {
+                    navigate(`/student/course/${courseId}/module/${lastLessonRecord.module_id}/lesson/${lastLessonRecord.lesson_id}`, { replace: true });
+                    return;
+                }
+
+                // 2. Fallback to first module and its first lesson
+                const firstModule = fetchedModules[0];
+
+                const { data: firstLesson } = await supabase
+                    .from('lessons')
+                    .select('id')
+                    .eq('module_id', firstModule.id)
+                    .order('order_index', { ascending: true })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (firstLesson) {
+                    navigate(`/student/course/${courseId}/module/${firstModule.id}/lesson/${firstLesson.id}`, { replace: true });
+                    return;
+                } else {
+                    navigate(`/student/course/${courseId}/module/${firstModule.id}`, { replace: true });
+                    return;
+                }
+            }
+
         } catch (error) {
             console.error('Error fetching course player:', error);
         } finally {
-            setLoading(false);
+            if (window.location.pathname === `/student/course/${courseId}` && fetchedModules.length > 0) {
+                // Keep loading true while navigating
+            } else {
+                setLoading(false);
+            }
         }
     };
 
-    const isModuleLocked = (moduleId, weekNum) => {
-        // Week 1 is always unlocked logically, unless explicitly locked by admin
-        if (weekNum === 1) return false;
-
-        // Otherwise check progress record
-        const status = progress[moduleId];
+    const isModuleLocked = (mod) => {
+        if (mod.status === 'unlocked') return false;
+        if (mod.week_number === 1) return false;
+        const status = progress[mod.id];
         return status !== 'unlocked' && status !== 'completed';
     };
 
-    if (loading) return <div className="h-screen flex items-center justify-center bg-black text-white animate-pulse">Loading Academy Enviroment...</div>;
+    if (loading || redirecting) return (
+        <div className="h-screen w-screen bg-white flex flex-col items-center justify-center gap-6">
+            <Loader2 className="text-primary animate-spin" size={48} />
+            <div className="font-black uppercase tracking-[0.4em] text-gray-400 text-[10px] animate-pulse">Synchronizing Neural Link...</div>
+        </div>
+    );
+
+    if (!course) return <div className="p-20 text-center">Course not found.</div>;
 
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
 
-            {/* Sidebar (Navigation) */}
-            <aside className="w-80 bg-white border-r border-gray-200 flex flex-col h-full z-10 shrink-0">
-                <div className="p-6 border-b border-gray-100">
-                    <Link to="/student/dashboard" className="text-xs font-bold text-gray-400 hover:text-black flex items-center gap-2 mb-4 transition-colors">
-                        <ArrowLeft size={14} /> Back to Dashboard
+            {/* Curriculum Sidebar */}
+            <aside className="w-96 bg-white border-r border-gray-100 flex flex-col h-full z-10 shrink-0 shadow-2xl shadow-gray-200/50">
+                <div className="p-8 border-b border-gray-100">
+                    <Link to="/student/dashboard" className="group flex items-center gap-3 mb-8">
+                        <div className="w-8 h-8 bg-gray-50 flex items-center justify-center border border-gray-100 group-hover:bg-primary group-hover:text-white transition-all rounded-sm">
+                            <ArrowLeft size={16} />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Exit Player</span>
                     </Link>
-                    <h1 className="font-black text-lg leading-tight text-gray-900">{course.title}</h1>
-                    <div className="mt-2 w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-green-500 rounded-full transition-all duration-500"
-                            style={{ width: '0%' }} // TODO: Calculate %
-                        ></div>
+
+                    <div className="flex flex-col mb-6">
+                        <span className="text-[9px] font-black text-primary uppercase tracking-[0.3em] leading-none mb-2">Learning Path</span>
+                        <h1 className="font-black text-xl italic uppercase leading-none tracking-tighter text-gray-900">{course.title}</h1>
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-1 font-mono uppercase tracking-widest">0% Complete</p>
+
+                    {(() => {
+                        const totalModules = modules.length;
+                        const completedModules = modules.filter(m => progress[m.id] === 'completed').length;
+                        const percentage = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
+
+                        return (
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic">Core Progress</span>
+                                    <span className="text-[10px] text-primary font-bold uppercase">{percentage}%</span>
+                                </div>
+                                <div className="w-full bg-gray-50 h-1.5 overflow-hidden border border-gray-100">
+                                    <div
+                                        className="h-full bg-primary transition-all duration-1000"
+                                        style={{ width: `${percentage}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
 
-                <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+                <nav className="flex-1 overflow-y-auto p-8 space-y-4 scrollbar-hide">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-300 mb-6">Curriculum Nodes</h3>
                     {modules.map((mod) => {
-                        const locked = isModuleLocked(mod.id, mod.week_number);
+                        const locked = isModuleLocked(mod);
                         const completed = progress[mod.id] === 'completed';
 
                         return (
                             <div
                                 key={mod.id}
                                 className={`
-                            relative overflow-hidden rounded-xl border transition-all duration-300 group
-                            ${locked
-                                        ? 'bg-gray-50 border-transparent opacity-60 cursor-not-allowed'
-                                        : 'bg-white border-gray-200 hover:border-black cursor-pointer shadow-sm hover:shadow-md'
+                                    relative p-6 border transition-all duration-300 group
+                                    ${locked
+                                        ? 'bg-gray-50 border-transparent opacity-60 cursor-not-allowed grayscale'
+                                        : 'bg-white border-gray-100 hover:border-primary/30 cursor-pointer shadow-sm hover:shadow-xl'
                                     }
-                            ${completed ? 'border-green-200 bg-green-50/30' : ''}
-                        `}
+                                    ${completed ? 'border-primary/20 bg-primary/[0.02]' : ''}
+                                `}
                             >
-                                <div className="p-4">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                                            Week {mod.week_number}
-                                        </span>
-                                        {locked ? (
-                                            <Lock size={12} className="text-gray-400" />
-                                        ) : completed ? (
-                                            <CheckCircle size={14} className="text-green-500" />
-                                        ) : (
-                                            <PlayCircle size={14} className="text-black" />
-                                        )}
-                                    </div>
-                                    <h3 className={`font-bold text-sm ${locked ? 'text-gray-400' : 'text-gray-900'}`}>
-                                        {mod.title}
-                                    </h3>
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className={`text-[10px] uppercase font-black tracking-widest ${locked ? 'text-gray-300' : 'text-primary'}`}>
+                                        Week {mod.week_number}
+                                    </span>
+                                    {locked ? (
+                                        <Lock size={12} className="text-gray-300" />
+                                    ) : completed ? (
+                                        <CheckCircle size={14} className="text-primary" />
+                                    ) : (
+                                        <ChevronRight size={14} className="text-primary group-hover:translate-x-1 transition-transform" />
+                                    )}
                                 </div>
+                                <h3 className={`font-bold text-xs uppercase italic tracking-tight ${locked ? 'text-gray-300' : 'text-gray-900'}`}>
+                                    {mod.title}
+                                </h3>
 
-                                {/* Progress Bar (Visual Only for now) */}
-                                {!locked && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-100">
-                                        <div className={`h-full ${completed ? 'bg-green-500 w-full' : 'bg-black w-0'}`}></div>
-                                    </div>
-                                )}
-
-                                {/* Click Handler (Only if unlocked) */}
                                 {!locked && (
                                     <Link to={`/student/course/${courseId}/module/${mod.id}`} className="absolute inset-0" />
                                 )}
@@ -143,17 +208,41 @@ export default function CoursePlayerPage() {
                 </nav>
             </aside>
 
-            {/* Main Content Area */}
-            <main className="flex-1 flex flex-col h-full relative">
-                <div className="flex-1 flex items-center justify-center bg-gray-50">
-                    <div className="text-center max-w-md p-8">
-                        <Layout size={48} className="mx-auto text-gray-300 mb-4" />
-                        <h2 className="text-xl font-bold text-gray-900 mb-2">Select a Module</h2>
-                        <p className="text-gray-500 text-sm">
-                            Choose a week from the sidebar to continue your learning journey.
-                            Complete modules sequentially to unlock future content.
-                        </p>
+            {/* Navigation Workspace */}
+            <main className="flex-1 flex flex-col h-full relative bg-gray-50/30 overflow-hidden">
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center max-w-lg p-12 bg-white border border-gray-100 shadow-2xl relative">
+                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20 rounded-sm">
+                            <Layout size={40} />
+                        </div>
+                        <div className="mt-12 space-y-6">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2">
+                                    {modules.length === 0 ? "Under Construction" : "Sequence Initiated"}
+                                </span>
+                                <h2 className="text-3xl font-black italic uppercase tracking-tighter text-gray-900 leading-none">
+                                    {modules.length === 0 ? "No Curriculum Logic Found" : "Select a Curriculum Node"}
+                                </h2>
+                            </div>
+                            <p className="text-gray-400 text-sm font-medium leading-relaxed italic border-l-2 border-primary/20 pl-6 mx-auto max-w-sm">
+                                {modules.length === 0
+                                    ? "Architecture for this learning path is still being deployed by engineers. Check back shortly."
+                                    : "Choose a learning week to access video streams, technical documents, and assessment portals."
+                                }
+                            </p>
+                            <div className="pt-4 flex items-center justify-center gap-3">
+                                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${modules.length === 0 ? 'bg-orange-500' : 'bg-green-500'}`}></div>
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                                    {modules.length === 0 ? "Awaiting Core Deployment" : "Awaiting Direct Link Interaction"}
+                                </span>
+                            </div>
+                        </div>
                     </div>
+                </div>
+
+                {/* Visual Watermark Wrapper */}
+                <div className="absolute bottom-8 right-8 pointer-events-none opacity-5 group">
+                    <span className="text-6xl font-black uppercase italic tracking-tighter">Core Connect</span>
                 </div>
             </main>
 
