@@ -17,22 +17,60 @@ export default function LessonAccessGuard() {
 
         const checkLessonLink = async () => {
             try {
-                // Verify lesson exists and belongs to the specified module
-                const { data: lesson } = await supabase
+                // 1. Fetch lesson details and its order context
+                const { data: lesson, error: lessonError } = await supabase
                     .from('lessons')
-                    .select('id')
+                    .select('id, module_id, order_index')
                     .eq('id', lessonId)
-                    .eq('module_id', moduleId)
                     .single();
 
-                if (lesson) {
-                    setAccess(true);
-                } else {
+                if (lessonError || !lesson) {
                     setAccess(false);
+                    return;
                 }
+
+                // 2. Check Module Unlock Status
+                const { data: modProgress } = await supabase
+                    .from('module_progress')
+                    .select('status')
+                    .eq('module_id', moduleId)
+                    .eq('user_id', user.id)
+                    .single();
+
+                const isUnlocked = modProgress?.status === 'unlocked' || modProgress?.status === 'completed';
+                if (!isUnlocked) {
+                    setAccess(false);
+                    return;
+                }
+
+                // 3. If not the first lesson, check if previous lesson is completed
+                if (lesson.order_index > 1) {
+                    const { data: prevLesson } = await supabase
+                        .from('lessons')
+                        .select('id')
+                        .eq('module_id', moduleId)
+                        .eq('order_index', lesson.order_index - 1)
+                        .single();
+
+                    if (prevLesson) {
+                        const { data: prevProgress } = await supabase
+                            .from('lesson_progress')
+                            .select('is_completed')
+                            .eq('lesson_id', prevLesson.id)
+                            .eq('user_id', user.id)
+                            .single();
+
+                        if (!prevProgress?.is_completed) {
+                            setAccess(false);
+                            return;
+                        }
+                    }
+                }
+
+                setAccess(true);
             } catch (err) {
                 console.error('Guard Check Failed (Fail-Open)', err);
-                setAccess(true);
+                setAccess(true); // Don't block on network glitch
             }
         };
 

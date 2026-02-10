@@ -14,16 +14,29 @@ export default function ModuleUnlockGuard() {
 
         const checkEnrolment = async () => {
             try {
-                // We trust EnrolmentGuard for basic access. 
-                // Here we just verify the module exists and belongs to the course.
+                // 1. Verify module belongs to course
                 const { data: modDetails } = await supabase
                     .from('modules')
-                    .select('id')
+                    .select('id, week_number')
                     .eq('id', moduleId)
                     .eq('course_id', courseId)
                     .single();
 
-                if (modDetails) {
+                if (!modDetails) {
+                    setAccess(false);
+                    return;
+                }
+
+                // 2. Check actual progress status
+                const { data: progress } = await supabase
+                    .from('module_progress')
+                    .select('status')
+                    .eq('module_id', moduleId)
+                    .eq('user_id', user.id)
+                    .single();
+
+                // week 1 is usually auto-unlocked by trigger, but we check status explicitly
+                if (progress?.status === 'unlocked' || progress?.status === 'completed') {
                     setAccess(true);
                 } else {
                     setAccess(false);

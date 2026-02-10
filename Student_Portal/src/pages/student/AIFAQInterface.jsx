@@ -16,24 +16,48 @@ const AIFAQInterface = () => {
         scrollToBottom();
     }, [messages]);
 
-    const handleSend = (e) => {
+    const [isTyping, setIsTyping] = useState(false);
+
+    const handleSend = async (e) => {
         e.preventDefault();
-        if (!input.trim()) return;
+        if (!input.trim() || isTyping) return;
 
         const userMsg = { id: Date.now(), role: 'user', text: input, time: 'Now' };
-        setMessages([...messages, userMsg]);
+        setMessages(prev => [...prev, userMsg]);
+        const questionText = input;
         setInput('');
+        setIsTyping(true);
 
-        // Simulate AI "typing"
-        setTimeout(() => {
+        try {
+            // Call Supabase Edge Function
+            const { data, error } = await supabase.functions.invoke('ai-tutor', {
+                body: {
+                    question: questionText,
+                    courseId: 'default' // In a full implementation, we'd pass the actual active course ID
+                }
+            });
+
+            if (error) throw error;
+
             const botMsg = {
                 id: Date.now() + 1,
                 role: 'assistant',
-                text: "That's a great question. In a full implementation, I would analyze your course materials to provide a specific answer. For now, remember that I'm here to support your conceptual understanding, not to do the assignments for you!",
+                text: data.answer || "I'm having trouble connecting to my central brain. Please try again in a moment.",
                 time: 'Now'
             };
             setMessages(prev => [...prev, botMsg]);
-        }, 800);
+        } catch (err) {
+            console.error('AI Error:', err);
+            const errMsg = {
+                id: Date.now() + 1,
+                role: 'assistant',
+                text: "My neural links are experiencing turbulence. Protocol: Manual retry required.",
+                time: 'Now'
+            };
+            setMessages(prev => [...prev, errMsg]);
+        } finally {
+            setIsTyping(false);
+        }
     };
 
     return (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import {
@@ -35,6 +35,52 @@ export default function LessonPlayerPage() {
     const [questions, setQuestions] = useState([]);
     const [newQuestion, setNewQuestion] = useState('');
     const [postingQuestion, setPostingQuestion] = useState(false);
+    const [aiInput, setAiInput] = useState('');
+    const [aiMessages, setAiMessages] = useState([
+        { role: 'assistant', content: "Hello! I'm your AI curriculum assistant. How can I help you understand this lesson better?" }
+    ]);
+    const [isAiTyping, setIsAiTyping] = useState(false);
+    const chatEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+        if (sidebarTab === 'ai') {
+            scrollToBottom();
+        }
+    }, [aiMessages, sidebarTab]);
+
+    const handleAiChat = async (e) => {
+        e.preventDefault();
+        if (!aiInput.trim() || isAiTyping) return;
+
+        const userMsg = { role: 'user', content: aiInput };
+        setAiMessages(prev => [...prev, userMsg]);
+        const questionText = aiInput;
+        setAiInput('');
+        setIsAiTyping(true);
+
+        try {
+            const { data, error } = await supabase.functions.invoke('ai-tutor', {
+                body: {
+                    question: questionText,
+                    courseId: courseId,
+                    lessonId: lessonId
+                }
+            });
+
+            if (error) throw error;
+
+            setAiMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
+        } catch (err) {
+            console.error('AI Error:', err);
+            setAiMessages(prev => [...prev, { role: 'assistant', content: "My cognitive links are saturated. Please standby for manual sync." }]);
+        } finally {
+            setIsAiTyping(false);
+        }
+    };
 
     const fetchCourseAndLessonData = async () => {
         try {
@@ -702,58 +748,109 @@ export default function LessonPlayerPage() {
                         <button onClick={() => window.innerWidth < 1024 && setSidebarOpen(false)} className="p-4 lg:hidden text-gray-400"><X size={16} /></button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto scrollbar-hide bg-gray-50">
-                        {course.modules?.map((mod) => {
-                            const isModLocked = mod.status !== 'unlocked' && mod.week_number !== 1 && moduleProgress[mod.id] !== 'unlocked' && moduleProgress[mod.id] !== 'completed';
-                            if (isModLocked) return null;
+                    <div className="flex-1 overflow-y-auto scrollbar-hide bg-gray-50 flex flex-col">
+                        {sidebarTab === 'content' ? (
+                            <div className="flex-1">
+                                {course.modules?.map((mod) => {
+                                    const isModLocked = mod.status !== 'unlocked' && mod.week_number !== 1 && moduleProgress[mod.id] !== 'unlocked' && moduleProgress[mod.id] !== 'completed';
+                                    if (isModLocked) return null;
 
-                            return (
-                                <div key={mod.id} className="border-b border-gray-200 bg-white">
-                                    <button onClick={() => toggleModule(mod.id)} className="w-full flex items-center justify-between p-4 bg-[#f7f9fa] border-b border-gray-100 hover:bg-gray-100 group">
-                                        <div className="flex-1 text-left min-w-0 pr-4">
-                                            <h3 className="font-bold text-[12px] text-gray-900 uppercase tracking-tight line-clamp-2 mb-1">Section {mod.week_number}: {mod.title}</h3>
-                                            <div className="flex items-center gap-2 text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                                                <span>{mod.lessons?.length || 0} units</span>
-                                                <span>•</span>
-                                                <span>{mod.total_minutes}m total</span>
+                                    return (
+                                        <div key={mod.id} className="border-b border-gray-200 bg-white">
+                                            <button onClick={() => toggleModule(mod.id)} className="w-full flex items-center justify-between p-4 bg-[#f7f9fa] border-b border-gray-100 hover:bg-gray-100 group">
+                                                <div className="flex-1 text-left min-w-0 pr-4">
+                                                    <h3 className="font-bold text-[12px] text-gray-900 uppercase tracking-tight line-clamp-2 mb-1">Section {mod.week_number}: {mod.title}</h3>
+                                                    <div className="flex items-center gap-2 text-[10px] text-gray-500 font-black uppercase tracking-widest">
+                                                        <span>{mod.lessons?.length || 0} units</span>
+                                                        <span>•</span>
+                                                        <span>{mod.total_minutes}m total</span>
+                                                    </div>
+                                                </div>
+                                                <ChevronRight size={16} className={`shrink-0 transition-transform ${expandedModules[mod.id] ? 'rotate-[-90deg]' : 'rotate-90 text-gray-400'}`} />
+                                            </button>
+
+                                            {expandedModules[mod.id] && (
+                                                <div className="bg-white">
+                                                    {mod.lessons?.map((lesson, lIdx) => {
+                                                        const isCompleted = lessonProgress[lesson.id]?.is_completed;
+                                                        let isLessonLocked = false;
+                                                        if (lIdx > 0 && !lessonProgress[mod.lessons[lIdx - 1].id]?.is_completed) isLessonLocked = true;
+
+                                                        return (
+                                                            <button
+                                                                key={lesson.id}
+                                                                onClick={() => !isLessonLocked && handleLessonClick(mod, lesson)}
+                                                                className={`w-full flex items-start p-4 pr-10 text-left relative ${currentLesson?.id === lesson.id ? 'bg-[#e4e8eb]' : 'hover:bg-[#f7f9fa]'} ${isLessonLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                            >
+                                                                <div className="pt-1 mr-3 shrink-0">
+                                                                    <div className={`w-4 h-4 border ${isCompleted ? 'bg-primary border-primary' : currentLesson?.id === lesson.id ? 'border-primary' : 'border-gray-400'} flex items-center justify-center`}>
+                                                                        {isCompleted ? <Check size={10} strokeWidth={4} className="text-white" /> : isLessonLocked ? <Lock size={8} className="text-gray-400" /> : null}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className={`text-[12px] leading-tight mb-2 uppercase tracking-tight ${currentLesson?.id === lesson.id ? 'text-primary' : 'text-gray-900'}`}>{lIdx + 1}. {lesson.title}</p>
+                                                                    <div className="flex items-center gap-2 text-[10px] text-gray-400 font-black uppercase tracking-widest">
+                                                                        <PlayCircle size={10} />
+                                                                        <span>{Math.floor((lesson.duration_seconds || 0) / 60)}m</span>
+                                                                    </div>
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex flex-col bg-white">
+                                <div className="p-6 bg-[#f7f9fa] border-b border-gray-100 italic">
+                                    <p className="text-[10px] font-bold text-gray-500 leading-relaxed uppercase tracking-tighter">
+                                        Ask me anything about <span className="text-primary font-black">"{currentLesson?.title || 'this lesson'}"</span> or the course curriculum.
+                                    </p>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth">
+                                    {aiMessages.map((msg, i) => (
+                                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`max-w-[85%] p-4 text-[12px] font-medium leading-relaxed ${msg.role === 'user' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}>
+                                                {msg.content}
                                             </div>
                                         </div>
-                                        <ChevronRight size={16} className={`shrink-0 transition-transform ${expandedModules[mod.id] ? 'rotate-[-90deg]' : 'rotate-90 text-gray-400'}`} />
-                                    </button>
-
-                                    {expandedModules[mod.id] && (
-                                        <div className="bg-white">
-                                            {mod.lessons?.map((lesson, lIdx) => {
-                                                const isCompleted = lessonProgress[lesson.id]?.is_completed;
-                                                let isLessonLocked = false;
-                                                if (lIdx > 0 && !lessonProgress[mod.lessons[lIdx - 1].id]?.is_completed) isLessonLocked = true;
-
-                                                return (
-                                                    <button
-                                                        key={lesson.id}
-                                                        onClick={() => !isLessonLocked && handleLessonClick(mod, lesson)}
-                                                        className={`w-full flex items-start p-4 pr-10 text-left relative ${currentLesson?.id === lesson.id ? 'bg-[#e4e8eb]' : 'hover:bg-[#f7f9fa]'} ${isLessonLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                    >
-                                                        <div className="pt-1 mr-3 shrink-0">
-                                                            <div className={`w-4 h-4 border ${isCompleted ? 'bg-primary border-primary' : currentLesson?.id === lesson.id ? 'border-primary' : 'border-gray-400'} flex items-center justify-center`}>
-                                                                {isCompleted ? <Check size={10} strokeWidth={4} className="text-white" /> : isLessonLocked ? <Lock size={8} className="text-gray-400" /> : null}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className={`text-[12px] leading-tight mb-2 uppercase tracking-tight ${currentLesson?.id === lesson.id ? 'text-primary' : 'text-gray-900'}`}>{lIdx + 1}. {lesson.title}</p>
-                                                            <div className="flex items-center gap-2 text-[10px] text-gray-400 font-black uppercase tracking-widest">
-                                                                <PlayCircle size={10} />
-                                                                <span>{Math.floor((lesson.duration_seconds || 0) / 60)}m</span>
-                                                            </div>
-                                                        </div>
-                                                    </button>
-                                                );
-                                            })}
+                                    ))}
+                                    {isAiTyping && (
+                                        <div className="flex justify-start">
+                                            <div className="bg-gray-100 p-4 rounded-sm animate-pulse">
+                                                <div className="flex gap-1">
+                                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+                                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
+                                    <div ref={chatEndRef} />
                                 </div>
-                            );
-                        })}
+                                <div className="p-4 border-t border-gray-200">
+                                    <form onSubmit={handleAiChat} className="relative">
+                                        <input
+                                            type="text"
+                                            value={aiInput}
+                                            onChange={(e) => setAiInput(e.target.value)}
+                                            placeholder="Ask the curator..."
+                                            className="w-full bg-[#f3f4f6] p-4 pr-12 text-[12px] font-medium focus:outline-none focus:bg-white focus:ring-1 focus:ring-primary/20 transition-all border border-transparent focus:border-gray-200"
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={!aiInput.trim() || isAiTyping}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-primary hover:text-black transition-colors disabled:opacity-30"
+                                        >
+                                            <Send size={16} />
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </aside>
             </div>
