@@ -7,10 +7,12 @@ import {
     Loader2, BookOpen, Clock, Award,
     Check, Play, Download, FileDown, Info
 } from 'lucide-react';
+import { useConnectivity } from '../../context/ConnectivityContext';
 
 export default function ModuleViewPage() {
     const { courseId, moduleId } = useParams();
     const navigate = useNavigate();
+    const { notifySyncFailure, registerRetry } = useConnectivity();
     const [module, setModule] = useState(null);
     const [lessons, setLessons] = useState([]);
     const [resources, setResources] = useState([]);
@@ -23,10 +25,19 @@ export default function ModuleViewPage() {
     const [completing, setCompleting] = useState(false);
 
     useEffect(() => {
-        fetchModuleData();
-    }, [moduleId]);
+        const controller = new AbortController();
+        const fetchData = () => fetchModuleData(controller.signal);
 
-    const fetchModuleData = async () => {
+        fetchData();
+        const unregister = registerRetry(fetchData);
+
+        return () => {
+            controller.abort();
+            unregister();
+        };
+    }, [moduleId, registerRetry]);
+
+    const fetchModuleData = async (signal) => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
@@ -35,6 +46,7 @@ export default function ModuleViewPage() {
                 .from('modules')
                 .select('*, courses(*)')
                 .eq('id', moduleId)
+                .abortSignal(signal)
                 .single();
 
             if (error) throw error;
@@ -46,25 +58,53 @@ export default function ModuleViewPage() {
                 .select('status')
                 .eq('user_id', user.id)
                 .eq('module_id', moduleId)
+                .abortSignal(signal)
                 .maybeSingle();
 
             let isActuallyLocked = true;
             if (modData.week_number === 1 && modData.status !== 'locked') {
                 isActuallyLocked = false;
-            } else if (prog) {
-                if (prog.status === 'unlocked' || prog.status === 'completed') {
-                    isActuallyLocked = false;
-                    if (prog.status === 'completed') setCompleted(true);
+            } else {
+                // Hard Rule: Previous module MUST have all its assignments submitted
+                const { data: prevMod } = await supabase
+                    .from('modules')
+                    .select('id, assignments(*)')
+                    .eq('course_id', modData.course_id)
+                    .eq('week_number', modData.week_number - 1)
+                    .maybeSingle();
+
+                if (prevMod) {
+                    const prevAssigns = prevMod.assignments || [];
+                    const { data: prevSubs } = await supabase
+                        .from('assignment_submissions')
+                        .select('assignment_id')
+                        .eq('user_id', user.id)
+                        .in('assignment_id', prevAssigns.map(a => a.id));
+
+                    const hasPendingPrev = prevAssigns.some(a => !prevSubs?.some(s => s.assignment_id === a.id));
+
+                    if (!hasPendingPrev) {
+                        if (prog && (prog.status === 'unlocked' || prog.status === 'completed')) {
+                            isActuallyLocked = false;
+                            if (prog.status === 'completed') setCompleted(true);
+                        }
+                    }
+                } else {
+                    // No previous week (e.g. Week 1 handled above, or gap in weeks)
+                    if (prog && (prog.status === 'unlocked' || prog.status === 'completed')) {
+                        isActuallyLocked = false;
+                        if (prog.status === 'completed') setCompleted(true);
+                    }
                 }
             }
             setLocked(isActuallyLocked);
 
             if (!isActuallyLocked) {
                 const [lessonsRes, resourcesRes, progressRes, assignmentRes] = await Promise.all([
-                    supabase.from('lessons').select('*').eq('module_id', moduleId).order('order_index', { ascending: true }),
-                    supabase.from('resources').select('*').eq('parent_id', moduleId).eq('visibility_status', 'published'),
-                    supabase.from('lesson_progress').select('lesson_id, is_completed').eq('user_id', user.id),
-                    supabase.from('assignments').select('*').eq('module_id', moduleId).maybeSingle()
+                    supabase.from('lessons').select('*').eq('module_id', moduleId).order('order_index', { ascending: true }).abortSignal(signal),
+                    supabase.from('resources').select('*').eq('parent_id', moduleId).eq('visibility_status', 'published').abortSignal(signal),
+                    supabase.from('lesson_progress').select('lesson_id, is_completed').eq('user_id', user.id).abortSignal(signal),
+                    supabase.from('assignments').select('*').eq('module_id', moduleId).maybeSingle().abortSignal(signal)
                 ]);
 
                 setLessons(lessonsRes.data || []);
@@ -78,13 +118,17 @@ export default function ModuleViewPage() {
                         .select('*')
                         .eq('assignment_id', assignmentRes.data.id)
                         .eq('user_id', user.id)
+                        .abortSignal(signal)
                         .maybeSingle();
                     setSubmission(subData);
                 }
             }
+            notifySyncFailure(false); // Success
 
         } catch (error) {
+            if (error.name === 'AbortError') return;
             console.error('Error fetching module view:', error);
+            notifySyncFailure(true);
         } finally {
             setLoading(false);
         }

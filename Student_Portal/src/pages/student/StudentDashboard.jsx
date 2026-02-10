@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLoading } from '../../context/LoadingContext';
 import { motion } from 'framer-motion';
@@ -11,6 +11,8 @@ import {
     Zap, Download, Star, User, Loader2, RefreshCw,
     Activity, Shield, Target, Lock
 } from 'lucide-react';
+import { useConnectivity } from '../../context/ConnectivityContext';
+import { usePersistentQuery } from '../../hooks/usePersistentQuery';
 
 const StatCard = ({ icon: Icon, label, value, loading }) => (
     <div className="bg-white p-8 border border-gray-100 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all group">
@@ -47,137 +49,153 @@ const StudentDashboard = () => {
     const { profile, user } = useAuth();
     const navigate = useNavigate();
     const { setIsLoading: setGlobalLoading } = useLoading();
-    const [enrolledCourses, setEnrolledCourses] = useState([]);
-    const [application, setApplication] = useState(null);
-    const [upcomingAssignments, setUpcomingAssignments] = useState([]);
-    const [assignmentCount, setAssignmentCount] = useState(0);
-    const [loading, setLoading] = useState(true);
 
-    const fetchInitialState = async () => {
-        setLoading(true);
-        try {
-            // Fetch Enrollments with course modules
-            const { data: enrollments, error: enrollError } = await supabase
-                .from('enrollments')
-                .select('*, course:course_id(*, modules(*, lessons(id)))')
-                .eq('student_id', user.id)
-                .eq('status', 'active');
+    // fetchDashboardData: The revalidation logic for SWR
+    const fetchDashboardData = useCallback(async (signal) => {
+        if (!user) return null;
 
-            if (enrollError) throw enrollError;
+        // 1. Fetch Enrollments with course data
+        const { data: enrollments, error: enrollError } = await supabase
+            .from('enrollments')
+            .select('*, course:course_id(*, md:modules(*, lessons(id), assignments(id)))')
+            .eq('student_id', user?.id)
+            .eq('status', 'active')
+            .abortSignal(signal);
 
-            // Fetch Progress to identify current/next module
-            const { data: allProgress } = await supabase
-                .from('module_progress')
-                .select('*')
-                .eq('user_id', user.id);
+        if (enrollError) throw enrollError;
 
-            // Fetch Lesson Progress for granular dashboard display
-            const { data: lessonProgress } = await supabase
-                .from('lesson_progress')
-                .select('lesson_id, is_completed')
-                .eq('user_id', user.id);
+        // 2. Fetch All Progress in Parallel
+        const [modProgRes, lessProgRes, appRes] = await Promise.all([
+            supabase.from('module_progress').select('*').eq('user_id', user?.id).abortSignal(signal),
+            supabase.from('lesson_progress').select('lesson_id, course_id, is_completed').eq('user_id', user?.id).abortSignal(signal),
+            supabase.from('applications').select('*, requested_course:courses!requested_course_id(title)')
+                .eq('email', user?.email).order('created_at', { ascending: false }).limit(1).abortSignal(signal)
+        ]);
 
-            // Fetch Application Status
-            const { data: apps, error: appError } = await supabase
-                .from('applications')
-                .select('*, requested_course:courses!requested_course_id(title)')
-                .eq('email', user.email)
-                .order('created_at', { ascending: false })
-                .limit(1);
+        const allP = modProgRes.data || [];
+        const lessonP = lessProgRes.data || [];
+        const app = appRes.data?.[0] || null;
 
-            if (appError) throw appError;
+        // 3. Fetch Assignments
+        let subIds = new Set();
+        let upcoming = [];
+        let count = 0;
 
-            setApplication(apps?.[0] || null);
-
-            // Fetch Assignments and Submissions
-            const courseIds = (enrollments || []).map(e => e.course_id).filter(Boolean);
-            if (courseIds.length > 0) {
-                const { data: assignmentsData, error: assignError } = await supabase
+        const activeCourseIds = (enrollments || []).map(e => e.course_id).filter(Boolean);
+        if (activeCourseIds.length > 0) {
+            try {
+                const { data: rawAssign } = await supabase
                     .from('assignments')
-                    .select('*, modules!inner(id, course_id, courses(title))')
-                    .in('modules.course_id', courseIds);
+                    .select('*, courses:course_id(title), module:module_id(id, course_id)')
+                    .abortSignal(signal);
 
-                if (assignError) {
-                    console.error('Assignment Fetch Error:', assignError);
+                if (rawAssign) {
+                    const filtered = rawAssign.filter(a => a.module && activeCourseIds.includes(a.module.course_id));
+                    const { data: subs } = await supabase.from('assignment_submissions').select('assignment_id').eq('user_id', user?.id).abortSignal(signal);
+                    subs?.forEach(s => subIds.add(s.assignment_id));
+                    const pending = filtered.filter(a => !subIds.has(a.id));
+                    upcoming = pending.slice(0, 3);
+                    count = pending.length;
+                }
+            } catch (e) {
+                if (e.name !== 'AbortError') console.warn("Dashboard assignments error:", e);
+            }
+        }
+
+        // 4. Map UI State 
+        const courses = (enrollments || []).map(enrollment => {
+            const courseData = enrollment.course;
+            if (!courseData) return null;
+
+            const sortedModules = (courseData.md || []).sort((a, b) => a.week_number - b.week_number);
+            // 1. Find the first module encounter that is either incomplete or has pending assignment
+            let indicator = null;
+            let firstLockedModuleId = null;
+
+            for (let i = 0; i < sortedModules.length; i++) {
+                const m = sortedModules[i];
+                const modAssignments = m.assignments || [];
+                const pendingAssign = modAssignments.find(a => !subIds.has(a.id));
+
+                const mProg = allP.find(p => p.module_id === m.id);
+                const isCompleted = mProg?.status === 'completed';
+
+                // Check if this module is locked by a PREVIOUS module's pending assignment
+                const isLockedByPrereq = i > 0 && (() => {
+                    const prevMod = sortedModules[i - 1];
+                    const prevAssigns = prevMod.assignments || [];
+                    return prevAssigns.some(a => !subIds.has(a.id));
+                })();
+
+                if (isLockedByPrereq && !firstLockedModuleId) {
+                    firstLockedModuleId = m.id;
                 }
 
-                const { data: submissionsData } = await supabase
-                    .from('assignment_submissions')
-                    .select('assignment_id')
-                    .eq('user_id', user.id);
-
-                const submittedIds = new Set(submissionsData?.map(s => s.assignment_id) || []);
-                const pending = (assignmentsData || []).filter(a => !submittedIds.has(a.id));
-
-                setUpcomingAssignments(pending.slice(0, 3));
-                setAssignmentCount(pending.length);
-            }
-
-            const mappedCourses = (enrollments || []).map(enrollment => {
-                const courseData = enrollment.course;
-                if (courseData) {
-                    const sortedModules = (courseData.modules || []).sort((a, b) => a.week_number - b.week_number);
-
-                    // Identify next module
-                    const nextModule = sortedModules.find(m => {
-                        const prog = allProgress?.find(p => p.module_id === m.id);
-                        return prog?.status !== 'completed';
-                    }) || sortedModules[sortedModules.length - 1];
-
-                    const nextModuleProgress = allProgress?.find(p => p.module_id === nextModule?.id);
-                    const isNextLocked = nextModule?.status !== 'unlocked' &&
-                        nextModule?.week_number !== 1 &&
-                        nextModuleProgress?.status !== 'unlocked';
-
-                    // Identify accessible items (Complexity-aware progress tracking)
-                    const accessibleModules = sortedModules.filter(m => {
-                        const prog = allProgress?.find(p => p.module_id === m.id);
-                        return m.week_number === 1 ||
-                            m.status === 'unlocked' ||
-                            prog?.status === 'unlocked' ||
-                            prog?.status === 'completed';
-                    });
-
-                    const accessibleLessons = accessibleModules.flatMap(m => m.lessons || []);
-
-                    const completedModulesCount = accessibleModules.filter(m =>
-                        allProgress?.find(p => p.module_id === m.id && p.status === 'completed')
-                    ).length;
-
-                    const completedLessonsCount = accessibleLessons.filter(l =>
-                        lessonProgress?.some(lp => lp.lesson_id === l.id && lp.is_completed)
-                    ).length;
-
-                    const totalItems = accessibleModules.length + accessibleLessons.length;
-                    const completedItems = completedModulesCount + completedLessonsCount;
-                    const progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-
-                    return {
-                        id: courseData.id,
-                        name: courseData.title || courseData.name,
-                        code: courseData.code || 'CCA-CORE-01',
-                        duration: courseData.duration || '12 Weeks',
-                        enrollmentDate: enrollment.created_at,
-                        paymentStatus: enrollment.payment_status,
-                        progress: progressPercent,
-                        lastActive: 'Recently',
-                        image: courseData.image_url || `https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80`,
-                        nextModule: nextModule ? {
-                            title: nextModule.title,
-                            isLocked: isNextLocked,
-                            week: nextModule.week_number
-                        } : null
+                if (!indicator && (pendingAssign || !isCompleted)) {
+                    indicator = {
+                        week: m.week_number,
+                        status: pendingAssign ? 'pending' : 'active',
+                        id: m.id,
+                        isLocked: isLockedByPrereq || (m.week_number !== 1 && mProg?.status !== 'unlocked' && mProg?.status !== 'completed')
                     };
                 }
-                return null;
-            }).filter(Boolean);
+            }
 
-            setEnrolledCourses(mappedCourses);
-        } catch (error) {
-            console.error('Error fetching dashboard state:', error);
-        } finally {
-            setLoading(false);
-        }
+            // 2. If no indicator (all done), show last week as submitted
+            if (!indicator) {
+                const modulesWithAssignments = [...sortedModules].reverse().filter(m => m.assignments?.length > 0);
+                if (modulesWithAssignments.length > 0) {
+                    const m = modulesWithAssignments[0];
+                    indicator = {
+                        week: m.week_number,
+                        status: 'submitted',
+                        id: m.id,
+                        isLocked: false
+                    };
+                }
+            }
+
+            const totalLessons = sortedModules.reduce((acc, mod) => acc + (mod.lessons?.length || 0), 0);
+            const courseLessons = (lessonP || []).filter(lp => {
+                return lp.course_id === courseData.id ||
+                    sortedModules.some(m => m.lessons?.some(l => l.id === lp.lesson_id));
+            });
+            const completedCount = courseLessons.filter(lp => lp.is_completed).length;
+            const progressValue = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+
+            return {
+                id: courseData.id,
+                title: courseData.title || courseData.name,
+                category: courseData.program_name || 'Curriculum',
+                progress: progressValue,
+                lastActive: 'Recently',
+                image: courseData.image_url || `https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80`,
+                indicator: indicator
+            };
+        }).filter(Boolean);
+
+        return {
+            enrolledCourses: courses,
+            application: app,
+            upcomingAssignments: upcoming,
+            assignmentCount: count
+        };
+    }, [user?.id]);
+
+    const { data: dashboardData, loading: contentLoading, revalidate } = usePersistentQuery(
+        'cc_student_dashboard_data',
+        fetchDashboardData,
+        [user?.id]
+    );
+
+    const enrolledCourses = dashboardData?.enrolledCourses || [];
+    const application = dashboardData?.application || null;
+    const upcomingAssignments = dashboardData?.upcomingAssignments || [];
+    const assignmentCount = dashboardData?.assignmentCount || 0;
+    const loading = contentLoading && !dashboardData;
+
+    const fetchInitialState = async () => {
+        await revalidate();
     };
 
     const handleCoursePlay = async (courseId) => {
@@ -235,6 +253,13 @@ const StudentDashboard = () => {
                 .maybeSingle();
 
             if (firstLesson) {
+                // Final Check: Is this lesson's module hard-locked?
+                const courseRecord = enrolledCourses.find(c => c.id === courseId);
+                if (courseRecord?.indicator?.isLocked && courseRecord.indicator.id === targetModule.id) {
+                    console.warn("🚫 Target module is hard-locked by assignment prerequisite.");
+                    navigate(`/student/course/${courseId}`);
+                    return;
+                }
                 navigate(`/student/course/${courseId}/module/${targetModule.id}/lesson/${firstLesson.id}`);
             } else {
                 navigate(`/student/course/${courseId}/module/${targetModule.id}`);
@@ -248,11 +273,9 @@ const StudentDashboard = () => {
         }
     };
 
-    useEffect(() => {
-        if (user) {
-            fetchInitialState();
-        }
-    }, [user]);
+    const handleManualRefresh = () => {
+        revalidate();
+    };
 
 
 
@@ -285,10 +308,10 @@ const StudentDashboard = () => {
                 </div>
                 <div className="flex flex-col items-start md:items-end gap-3 w-full md:w-auto">
                     <button
-                        onClick={fetchInitialState}
+                        onClick={handleManualRefresh}
                         className="text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-primary flex items-center gap-2 transition-all p-2 rounded-sm hover:bg-gray-50"
                     >
-                        <RefreshCw size={10} className={loading ? 'animate-spin' : ''} />
+                        <RefreshCw size={10} className={contentLoading ? 'animate-spin' : ''} />
                         Refresh Data
                     </button>
                     <div className="bg-green-50 text-green-600 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] border border-green-100 flex items-center gap-2 rounded-sm">
@@ -378,15 +401,22 @@ const StudentDashboard = () => {
                                                         <span className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                                             <Clock size={12} /> {course.duration}
                                                         </span>
-                                                        {course.nextModule && (
-                                                            <div className={`flex items-center gap-2 px-2 py-0.5 rounded-sm border ${course.nextModule.isLocked ? 'bg-gray-50 border-gray-100' : 'bg-primary/5 border-primary/10'}`}>
-                                                                {course.nextModule.isLocked ? (
+                                                        {course.indicator && (
+                                                            <div className={`flex items-center gap-2 px-3 py-1 rounded-sm border ${course.indicator.isLocked
+                                                                ? 'bg-gray-50 border-gray-100 text-gray-400'
+                                                                : course.indicator.status === 'submitted'
+                                                                    ? 'bg-green-50 border-green-100 text-green-600'
+                                                                    : 'bg-red-50 border-red-100 text-red-600'
+                                                                }`}>
+                                                                {course.indicator.isLocked ? (
                                                                     <Lock size={10} className="text-gray-300" />
+                                                                ) : course.indicator.status === 'submitted' ? (
+                                                                    <CheckCircle2 size={10} className="text-green-500" />
                                                                 ) : (
-                                                                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                                                                    <AlertCircle size={10} className="text-red-500 animate-pulse" />
                                                                 )}
-                                                                <span className={`text-[9px] font-black uppercase tracking-widest ${course.nextModule.isLocked ? 'text-gray-400' : 'text-primary'}`}>
-                                                                    Week {course.nextModule.week}: {course.nextModule.title}
+                                                                <span className="text-[9px] font-black uppercase tracking-widest">
+                                                                    Week {course.indicator.week} Assignment: {course.indicator.status === 'submitted' ? 'Submitted' : 'Pending'}
                                                                 </span>
                                                             </div>
                                                         )}

@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useModal } from '../context/ModalContext';
 import BrandedLoader from '../components/BrandedLoader';
+import { Link } from 'react-router-dom'
 
 const EnrolmentManagement = () => {
     const [activeTab, setActiveTab] = useState('leads');
@@ -46,8 +47,12 @@ const EnrolmentManagement = () => {
                     created_at,
                     status,
                     payment_status,
-                    profiles:student_id (full_name),
-                    application:application_id (program_interest)
+                    profiles:student_id (
+                        full_name
+                    ),
+                    application:application_id (
+                        program_interest
+                    )
                 `)
                 .order('created_at', { ascending: false });
 
@@ -170,7 +175,19 @@ const EnrolmentManagement = () => {
 
                 {/* New Leads Tab */}
                 {activeTab === 'leads' && (
-                    <div className="">
+                    <div className="space-y-8">
+                        <div className="flex justify-between items-center bg-black text-white p-8 border border-black shadow-xl">
+                            <div>
+                                <h3 className="text-xl font-black italic uppercase tracking-tight">Active Pipeline</h3>
+                                <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mt-1">Granular Follow-up & Engagement Tracking</p>
+                            </div>
+                            <Link
+                                to="/admin/leads-pipeline"
+                                className="bg-primary text-black px-8 py-4 font-black text-[10px] uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
+                            >
+                                Launch Pipeline View <ArrowRight size={14} />
+                            </Link>
+                        </div>
                         <div className="bg-white border border-gray-100 shadow-xl p-10">
                             <h2 className="text-xl font-black italic uppercase tracking-tight mb-8">Visitor Leads (Stage 1)</h2>
                             <LeadsList />

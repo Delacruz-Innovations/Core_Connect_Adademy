@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Download, FileText, Search, BookOpen, FileType, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
+import { useConnectivity } from '../../context/ConnectivityContext';
 
 const ResourceLibrary = () => {
     const { user } = useAuth();
+    const { notifySyncFailure, registerRetry } = useConnectivity();
     const [filter, setFilter] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
     const [resources, setResources] = useState([]);
@@ -12,8 +14,19 @@ const ResourceLibrary = () => {
     const [courseFilters, setCourseFilters] = useState(['All']);
 
     useEffect(() => {
-        if (user) fetchResources();
-    }, [user]);
+        if (!user) return;
+
+        const controller = new AbortController();
+        const fetchData = () => fetchResources(controller.signal);
+
+        fetchData();
+        const unregister = registerRetry(fetchData);
+
+        return () => {
+            controller.abort();
+            unregister();
+        };
+    }, [user, registerRetry]);
 
     const fetchResources = async () => {
         try {
@@ -39,10 +52,11 @@ const ResourceLibrary = () => {
                 .select(`
                     id, title, description, resource_type, file_path, parent_type, parent_id
                 `)
-                .eq('visibility_status', 'published');
+                .eq('visibility_status', 'published')
+                .abortSignal(signal);
 
-            const { data: modules } = await supabase.from('modules').select('id, course_id').in('course_id', courseIds);
-            const { data: lessons } = await supabase.from('lessons').select('id, module_id').in('module_id', modules?.map(m => m.id) || []);
+            const { data: modules } = await supabase.from('modules').select('id, course_id').in('course_id', courseIds).abortSignal(signal);
+            const { data: lessons } = await supabase.from('lessons').select('id, module_id').in('module_id', modules?.map(m => m.id) || []).abortSignal(signal);
 
             const validModuleIds = new Set(modules?.map(m => m.id));
             const validLessonIds = new Set(lessons?.map(l => l.id));
@@ -75,8 +89,11 @@ const ResourceLibrary = () => {
             });
 
             setResources(filteredRes);
+            notifySyncFailure(false);
         } catch (err) {
+            if (err.name === 'AbortError') return;
             console.error(err);
+            notifySyncFailure(true);
         } finally {
             setLoading(false);
         }

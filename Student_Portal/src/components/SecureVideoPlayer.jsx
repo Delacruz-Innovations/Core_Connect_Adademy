@@ -199,15 +199,20 @@ export default function SecureVideoPlayer({ lessonId, courseId, moduleId, videoP
         }
     };
 
+    // 4. Resume Trigger (Robust)
+    useEffect(() => {
+        if (!videoRef.current || hasResumed || initialTime < 2) return;
+        // Check if metadata is loaded (duration > 0 and readystate)
+        if (duration > 0 || videoRef.current.readyState >= 1) {
+            console.log(`🎬 Resuming playback at ${initialTime}s`);
+            videoRef.current.currentTime = Math.max(0, initialTime - 2);
+            setHasResumed(true);
+        }
+    }, [initialTime, hasResumed, duration]);
+
     const handleLoadedMetadata = () => {
         setDuration(videoRef.current.duration);
         setIsBuffering(false);
-
-        // Resume from last position logic
-        if (!hasResumed && initialTime > 5) {
-            videoRef.current.currentTime = Math.max(0, initialTime - 5);
-            setHasResumed(true);
-        }
     };
 
     const handleActivity = () => {

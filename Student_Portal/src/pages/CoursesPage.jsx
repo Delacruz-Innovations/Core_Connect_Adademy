@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion } from 'framer-motion';
@@ -37,6 +38,11 @@ const CoursesPage = () => {
 
     return (
         <div className="min-h-screen bg-white font-sans text-black">
+            <SEO
+                title="Professional Tech Tracks"
+                description="Browse our industry-aligned mentorship tracks designed for zero-to-one transformations into careers. Master practical skills through mentor-led hybrid learning."
+                url="/courses"
+            />
             <Navbar />
 
             {/* Hero Section - Full Screen & Fixed BG */}

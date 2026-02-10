@@ -3,10 +3,12 @@ import { User, Mail, Lock, LogOut, ShieldCheck, CheckCircle2, AlertCircle, Loade
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { useConnectivity } from '../../context/ConnectivityContext';
 
 const StudentProfile = () => {
     const { profile, user, signOut } = useAuth();
     const navigate = useNavigate();
+    const { notifySyncFailure, registerRetry } = useConnectivity();
 
     const [isUpdating, setIsUpdating] = useState(false);
     const [updateStatus, setUpdateStatus] = useState({ type: '', message: '' });
@@ -17,22 +19,35 @@ const StudentProfile = () => {
     });
 
     useEffect(() => {
-        if (user) {
-            fetchEnrollmentSummary();
-        }
-    }, [user]);
+        if (!user) return;
 
-    const fetchEnrollmentSummary = async () => {
+        const controller = new AbortController();
+        const fetchData = () => fetchEnrollmentSummary(controller.signal);
+
+        fetchData();
+        const unregister = registerRetry(fetchData);
+
+        return () => {
+            controller.abort();
+            unregister();
+        };
+    }, [user, registerRetry]);
+
+    const fetchEnrollmentSummary = async (signal) => {
         try {
             const { data, error } = await supabase
                 .from('enrollments')
                 .select('*, courses(title)')
-                .eq('student_id', user.id);
+                .eq('student_id', user.id)
+                .abortSignal(signal);
 
             if (error) throw error;
             setEnrollments(data || []);
+            notifySyncFailure(false); // Success
         } catch (err) {
+            if (err.name === 'AbortError') return;
             console.error('Error fetching enrollment summary:', err);
+            notifySyncFailure(true);
         }
     };
 
@@ -60,8 +75,11 @@ const StudentProfile = () => {
 
             setUpdateStatus({ type: 'success', message: 'Security credentials updated successfully!' });
             setPasswords({ new: '', confirm: '' });
+            notifySyncFailure(false);
         } catch (err) {
+            console.error('Security update failed:', err);
             setUpdateStatus({ type: 'error', message: err.message || 'Failed to update password.' });
+            notifySyncFailure(true);
         } finally {
             setIsUpdating(false);
         }

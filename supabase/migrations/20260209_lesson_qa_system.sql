@@ -76,3 +76,6 @@ CREATE POLICY "Admins can answer questions"
 ON public.lesson_questions FOR UPDATE
 TO authenticated
 USING (public.check_is_admin());
+
+
+$Password@60

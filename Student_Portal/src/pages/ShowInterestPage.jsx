@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion } from 'framer-motion';
@@ -7,9 +7,22 @@ import { supabase } from '../lib/supabaseClient';
 import { Check, ArrowRight, X, Send, MapPin, Globe, BookOpen, Laptop, User, AtSign, Briefcase, Phone, Loader2 } from 'lucide-react';
 
 const ShowInterestPage = () => {
+    const [searchParams] = useSearchParams();
+
     useEffect(() => {
         window.scrollTo(0, 0);
-    }, []);
+
+        // Handle URL Pre-filling
+        const program = searchParams.get('program');
+        const track = searchParams.get('track');
+
+        if (program) {
+            setFormData(prev => ({ ...prev, programType: program }));
+        }
+        if (track) {
+            setFormData(prev => ({ ...prev, programName: track }));
+        }
+    }, [searchParams]);
 
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({

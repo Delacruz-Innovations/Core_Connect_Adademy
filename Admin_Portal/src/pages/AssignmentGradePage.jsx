@@ -110,7 +110,31 @@ const AssignmentGradePage = () => {
                     </button>
                     <div>
                         <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 block">Critique & Grading Node</span>
-                        <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">Review Submission</h1>
+                        <div className="flex items-center gap-6">
+                            <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">Review Submission</h1>
+                            <button
+                                onClick={async () => {
+                                    setIsSaving(true);
+                                    try {
+                                        const { error } = await supabase
+                                            .from('assignment_submissions')
+                                            .update({ reviewed_status: 'reviewed' })
+                                            .eq('id', submissionId);
+                                        if (error) throw error;
+                                        showAlert('Submission marked as reviewed.', 'Status Updated', 'success');
+                                        fetchSubmission();
+                                    } catch (err) {
+                                        showAlert('Update failed: ' + err.message, 'Error', 'error');
+                                    } finally {
+                                        setIsSaving(false);
+                                    }
+                                }}
+                                disabled={isSaving || submission.reviewed_status === 'reviewed'}
+                                className="px-6 py-3 border-2 border-black text-[10px] font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all disabled:opacity-20 flex items-center gap-2"
+                            >
+                                <CheckCircle2 size={14} /> Quick Review
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

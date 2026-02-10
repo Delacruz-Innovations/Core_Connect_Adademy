@@ -1,7 +1,7 @@
 import React from 'react';
 import { Quote } from 'lucide-react';
 import { motion } from 'framer-motion';
-
+import { Link } from 'react-router-dom';
 const SuccessStories = () => {
     const stories = [
         {
@@ -57,9 +57,11 @@ const SuccessStories = () => {
                 </div>
 
                 <div className="mt-20 text-center">
-                    <button className="bg-primary text-white px-12 py-5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-xl shadow-primary/10">
-                        View All Testimonials
-                    </button>
+                    <Link to="/about">
+                        <button className="bg-primary text-white px-12 py-5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-xl shadow-primary/10">
+                            View All Testimonials
+                        </button>
+                    </Link>
                 </div>
             </div>
         </section>

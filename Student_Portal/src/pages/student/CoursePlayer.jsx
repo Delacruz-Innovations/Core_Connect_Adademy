@@ -7,10 +7,12 @@ import {
     CheckCircle2, Download, MessageSquare, BookOpen, Clock, Activity, ArrowLeft,
     Check
 } from 'lucide-react';
+import { useConnectivity } from '../../context/ConnectivityContext';
 
 export default function CoursePlayer() {
     const { courseId, lessonId } = useParams();
     const navigate = useNavigate();
+    const { notifySyncFailure, registerRetry } = useConnectivity();
     const [course, setCourse] = useState(null);
     const [currentLesson, setCurrentLesson] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -19,15 +21,25 @@ export default function CoursePlayer() {
     const [expandedModules, setExpandedModules] = useState({});
 
     useEffect(() => {
-        fetchCourseAndLessonData();
-    }, [courseId, lessonId]);
+        const controller = new AbortController();
+        const fetchData = () => fetchCourseAndLessonData(controller.signal);
 
-    const fetchCourseAndLessonData = async () => {
+        fetchData();
+        const unregister = registerRetry(fetchData);
+
+        return () => {
+            controller.abort();
+            unregister();
+        };
+    }, [courseId, lessonId, registerRetry]);
+
+    const fetchCourseAndLessonData = async (signal) => {
         try {
             const { data: courseData, error: courseError } = await supabase
                 .from('courses')
                 .select(`*, modules:modules(*, lessons:lessons(*))`)
                 .eq('id', courseId)
+                .abortSignal(signal)
                 .single();
 
             if (courseError) throw courseError;

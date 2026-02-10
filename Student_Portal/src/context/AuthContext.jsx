@@ -5,7 +5,15 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
-    const [profile, setProfile] = useState(null);
+    const [profile, setProfile] = useState(() => {
+        // Hydrate profile from localStorage on boot
+        try {
+            const cached = localStorage.getItem('cc_student_profile');
+            return cached ? JSON.parse(cached) : null;
+        } catch (e) {
+            return null;
+        }
+    });
     const [authStatus, setAuthStatus] = useState('loading');
 
     useEffect(() => {
@@ -16,6 +24,7 @@ export function AuthProvider({ children }) {
                 if (mounted) {
                     setUser(null);
                     setProfile(null);
+                    localStorage.removeItem('cc_student_profile');
                     setAuthStatus('unauthenticated');
                 }
                 return;
@@ -37,6 +46,7 @@ export function AuthProvider({ children }) {
 
                 if (mounted && data && !error) {
                     setProfile(data);
+                    localStorage.setItem('cc_student_profile', JSON.stringify(data));
                 }
             } catch (err) {
                 console.warn('🔇 Profile sync error (ignoring):', err);
@@ -69,8 +79,9 @@ export function AuthProvider({ children }) {
 
     const signOut = async () => {
         setAuthStatus('loading');
+        localStorage.removeItem('cc_student_profile');
         await supabase.auth.signOut();
-        // onAuthStateChange will handle the state updates
+        // onAuthStateChange will handle the remaining state updates
     };
 
     return (

@@ -3,10 +3,12 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Upload, FileText, ArrowLeft, CheckCircle2, Clock, AlertCircle, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
+import { useConnectivity } from '../../context/ConnectivityContext';
 
 const AssignmentUpload = () => {
     const { assignmentId } = useParams();
     const navigate = useNavigate();
+    const { notifySyncFailure, registerRetry } = useConnectivity();
     const [isUploaded, setIsUploaded] = useState(false);
     const [dragActive, setDragActive] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -16,10 +18,19 @@ const AssignmentUpload = () => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        fetchAssignment();
-    }, [assignmentId]);
+        const controller = new AbortController();
+        const fetchData = () => fetchAssignment(controller.signal);
 
-    const fetchAssignment = async () => {
+        fetchData();
+        const unregister = registerRetry(fetchData);
+
+        return () => {
+            controller.abort();
+            unregister();
+        };
+    }, [assignmentId, registerRetry]);
+
+    const fetchAssignment = async (signal) => {
         try {
             const { data, error } = await supabase
                 .from('assignments')
@@ -32,6 +43,7 @@ const AssignmentUpload = () => {
                     lesson:lesson_id(title)
                 `)
                 .eq('id', assignmentId)
+                .abortSignal(signal)
                 .single();
 
             if (error) throw error;
@@ -43,12 +55,17 @@ const AssignmentUpload = () => {
                 .select('*')
                 .eq('assignment_id', assignmentId)
                 .eq('user_id', user.id)
+                .abortSignal(signal)
                 .maybeSingle();
 
             setSubmission(subData);
-        } catch (error) { // Changed err to error
+            setIsUploaded(!!subData);
+            notifySyncFailure(false); // Success
+        } catch (error) {
+            if (error.name === 'AbortError') return;
             console.error('Error fetching assignment:', error);
-            setError(error.message); // Changed error message
+            setError(error.message);
+            notifySyncFailure(true);
         } finally {
             setLoading(false);
         }
@@ -99,12 +116,16 @@ const AssignmentUpload = () => {
                     updated_at: new Date().toISOString() // Added updated_at
                 }, { onConflict: 'user_id, assignment_id' });
 
-            if (dbError) throw dbError; // Changed subError to dbError
-            alert('Submission archived successfully.'); // Changed alert message
-            fetchAssignment(); // Re-fetch assignment to update submission status
-        } catch (error) { // Changed err to error
+            if (dbError) throw dbError;
+
+            setIsUploaded(true);
+            setSubmission({ file_path: filePath, updated_at: new Date().toISOString() });
+            alert('Submission archived successfully.');
+            fetchAssignment(); // Re-fetch for full record sync
+        } catch (error) {
             console.error('Upload failed:', error);
-            alert('Upload failed: ' + error.message); // Changed alert message
+            notifySyncFailure(true);
+            alert('Upload failed: ' + error.message);
         } finally {
             setUploading(false);
         }
@@ -233,13 +254,19 @@ const AssignmentUpload = () => {
                                 <h4 className="text-lg font-black uppercase tracking-tight mb-2 text-gray-900">Upload Submission</h4>
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-8">Drag & Drop or Click to Browse</p>
 
-                                <label className="bg-primary text-white px-10 py-4 text-[10px] font-bold uppercase tracking-[0.2em] cursor-pointer hover:bg-black transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 rounded-sm">
-                                    Select File
-                                    <input type="file" className="hidden" onChange={handleUpload} />
-                                </label>
+                                {assignment.due_at && new Date(assignment.due_at) < new Date() ? (
+                                    <div className="bg-red-50 text-red-600 px-8 py-4 text-[10px] font-bold uppercase tracking-widest border border-red-100 rounded-sm">
+                                        Deadline Passed: Access Restricted
+                                    </div>
+                                ) : (
+                                    <label className="bg-primary text-white px-10 py-4 text-[10px] font-bold uppercase tracking-[0.2em] cursor-pointer hover:bg-black transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 rounded-sm">
+                                        Select File
+                                        <input type="file" className="hidden" onChange={handleUpload} />
+                                    </label>
+                                )}
 
                                 <div className="mt-8 flex items-center gap-2 text-[9px] font-bold text-gray-300 uppercase tracking-widest">
-                                    <AlertCircle size={12} /> max file size 10MB (PDF, PNG, DOCX)
+                                    <AlertCircle size={12} /> max file size 10MB (PDF, PNG, DOCX) {assignment.due_at && `• Due: ${new Date(assignment.due_at).toLocaleDateString()}`}
                                 </div>
                             </motion.div>
                         ) : (
@@ -253,24 +280,30 @@ const AssignmentUpload = () => {
                                     <CheckCircle2 size={28} />
                                 </div>
                                 <h4 className="text-xl font-black uppercase tracking-tight text-green-700 mb-2">Submission Successful</h4>
-                                <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-8">Ref: SUB-2026-X89 • Sent at 20:30 GMT</p>
+                                <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-2 font-mono truncate max-w-xs">{submission?.file_path?.split('/').pop() || 'Archive-01.pdf'}</p>
+                                <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-8">Ref: SUB-{new Date(submission?.updated_at || Date.now()).getFullYear()}-X{submission?.id?.slice(0, 4).toUpperCase()} • Protocol Locked</p>
 
                                 <div className="flex flex-col sm:flex-row gap-4">
                                     <button className="bg-white text-green-700 border border-green-200 px-8 py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-green-600 hover:text-white hover:border-green-600 transition-all shadow-sm rounded-sm">
                                         Download Receipt
                                     </button>
-                                    <button
-                                        onClick={async () => {
-                                            if (window.confirm('PROTOCOL OVERRIDE: Are you sure you want to retract your submission?')) {
-                                                const { data: { user } } = await supabase.auth.getUser();
-                                                await supabase.from('assignment_submissions').delete().eq('assignment_id', assignmentId).eq('user_id', user.id);
-                                                setIsUploaded(false);
-                                            }
-                                        }}
-                                        className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-red-500 underline transition-all flex items-center justify-center gap-1"
-                                    >
-                                        <X size={12} /> Undo & Replace
-                                    </button>
+                                    {!(assignment.due_at && new Date(assignment.due_at) < new Date()) && (
+                                        <button
+                                            onClick={async () => {
+                                                if (window.confirm('PROTOCOL OVERRIDE: Are you sure you want to retract your submission?')) {
+                                                    const { data: { user } } = await supabase.auth.getUser();
+                                                    const { error: delError } = await supabase.from('assignment_submissions').delete().eq('assignment_id', assignmentId).eq('user_id', user.id);
+                                                    if (!delError) {
+                                                        setIsUploaded(false);
+                                                        setSubmission(null);
+                                                    }
+                                                }
+                                            }}
+                                            className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-red-500 underline transition-all flex items-center justify-center gap-1"
+                                        >
+                                            <X size={12} /> Undo & Replace
+                                        </button>
+                                    )}
                                 </div>
                             </motion.div>
                         )}

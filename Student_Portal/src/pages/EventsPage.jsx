@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion } from 'framer-motion';
@@ -11,6 +12,11 @@ const EventsPage = () => {
 
     return (
         <div className="min-h-screen bg-white font-sans text-black">
+            <SEO
+                title="Upcoming Academy Events"
+                description="Join our learning sessions and career clarity talks to understand the industry. Learn before you decide with our honest Q&A sessions."
+                url="/events"
+            />
             <Navbar />
 
             {/* Hero Section */}

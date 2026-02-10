@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion } from 'framer-motion';
@@ -11,6 +12,11 @@ const CareersPage = () => {
 
     return (
         <div className="min-h-screen bg-white font-sans text-black">
+            <SEO
+                title="Join Our Team of Mentors"
+                description="Work with us to help shape the next generation of engineers. We're looking for tutors and mentors who care about teaching properly."
+                url="/careers"
+            />
             <Navbar />
 
             {/* Hero Section */}

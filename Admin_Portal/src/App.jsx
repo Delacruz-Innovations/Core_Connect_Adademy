@@ -20,6 +20,7 @@ import ModuleEditPage from './pages/modules/ModuleEditPage';
 import LessonListPage from './pages/lessons/LessonListPage';
 import LessonCreatePage from './pages/lessons/LessonCreatePage';
 import ApplicationsReviewPage from './pages/ApplicationsReviewPage';
+import LeadPipelinePage from './pages/LeadPipelinePage';
 
 // Legacy (To be refactored)
 import VideoManagement from './pages/VideoManagement';
@@ -32,6 +33,7 @@ import EnrolmentManagement from './pages/EnrolmentManagement';
 import AIKnowledgeManagement from './pages/AIKnowledgeManagement';
 import AuditLogs from './pages/AuditLogs';
 import AdminProfile from './pages/AdminProfile';
+import QuestionManagement from './pages/QuestionManagement';
 
 import { ModalProvider } from './context/ModalContext';
 
@@ -76,7 +78,9 @@ function App() {
                 <Route path="/admin/submissions/:id/grade" element={<AssignmentGradePage />} />
                 <Route path="/admin/enrolments" element={<EnrolmentManagement />} />
                 <Route path="/admin/applications" element={<ApplicationsReviewPage />} />
+                <Route path="/admin/leads-pipeline" element={<LeadPipelinePage />} />
                 <Route path="/admin/ai-knowledge" element={<AIKnowledgeManagement />} />
+                <Route path="/admin/qa" element={<QuestionManagement />} />
                 <Route path="/admin/audit-logs" element={<AuditLogs />} />
                 <Route path="/admin/profile" element={<AdminProfile />} />
               </Route>

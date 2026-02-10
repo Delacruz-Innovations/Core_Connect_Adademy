@@ -33,10 +33,11 @@ export default function ModuleUnlockGuard() {
                     .select('status')
                     .eq('module_id', moduleId)
                     .eq('user_id', user.id)
-                    .single();
+                    .maybeSingle();
 
                 // week 1 is usually auto-unlocked by trigger, but we check status explicitly
-                if (progress?.status === 'unlocked' || progress?.status === 'completed') {
+                // or allow if it's week 1 and record hasn't been created yet.
+                if (progress?.status === 'unlocked' || progress?.status === 'completed' || modDetails?.week_number === 1) {
                     setAccess(true);
                 } else {
                     setAccess(false);

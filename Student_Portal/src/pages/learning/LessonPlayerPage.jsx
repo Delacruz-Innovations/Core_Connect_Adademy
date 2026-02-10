@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import {
@@ -11,36 +11,133 @@ import {
     Send, MessageCircle, HelpCircle, ClipboardCheck
 } from 'lucide-react';
 import SecureVideoPlayer from '../../components/SecureVideoPlayer';
+import { useConnectivity } from '../../context/ConnectivityContext';
+import { usePersistentQuery } from '../../hooks/usePersistentQuery';
+import { useMediaCache } from '../../hooks/useMediaCache';
 
 export default function LessonPlayerPage() {
     const { courseId, moduleId, lessonId } = useParams();
     const navigate = useNavigate();
-    const [course, setCourse] = useState(null);
-    const [currentLesson, setCurrentLesson] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const { notifySyncFailure } = useConnectivity();
+    const { cacheAsset } = useMediaCache();
+
     const [activeTab, setActiveTab] = useState('overview');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarTab, setSidebarTab] = useState('content');
-    const [moduleProgress, setModuleProgress] = useState({});
-    const [lessonProgress, setLessonProgress] = useState({});
-    const [savedPosition, setSavedPosition] = useState(0);
     const [expandedModules, setExpandedModules] = useState({});
     const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState(null);
     const [showAutoAdvance, setShowAutoAdvance] = useState(false);
-    const [lessonAssignment, setLessonAssignment] = useState(null);
-    const [assignmentSubmission, setAssignmentSubmission] = useState(null);
-    const [submittingAssignment, setSubmittingAssignment] = useState(false);
-    const [lessonResources, setLessonResources] = useState([]);
-    const [moduleResources, setModuleResources] = useState([]);
-    const [questions, setQuestions] = useState([]);
-    const [newQuestion, setNewQuestion] = useState('');
-    const [postingQuestion, setPostingQuestion] = useState(false);
-    const [aiInput, setAiInput] = useState('');
+
+    // States that will be derived or synced from the persistent query
     const [aiMessages, setAiMessages] = useState([
         { role: 'assistant', content: "Hello! I'm your AI curriculum assistant. How can I help you understand this lesson better?" }
     ]);
     const [isAiTyping, setIsAiTyping] = useState(false);
     const chatEndRef = useRef(null);
+
+    // fetchLessonData: The revalidation logic for SWR
+    const fetchLessonData = useCallback(async (signal) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        // 1. Fetch Course with nested structure
+        const { data: fetchedCourse, error: courseError } = await supabase
+            .from('courses')
+            .select(`*, modules:modules(*, lessons:lessons(*), assignments:assignments(*))`)
+            .eq('id', courseId)
+            .abortSignal(signal)
+            .single();
+
+        if (courseError) throw courseError;
+
+        // 2. Fetch Progress (Module & Lesson)
+        const [modProgRes, lessProgRes] = await Promise.all([
+            supabase.from('module_progress').select('*').eq('user_id', user.id).eq('course_id', courseId).abortSignal(signal),
+            supabase.from('lesson_progress').select('*').eq('user_id', user.id).eq('course_id', courseId).abortSignal(signal)
+        ]);
+
+        // 3. Fetch Lesson Specifics (Resources, Assignments, Q&A)
+        const [resRes, assignRes, qaRes] = await Promise.all([
+            // Resources: Fetch using parent_id (polymorphic)
+            supabase.from('resources').select('*')
+                .or(`parent_id.eq.${lessonId},parent_id.eq.${moduleId}`)
+                .eq('visibility_status', 'published')
+                .abortSignal(signal),
+            // Assignment: Fetch for current lesson
+            supabase.from('assignments').select('*').eq('lesson_id', lessonId).abortSignal(signal).maybeSingle(),
+            // Q&A: Use correct table name 'lesson_questions' and profile join hint
+            supabase.from('lesson_questions').select('*, profiles!student_id(full_name)')
+                .eq('lesson_id', lessonId)
+                .order('created_at', { ascending: false })
+                .abortSignal(signal)
+        ]);
+
+        // 4. Fetch ALL assignment submissions for the student to check hard-locks
+        const { data: allSubmissions } = await supabase.from('assignment_submissions')
+            .select('assignment_id')
+            .eq('user_id', user.id)
+            .abortSignal(signal);
+
+        const subIds = new Set(allSubmissions?.map(s => s.assignment_id) || []);
+        const subsData = assignRes.data ? allSubmissions?.find(s => s.assignment_id === assignRes.data.id) : null;
+
+        const modProgress = {};
+        modProgRes.data?.forEach(p => modProgress[p.module_id] = p);
+
+        const lessProgress = {};
+        lessProgRes.data?.forEach(p => lessProgress[p.lesson_id] = p);
+
+        const currentL = lessProgRes.data?.find(p => p.lesson_id === lessonId);
+        const currentLessonObj = fetchedCourse.modules
+            .flatMap(m => m.lessons)
+            .find(l => l.id === lessonId);
+
+        return {
+            course: fetchedCourse,
+            currentLesson: currentLessonObj,
+            moduleProgress: modProgress,
+            lessonProgress: lessProgress,
+            savedPosition: currentL?.last_position || 0,
+            lessonAssignment: assignRes.data,
+            assignmentSubmission: subsData,
+            allSubIds: subIds,
+            lessonResources: resRes.data?.filter(r => r.parent_id === lessonId) || [],
+            moduleResources: resRes.data?.filter(r => r.parent_id === moduleId) || [],
+            questions: qaRes.data || []
+        };
+    }, [courseId, moduleId, lessonId]);
+
+    const { data: pageData, loading: contentLoading, revalidate } = usePersistentQuery(
+        `cc_lesson_player_${lessonId}`,
+        fetchLessonData,
+        [courseId, moduleId, lessonId]
+    );
+
+    const course = pageData?.course || null;
+    const currentLesson = pageData?.currentLesson || null;
+    const moduleProgress = pageData?.moduleProgress || {};
+    const lessonProgress = pageData?.lessonProgress || {};
+    const savedPosition = pageData?.savedPosition || 0;
+    const lessonAssignment = pageData?.lessonAssignment || null;
+    const assignmentSubmission = pageData?.assignmentSubmission || null;
+    const allSubIds = pageData?.allSubIds || new Set();
+    const lessonResources = pageData?.lessonResources || [];
+    const moduleResources = pageData?.moduleResources || [];
+    const questions = pageData?.questions || [];
+    const loading = contentLoading && !pageData;
+
+    // Trigger Video Auto-Download when currentLesson is available
+    useEffect(() => {
+        if (currentLesson?.video_path) {
+            console.log("💾 Triggering auto-cache for lesson video:", currentLesson.video_path);
+            cacheAsset(currentLesson.video_path);
+        }
+    }, [currentLesson?.video_path, cacheAsset]);
+
+    const [newQuestion, setNewQuestion] = useState('');
+    const [postingQuestion, setPostingQuestion] = useState(false);
+    const [aiInput, setAiInput] = useState('');
+
 
     const scrollToBottom = () => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -82,120 +179,9 @@ export default function LessonPlayerPage() {
         }
     };
 
-    const fetchCourseAndLessonData = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('Not authenticated');
 
-            // 1. Fetch Course Data
-            const { data: fetchedCourse, error: courseError } = await supabase
-                .from('courses')
-                .select(`*, modules:modules(*, lessons:lessons(*), assignments:assignments(*))`)
-                .eq('id', courseId)
-                .single();
 
-            if (courseError) throw courseError;
 
-            // 2. Fetch All Progress in Parallel
-            const [modProgRes, lessProgRes] = await Promise.all([
-                supabase.from('module_progress').select('module_id, status').eq('user_id', user.id),
-                supabase.from('lesson_progress').select('lesson_id, is_completed, last_position_seconds').eq('user_id', user.id)
-            ]);
-
-            const modProgMap = {};
-            modProgRes.data?.forEach(p => modProgMap[p.module_id] = p.status);
-            setModuleProgress(modProgMap);
-
-            const lessProgMap = {};
-            lessProgRes.data?.forEach(p => lessProgMap[p.lesson_id] = p);
-            setLessonProgress(lessProgMap);
-
-            // 3. Aggregate Module Data
-            let totalSecs = 0;
-            const sortedModules = (fetchedCourse.modules || []).sort((a, b) => a.week_number - b.week_number).map(mod => {
-                const lessons = (mod.lessons || []).sort((a, b) => a.order_index - b.order_index);
-                const modSecs = lessons.reduce((acc, curr) => acc + (curr.duration_seconds || 0), 0);
-                totalSecs += modSecs;
-
-                return {
-                    ...mod,
-                    total_minutes: Math.floor(modSecs / 60),
-                    lessons: lessons,
-                    assignments: Array.isArray(mod.assignments) ? mod.assignments : (mod.assignments ? [mod.assignments] : [])
-                };
-            });
-
-            const courseTotalHrs = (totalSecs / 3600).toFixed(1);
-
-            // 4. Fetch Resources / Documents
-            const moduleIds = sortedModules.map(m => m.id).filter(Boolean);
-            const allLessonIds = sortedModules.flatMap(m => m.lessons.map(l => l.id)).filter(Boolean);
-
-            const { data: allResources } = await supabase
-                .from('resources')
-                .select('*')
-                .in('parent_id', [courseId, ...moduleIds, ...allLessonIds].filter(Boolean))
-                .eq('visibility_status', 'published');
-
-            const fullCourse = {
-                ...fetchedCourse,
-                total_hours: courseTotalHrs,
-                modules: sortedModules,
-                resources: allResources?.filter(d => d.parent_id === courseId) || []
-            };
-
-            fullCourse.modules = sortedModules.map(mod => ({
-                ...mod,
-                resources: allResources?.filter(d => d.parent_id === mod.id) || [],
-                lessons: mod.lessons.map(less => ({
-                    ...less,
-                    resources: allResources?.filter(d => d.parent_id === less.id) || []
-                }))
-            }));
-
-            let targetLesson = fullCourse.modules.flatMap(m => m.lessons).find(l => l.id === lessonId);
-
-            setCourse(fullCourse);
-            setCurrentLesson(targetLesson);
-            if (targetLesson) {
-                setSavedPosition(lessProgMap[lessonId]?.last_position_seconds || 0);
-
-                // Set Resources
-                setLessonResources(targetLesson.resources || []);
-                const currentMod = fullCourse.modules.find(m => m.id === moduleId);
-                setModuleResources(currentMod?.resources || []);
-
-                // 5. Fetch Lesson Assignment & Questions
-                const [assignRes, questionsRes] = await Promise.all([
-                    supabase.from('assignments').select('*').eq('lesson_id', lessonId).eq('parent_type', 'lesson').maybeSingle(),
-                    supabase.from('lesson_questions').select('*, profiles!student_id(full_name)').eq('lesson_id', lessonId).order('created_at', { ascending: false })
-                ]);
-
-                if (assignRes.data) {
-                    setLessonAssignment(assignRes.data);
-                    const { data: sub } = await supabase.from('assignment_submissions').select('*').eq('assignment_id', assignRes.data.id).eq('user_id', user.id).maybeSingle();
-                    setAssignmentSubmission(sub);
-                } else {
-                    setLessonAssignment(null);
-                    setAssignmentSubmission(null);
-                }
-                setQuestions(questionsRes.data || []);
-            }
-
-            if (moduleId) {
-                setExpandedModules(prev => ({ ...prev, [moduleId]: true }));
-            }
-
-        } catch (err) {
-            console.error('Error fetching student player data:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchCourseAndLessonData();
-    }, [courseId, lessonId]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -247,10 +233,19 @@ export default function LessonPlayerPage() {
         for (let i = currentIndex + 1; i < allLessons.length; i++) {
             const candidate = allLessons[i];
             const candidateModule = course.modules.find(m => m.lessons.some(l => l.id === candidate.id));
-            const isModAccessible = candidateModule?.status === 'unlocked' ||
-                candidateModule?.week_number === 1 ||
-                moduleProgress[candidateModule?.id] === 'unlocked' ||
-                moduleProgress[candidateModule?.id] === 'completed';
+            const isModAccessible = (() => {
+                const modIdx = course.modules.findIndex(m => m.id === candidateModule.id);
+                if (modIdx === 0) return true;
+
+                const prevMod = course.modules[modIdx - 1];
+                const prevAssigns = prevMod.assignments || [];
+                const hasPendingPrev = prevAssigns.some(a => !allSubIds.has(a.id));
+                if (hasPendingPrev) return false;
+
+                return candidateModule?.status === 'unlocked' ||
+                    moduleProgress[candidateModule?.id] === 'unlocked' ||
+                    moduleProgress[candidateModule?.id] === 'completed';
+            })();
 
             if (!isModAccessible) break;
             if (skipCompleted && lessonProgress[candidate.id]?.is_completed) continue;
@@ -290,26 +285,12 @@ export default function LessonPlayerPage() {
     };
 
     const handleLessonProgress = async (data) => {
-        const wasCompleted = lessonProgress[data.lessonId]?.is_completed;
-        setLessonProgress(prev => ({
-            ...prev,
-            [data.lessonId]: {
-                ...prev[data.lessonId],
-                is_completed: (prev[data.lessonId]?.is_completed || data.is_completed),
-                percent_watched: data.percent_watched
-            }
-        }));
-
-        if (data.is_completed && !wasCompleted) {
-            setTimeout(async () => {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    const { data: modProg } = await supabase.from('module_progress').select('module_id, status').eq('user_id', user.id);
-                    const modProgMap = {};
-                    modProg?.forEach(p => modProgMap[p.module_id] = p.status);
-                    setModuleProgress(modProgMap);
-                }
-            }, 800);
+        // Trigger revalidation to refresh current progress from DB/Cache
+        // We do it with a slight delay if it's a completion to ensure DB trigger finished
+        if (data.is_completed) {
+            setTimeout(() => revalidate(true), 1000);
+        } else {
+            revalidate(true); // Background revalidate for position updates
         }
     };
 
@@ -319,15 +300,16 @@ export default function LessonPlayerPage() {
         setPostingQuestion(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            const { data, error } = await supabase.from('lesson_questions').insert({
+            const { error } = await supabase.from('lesson_questions').insert({
                 lesson_id: lessonId,
                 student_id: user.id,
                 content: newQuestion.trim()
-            }).select('*, profiles!student_id(full_name)').single();
+            });
 
             if (error) throw error;
-            setQuestions([data, ...questions]);
+
             setNewQuestion('');
+            revalidate(true); // Refresh Q&A list from server/cache
         } catch (err) {
             console.error('Question post error:', err);
         } finally {
@@ -757,9 +739,25 @@ export default function LessonPlayerPage() {
 
                                     return (
                                         <div key={mod.id} className="border-b border-gray-200 bg-white">
-                                            <button onClick={() => toggleModule(mod.id)} className="w-full flex items-center justify-between p-4 bg-[#f7f9fa] border-b border-gray-100 hover:bg-gray-100 group">
+                                            <button
+                                                onClick={() => {
+                                                    const mIdx = course.modules.findIndex(m => m.id === mod.id);
+                                                    const isHardLocked = mIdx > 0 && course.modules[mIdx - 1].assignments?.some(a => !allSubIds.has(a.id));
+                                                    if (!isHardLocked) toggleModule(mod.id);
+                                                }}
+                                                className={`w-full flex items-center justify-between p-4 border-b border-gray-100 group transition-all ${(() => {
+                                                    const mIdx = course.modules.findIndex(m => m.id === mod.id);
+                                                    const isHardLocked = mIdx > 0 && course.modules[mIdx - 1].assignments?.some(a => !allSubIds.has(a.id));
+                                                    return isHardLocked ? 'opacity-40 cursor-not-allowed bg-gray-50' : 'bg-[#f7f9fa] hover:bg-gray-100';
+                                                })()}`}
+                                            >
                                                 <div className="flex-1 text-left min-w-0 pr-4">
-                                                    <h3 className="font-bold text-[12px] text-gray-900 uppercase tracking-tight line-clamp-2 mb-1">Section {mod.week_number}: {mod.title}</h3>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h3 className="font-bold text-[12px] text-gray-900 uppercase tracking-tight line-clamp-2">Section {mod.week_number}: {mod.title}</h3>
+                                                        {(course.modules.findIndex(m => m.id === mod.id) > 0 && course.modules[course.modules.findIndex(m => m.id === mod.id) - 1].assignments?.some(a => !allSubIds.has(a.id))) && (
+                                                            <Lock size={10} className="text-red-500" />
+                                                        )}
+                                                    </div>
                                                     <div className="flex items-center gap-2 text-[10px] text-gray-500 font-black uppercase tracking-widest">
                                                         <span>{mod.lessons?.length || 0} units</span>
                                                         <span>•</span>
@@ -773,7 +771,9 @@ export default function LessonPlayerPage() {
                                                 <div className="bg-white">
                                                     {mod.lessons?.map((lesson, lIdx) => {
                                                         const isCompleted = lessonProgress[lesson.id]?.is_completed;
-                                                        let isLessonLocked = false;
+                                                        const mIdx = course.modules.findIndex(m => m.id === mod.id);
+                                                        const isHardLocked = mIdx > 0 && course.modules[mIdx - 1].assignments?.some(a => !allSubIds.has(a.id));
+                                                        let isLessonLocked = isHardLocked;
                                                         if (lIdx > 0 && !lessonProgress[mod.lessons[lIdx - 1].id]?.is_completed) isLessonLocked = true;
 
                                                         return (

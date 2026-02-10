@@ -7,6 +7,7 @@ import {
     PlayCircle, Users, MessageCircle, ArrowLeft
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
+import SEO from '../components/SEO';
 import Footer from '../components/Footer';
 import { supabase } from '../lib/supabaseClient';
 
@@ -87,6 +88,14 @@ const CourseDetailPage = () => {
 
     return (
         <div className="min-h-screen bg-[#FDFDFD]">
+            {course && (
+                <SEO
+                    title={course.title}
+                    description={course.short_description || course.description}
+                    image={course.thumbnail_url}
+                    url={`/courses/${id}`}
+                />
+            )}
             <Navbar />
 
             {/* Hero Section */}
@@ -128,7 +137,7 @@ const CourseDetailPage = () => {
                             </div>
 
                             <div className="pt-6">
-                                <Link to="/show-interest">
+                                <Link to={`/show-interest?program=Mentorship&track=${course.id}`}>
                                     <button className="bg-primary text-white px-12 py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-primary/30 hover:bg-black transition-all transform hover:-translate-y-1">
                                         Register Interest
                                     </button>
@@ -302,7 +311,7 @@ const CourseDetailPage = () => {
                                         Take the next step in your career journey. Secure your spot in the {course.title}.
                                     </p>
                                     <div className="flex flex-col gap-4">
-                                        <Link to="/show-interest">
+                                        <Link to={`/show-interest?program=Mentorship&track=${course.id}`}>
                                             <button className="w-full bg-primary text-white py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:bg-white hover:text-primary transition-all">
                                                 Register Interest
                                             </button>

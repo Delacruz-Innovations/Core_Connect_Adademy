@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, AlertCircle } from 'lucide-react';
-
+import { Link } from 'react-router-dom';
 const WhyCoreConnect = () => {
     return (
         <section className="py-24 bg-white overflow-hidden">
@@ -75,9 +75,11 @@ const WhyCoreConnect = () => {
                                     ))}
                                 </ul>
 
-                                <button className="bg-primary text-white px-8 py-3 rounded-md font-bold text-sm tracking-wide uppercase shadow-lg shadow-primary/20 transition-transform hover:-translate-y-1">
-                                    Learn How We Teach
-                                </button>
+                                <Link to="/how-it-works">
+                                    <button className="bg-primary text-white px-8 py-3 rounded-md font-bold text-sm tracking-wide uppercase shadow-lg shadow-primary/20 transition-transform hover:-translate-y-1">
+                                        Learn How We Teach
+                                    </button>
+                                </Link>
                             </motion.div>
                         </div>
                     </div>

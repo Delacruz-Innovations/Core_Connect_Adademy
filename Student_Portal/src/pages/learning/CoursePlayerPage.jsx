@@ -15,6 +15,7 @@ export default function CoursePlayerPage() {
     const [progress, setProgress] = useState({});
     const [loading, setLoading] = useState(true);
     const [redirecting, setRedirecting] = useState(false);
+    const [allSubIds, setAllSubIds] = useState(new Set());
 
     useEffect(() => {
         fetchCourseData();
@@ -43,27 +44,34 @@ export default function CoursePlayerPage() {
                 .order('week_number', { ascending: true });
 
             const fetchedModules = modulesData || [];
-            setModules(fetchedModules);
 
-            const { data: progressData } = await supabase
-                .from('module_progress')
-                .select('module_id, status')
-                .eq('user_id', authUser.id)
-                .eq('course_id', courseId);
+            // 1. Fetch Assignments, Submissions, and Progress in parallel for hard-locking rules
+            const [assignsRes, subsRes, progRes] = await Promise.all([
+                supabase.from('assignments').select('*').in('module_id', fetchedModules.map(m => m.id)),
+                supabase.from('assignment_submissions').select('assignment_id').eq('user_id', authUser.id),
+                supabase.from('module_progress').select('module_id, status').eq('user_id', authUser.id).eq('course_id', courseId)
+            ]);
+
+            const subIds = new Set(subsRes.data?.map(s => s.assignment_id) || []);
+            setAllSubIds(subIds);
+
+            const modulesWithAssigns = fetchedModules.map(m => ({
+                ...m,
+                assignments: assignsRes.data?.filter(a => a.module_id === m.id) || []
+            }));
+            setModules(modulesWithAssigns);
 
             const progressMap = {};
-            if (progressData) {
-                progressData.forEach(p => {
-                    progressMap[p.module_id] = p.status;
-                });
-            }
+            progRes.data?.forEach(p => {
+                progressMap[p.module_id] = p.status;
+            });
             setProgress(progressMap);
 
             // AUTO-START LOGIC: 
             if (fetchedModules.length > 0 && window.location.pathname === `/student/course/${courseId}`) {
                 setRedirecting(true);
 
-                // 1. Try to resume from granular last-left-off position
+                // Check Resume: Try to resume from granular last-left-off position
                 const { data: lastLessonRecord } = await supabase
                     .from('lesson_progress')
                     .select('lesson_id, module_id')
@@ -74,27 +82,41 @@ export default function CoursePlayerPage() {
                     .maybeSingle();
 
                 if (lastLessonRecord) {
-                    navigate(`/student/course/${courseId}/module/${lastLessonRecord.module_id}/lesson/${lastLessonRecord.lesson_id}`, { replace: true });
-                    return;
+                    // Check if the resume module is hard-locked
+                    const modIdx = fetchedModules.findIndex(m => m.id === lastLessonRecord.module_id);
+                    const isResumeLocked = modIdx > 0 && modulesWithAssigns[modIdx - 1]?.assignments?.some(a => !subIds.has(a.id));
+
+                    if (!isResumeLocked) {
+                        navigate(`/student/course/${courseId}/module/${lastLessonRecord.module_id}/lesson/${lastLessonRecord.lesson_id}`, { replace: true });
+                        return;
+                    }
                 }
 
-                // 2. Fallback to first module and its first lesson
-                const firstModule = fetchedModules[0];
+                // Fallback to first non-locked module
+                for (let i = 0; i < modulesWithAssigns.length; i++) {
+                    const m = modulesWithAssigns[i];
+                    const isHardLocked = i > 0 && modulesWithAssigns[i - 1]?.assignments?.some(a => !subIds.has(a.id));
 
-                const { data: firstLesson } = await supabase
-                    .from('lessons')
-                    .select('id')
-                    .eq('module_id', firstModule.id)
-                    .order('order_index', { ascending: true })
-                    .limit(1)
-                    .maybeSingle();
+                    if (!isHardLocked) {
+                        const { data: firstLesson } = await supabase
+                            .from('lessons')
+                            .select('id')
+                            .eq('module_id', m.id)
+                            .order('order_index', { ascending: true })
+                            .limit(1)
+                            .maybeSingle();
 
-                if (firstLesson) {
-                    navigate(`/student/course/${courseId}/module/${firstModule.id}/lesson/${firstLesson.id}`, { replace: true });
-                    return;
-                } else {
-                    navigate(`/student/course/${courseId}/module/${firstModule.id}`, { replace: true });
-                    return;
+                        if (firstLesson) {
+                            navigate(`/student/course/${courseId}/module/${m.id}/lesson/${firstLesson.id}`, { replace: true });
+                            return;
+                        } else {
+                            navigate(`/student/course/${courseId}/module/${m.id}`, { replace: true });
+                            return;
+                        }
+                    } else {
+                        // All subsequent modules are locked
+                        break;
+                    }
                 }
             }
 
@@ -110,8 +132,16 @@ export default function CoursePlayerPage() {
     };
 
     const isModuleLocked = (mod) => {
+        const modIdx = modules.findIndex(m => m.id === mod.id);
+        if (modIdx === 0) return false; // Week 1 is always accessible if unlocked
+
+        // Hard Rule: Previous module MUST have all its assignments submitted
+        const prevMod = modules[modIdx - 1];
+        const prevAssigns = prevMod?.assignments || [];
+        const hasPendingPrev = prevAssigns.some(a => !allSubIds.has(a.id));
+        if (hasPendingPrev) return true;
+
         if (mod.status === 'unlocked') return false;
-        if (mod.week_number === 1) return false;
         const status = progress[mod.id];
         return status !== 'unlocked' && status !== 'completed';
     };

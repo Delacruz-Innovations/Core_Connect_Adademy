@@ -17,7 +17,7 @@ const LeadsList = () => {
             const { data, error: sbError } = await supabase
                 .from('applications')
                 .select('*, courses!requested_course_id(title)')
-                .eq('status', 'pending')
+                .in('status', ['pending', 'captured'])
                 .order('created_at', { ascending: false });
 
             if (sbError) throw sbError;

@@ -22,7 +22,7 @@ export default function LessonAccessGuard() {
                     .from('lessons')
                     .select('id, module_id, order_index')
                     .eq('id', lessonId)
-                    .single();
+                    .single(); // Lessons should exist, so single is fine here
 
                 if (lessonError || !lesson) {
                     setAccess(false);
@@ -30,14 +30,26 @@ export default function LessonAccessGuard() {
                 }
 
                 // 2. Check Module Unlock Status
+                const { data: modDetails } = await supabase
+                    .from('modules')
+                    .select('id, week_number')
+                    .eq('id', moduleId)
+                    .single();
+
                 const { data: modProgress } = await supabase
                     .from('module_progress')
                     .select('status')
                     .eq('module_id', moduleId)
                     .eq('user_id', user.id)
-                    .single();
+                    .maybeSingle();
 
-                const isUnlocked = modProgress?.status === 'unlocked' || modProgress?.status === 'completed';
+                // Access granted if:
+                // a) Progress record exists and is unlocked/completed
+                // b) Record missing but it's Week 1 (and earlier enrollment check passed by implication of being here)
+                const isUnlocked = modProgress?.status === 'unlocked' ||
+                    modProgress?.status === 'completed' ||
+                    modDetails?.week_number === 1;
+
                 if (!isUnlocked) {
                     setAccess(false);
                     return;
@@ -50,7 +62,7 @@ export default function LessonAccessGuard() {
                         .select('id')
                         .eq('module_id', moduleId)
                         .eq('order_index', lesson.order_index - 1)
-                        .single();
+                        .maybeSingle();
 
                     if (prevLesson) {
                         const { data: prevProgress } = await supabase
@@ -58,7 +70,7 @@ export default function LessonAccessGuard() {
                             .select('is_completed')
                             .eq('lesson_id', prevLesson.id)
                             .eq('user_id', user.id)
-                            .single();
+                            .maybeSingle();
 
                         if (!prevProgress?.is_completed) {
                             setAccess(false);

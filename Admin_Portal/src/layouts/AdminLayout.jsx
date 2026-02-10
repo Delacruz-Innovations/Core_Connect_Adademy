@@ -3,7 +3,8 @@ import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
     LayoutDashboard, Users, BookOpen, GraduationCap,
     FileCheck, History, Database, UserCircle,
-    LogOut, Menu, X, Bell, Search, ShieldCheck, Settings, HelpCircle
+    LogOut, Menu, X, Bell, Search, ShieldCheck, Settings, HelpCircle,
+    MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import NotificationCenter from '../components/NotificationCenter';
@@ -41,6 +42,7 @@ const AdminLayout = () => {
         { label: 'Assignment Review', icon: FileCheck, href: '/admin/assignments' },
         { label: 'Admissions Desk', icon: FileCheck, href: '/admin/applications' },
         { label: 'Student Enrolments', icon: GraduationCap, href: '/admin/enrolments' },
+        { label: 'Student Q&A Desk', icon: MessageSquare, href: '/admin/qa' },
         { label: 'AI Knowledge Base', icon: Database, href: '/admin/ai-knowledge' },
         { label: 'System Audit Logs', icon: History, href: '/admin/audit-logs' },
     ];

@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { FileText, CheckCircle2, Clock, ClipboardList, Filter, Search, ArrowUpRight, History, Activity, ShieldCheck } from 'lucide-react';
+import { useConnectivity } from '../../context/ConnectivityContext';
 
 const AssignmentHistory = () => {
+    const { notifySyncFailure, registerRetry } = useConnectivity();
     const [filter, setFilter] = useState('all');
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchAssignments();
-    }, []);
+        const controller = new AbortController();
+        const fetchData = () => fetchAssignments(controller.signal);
 
-    const fetchAssignments = async () => {
+        fetchData();
+        const unregister = registerRetry(fetchData);
+
+        return () => {
+            controller.abort();
+            unregister();
+        };
+    }, [registerRetry]);
+
+    const fetchAssignments = async (signal) => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
@@ -21,11 +32,13 @@ const AssignmentHistory = () => {
                 .from('enrollments')
                 .select('course_id')
                 .eq('student_id', user.id)
-                .eq('status', 'active');
+                .eq('status', 'active')
+                .abortSignal(signal);
 
             const courseIds = (enrollments?.map(e => e.course_id) || []).filter(Boolean);
             if (courseIds.length === 0) {
                 setAssignments([]);
+                notifySyncFailure(false);
                 return;
             }
 
@@ -36,7 +49,8 @@ const AssignmentHistory = () => {
                     *,
                     module:module_id(id, title, course_id, courses(title)),
                     lesson:lesson_id(id, title)
-                `);
+                `)
+                .abortSignal(signal);
 
             if (assignError) throw assignError;
 
@@ -53,7 +67,8 @@ const AssignmentHistory = () => {
             const { data: submissionsData } = await supabase
                 .from('assignment_submissions')
                 .select('*')
-                .eq('user_id', user.id);
+                .eq('user_id', user.id)
+                .abortSignal(signal);
 
             // 4. Merge Data
             const merged = (filteredAll || []).map(assign => {
@@ -69,8 +84,11 @@ const AssignmentHistory = () => {
             });
 
             setAssignments(merged);
+            notifySyncFailure(false);
         } catch (err) {
+            if (err.name === 'AbortError') return;
             console.error(err);
+            notifySyncFailure(true);
         } finally {
             setLoading(false);
         }

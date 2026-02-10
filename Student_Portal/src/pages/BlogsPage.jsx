@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion } from 'framer-motion';
@@ -30,6 +31,11 @@ const BlogsPage = () => {
 
     return (
         <div className="min-h-screen bg-white font-sans text-black">
+            <SEO
+                title="Academy Updates & News"
+                description="Stay informed with the latest cohort announcements, curriculum updates, and reflections from the Core Connect Academy team."
+                url="/news"
+            />
             <Navbar />
 
             {/* Hero Section */}
@@ -86,8 +92,8 @@ const BlogsPage = () => {
                             key={cat}
                             onClick={() => setActiveCategory(cat)}
                             className={`px-6 py-3 text-xs font-bold uppercase tracking-wider transition-all border ${activeCategory === cat
-                                    ? 'bg-black text-white border-black'
-                                    : 'bg-white text-gray-500 border-gray-200 hover:border-black hover:text-black'
+                                ? 'bg-black text-white border-black'
+                                : 'bg-white text-gray-500 border-gray-200 hover:border-black hover:text-black'
                                 }`}
                         >
                             {cat}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle } from 'lucide-react';
-
+import { Link } from 'react-router-dom';
 const Courses = () => {
     const categories = [
         { title: 'Project Management and Business Analysis', image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
@@ -45,9 +45,9 @@ const Courses = () => {
                                 ))}
                             </ul>
 
-                            <button className="text-primary font-bold border-b-2 border-primary hover:text-secondary hover:border-secondary transition-all pb-1 text-sm uppercase tracking-wide">
+                            <Link to="/courses" className="text-primary font-bold border-b-2 border-primary hover:text-secondary hover:border-secondary transition-all pb-1 text-sm uppercase tracking-wide">
                                 View All Courses &rarr;
-                            </button>
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -70,9 +70,11 @@ const Courses = () => {
                                 <p className="text-gray-400 text-sm mt-1">Join 5000+ students who found their path</p>
                             </div>
                         </div>
-                        <button className="bg-primary text-white px-8 py-4 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-black transition-all z-10 shrink-0">
-                            Start Survey
-                        </button>
+                        <Link to="/show-interest">
+                            <button className="bg-primary text-white px-8 py-4 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-black transition-all z-10 shrink-0">
+                                Start Survey
+                            </button>
+                        </Link>
                         <div className="absolute top-0 right-0 w-64 h-full bg-primary/5 -skew-x-12 translate-x-32 group-hover:translate-x-16 transition-transform duration-700"></div>
                     </div>
                 </div>

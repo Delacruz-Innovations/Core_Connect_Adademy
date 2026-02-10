@@ -57,7 +57,8 @@ const AdminDashboard = () => {
                 supabase.from('profiles').select('*', { count: 'exact', head: true }),
                 supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
                 supabase.from('courses').select('*', { count: 'exact', head: true }),
-                supabase.from('enrollments').select('*', { count: 'exact', head: true })
+                supabase.from('enrollments').select('*', { count: 'exact', head: true }),
+                supabase.from('assignment_submissions').select('*', { count: 'exact', head: true }).eq('reviewed_status', 'pending')
             ]);
 
             // Check for errors in any response
@@ -70,7 +71,7 @@ const AdminDashboard = () => {
                 }
             }
 
-            const [leads, profiles, students, courses, enrollments] = responses;
+            const [leads, profiles, students, courses, enrollments, pendingSubmissions] = responses;
 
             setStats({
                 leads: leads.count || 0,
@@ -78,21 +79,29 @@ const AdminDashboard = () => {
                 students: students.count || 0,
                 courses: courses.count || 0,
                 enrollments: enrollments.count || 0,
-                pending: 0
+                pending: pendingSubmissions.count || 0
             });
 
             // Fetch Recent Enrollments
-            const { data: recentEnrollmentsData } = await supabase
+            const { data: recentEnrollmentsData, error: enrollError } = await supabase
                 .from('enrollments')
                 .select(`
                     id,
                     created_at,
                     status,
-                    profiles:student_id (full_name),
-                    application:application_id (program_interest)
+                    profiles:student_id (
+                        full_name
+                    ),
+                    application:application_id (
+                        program_interest
+                    )
                 `)
                 .order('created_at', { ascending: false })
                 .limit(5);
+
+            if (enrollError) {
+                console.error("❌ Error fetching recent enrollments:", enrollError);
+            }
 
             setRecentEnrollments(recentEnrollmentsData || []);
 
@@ -135,7 +144,7 @@ const AdminDashboard = () => {
                 <StatCard icon={GraduationCap} label="Students" value={stats.students} loading={loading} />
                 <StatCard icon={BookOpen} label="Courses" value={stats.courses} loading={loading} />
                 <StatCard icon={ClipboardList} label="Enrollments" value={stats.enrollments} loading={loading} />
-                <StatCard icon={CheckSquare} label="Assignments" value="63" loading={loading} />
+                <StatCard icon={CheckSquare} label="Pending Tasks" value={stats.pending} loading={loading} />
             </div>
 
             {/* Main Grid */}

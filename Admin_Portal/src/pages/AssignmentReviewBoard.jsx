@@ -47,6 +47,28 @@ const AssignmentReviewBoard = () => {
         }
     };
 
+    const handleToggleReview = async (subId, currentStatus) => {
+        const newStatus = currentStatus === 'reviewed' ? 'pending' : 'reviewed';
+        try {
+            const { error } = await supabase
+                .from('assignment_submissions')
+                .update({
+                    reviewed_status: newStatus,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', subId);
+
+            if (error) throw error;
+
+            setSubmissions(submissions.map(s =>
+                s.id === subId ? { ...s, reviewed_status: newStatus } : s
+            ));
+        } catch (err) {
+            console.error('Toggle error:', err);
+            alert('Failed to update review status');
+        }
+    };
+
     const stats = {
         total: submissions.length,
         pending: submissions.filter(s => s.reviewed_status === 'pending').length,
@@ -160,13 +182,16 @@ const AssignmentReviewBoard = () => {
                                     </div>
                                 </td>
                                 <td className="px-8 py-6">
-                                    <span className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 border ${sub.reviewed_status === 'reviewed'
-                                        ? 'bg-green-50 text-green-600 border-green-100'
-                                        : 'bg-orange-50 text-orange-600 border-orange-100'
-                                        }`}>
+                                    <button
+                                        onClick={() => handleToggleReview(sub.id, sub.reviewed_status)}
+                                        className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 border transition-all hover:scale-105 active:scale-95 ${sub.reviewed_status === 'reviewed'
+                                            ? 'bg-green-50 text-green-600 border-green-100'
+                                            : 'bg-orange-50 text-orange-600 border-orange-100'
+                                            }`}
+                                    >
                                         {sub.reviewed_status === 'reviewed' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
                                         {sub.reviewed_status}
-                                    </span>
+                                    </button>
                                 </td>
                                 <td className="px-8 py-6 text-right">
                                     <Link

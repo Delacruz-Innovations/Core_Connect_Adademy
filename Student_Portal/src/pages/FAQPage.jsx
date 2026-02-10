@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -52,6 +53,11 @@ const FAQPage = () => {
 
     return (
         <div className="min-h-screen bg-white font-sans text-black">
+            <SEO
+                title="Frequently Asked Questions"
+                description="Find answers to common questions about our software engineering and design mentorship tracks, prerequisites, and learning methodology."
+                url="/faqs"
+            />
             <Navbar />
 
             {/* Hero Section */}

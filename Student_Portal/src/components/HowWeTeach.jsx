@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Check, Users, Clock, Video, BookOpen, UserCheck, PlayCircle, MessageCircle } from 'lucide-react';
-
+import { Link } from 'react-router-dom';
 const HowWeTeach = () => {
     return (
         <section className="py-24 bg-gray-50 border-t border-gray-100">
@@ -166,9 +166,11 @@ const HowWeTeach = () => {
                     viewport={{ once: true }}
                     className="text-center mt-16"
                 >
-                    <button className="bg-primary text-white px-10 py-4 rounded-md font-bold text-sm tracking-wide uppercase shadow-xl shadow-primary/20 transition-transform hover:-translate-y-1">
-                        Explore Our Courses
-                    </button>
+                    <Link to="/courses">
+                        <button className="bg-primary text-white px-10 py-4 rounded-md font-bold text-sm tracking-wide uppercase shadow-xl shadow-primary/20 transition-transform hover:-translate-y-1">
+                            Explore Our Courses
+                        </button>
+                    </Link>
                 </motion.div>
             </div>
         </section>

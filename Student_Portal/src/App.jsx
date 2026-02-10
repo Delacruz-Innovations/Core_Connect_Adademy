@@ -1,5 +1,5 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { LoadingProvider, useLoading } from './context/LoadingContext';
 import { AuthProvider } from './context/AuthContext';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -43,6 +43,8 @@ import ModuleUnlockGuard from './components/guards/ModuleUnlockGuard';
 import LessonAccessGuard from './components/guards/LessonAccessGuard';
 import GuestGuard from './components/guards/GuestGuard';
 
+import NetworkSyncOverlay from './components/NetworkSyncOverlay';
+
 function AppContent() {
   const { isLoading } = useLoading();
   const location = useLocation();
@@ -54,6 +56,7 @@ function AppContent() {
   return (
     <>
       {showGlobalSpinner && <LoadingSpinner />}
+      <NetworkSyncOverlay />
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
@@ -116,14 +119,20 @@ function AppContent() {
   );
 }
 
+import { ConnectivityProvider } from './context/ConnectivityContext';
+
 function App() {
   return (
     <Router>
-      <LoadingProvider>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </LoadingProvider>
+      <HelmetProvider>
+        <LoadingProvider>
+          <AuthProvider>
+            <ConnectivityProvider>
+              <AppContent />
+            </ConnectivityProvider>
+          </AuthProvider>
+        </LoadingProvider>
+      </HelmetProvider>
     </Router>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,6 +41,11 @@ const ResourcesPage = () => {
 
     return (
         <div className="min-h-screen bg-white text-black font-sans">
+            <SEO
+                title="Free Learning Resources"
+                description="Start your tech journey today with our free eBooks and professional development guides. Understand tech careers before you commit."
+                url="/resources"
+            />
             <Navbar />
 
             {/* Hero Section */}

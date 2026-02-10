@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion } from 'framer-motion';
@@ -39,6 +40,11 @@ const HowItWorksPage = () => {
 
     return (
         <div className="min-h-screen bg-white font-sans text-black">
+            <SEO
+                title="Our Learning Methodology"
+                description="Understand our sequential, assignment-based learning system designed for maximum capability building. Learn why structure leads to success."
+                url="/how-it-works"
+            />
             <Navbar />
 
             {/* Hero Section */}

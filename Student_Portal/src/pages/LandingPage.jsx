@@ -1,4 +1,5 @@
 import React from 'react';
+import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import Partners from '../components/Partners';
@@ -17,6 +18,11 @@ import AudienceFit from '../components/AudienceFit';
 const LandingPage = () => {
     return (
         <div className="min-h-screen bg-white font-sans text-black">
+            <SEO
+                title="Hybrid Mentorship & Apprenticeship"
+                description="Core Connect Academy bridges the gap between traditional education and industry requirements through high-impact mentorship and apprenticeship programs."
+                url="/"
+            />
             <Navbar />
             <Hero />
             <AudienceFit />

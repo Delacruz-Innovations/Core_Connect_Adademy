@@ -180,11 +180,14 @@ const AssignmentSubmissions = () => {
                                     </button>
                                 </td>
                                 <td className="px-8 py-6">
-                                    <span className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-3 py-1 ${sub.reviewed_status === 'reviewed' ? 'bg-green-50 text-green-500' : 'bg-orange-50 text-orange-500'
-                                        }`}>
+                                    <button
+                                        onClick={() => handleToggleReview(sub.id, sub.reviewed_status)}
+                                        className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-3 py-1 border transition-all hover:scale-105 active:scale-95 ${sub.reviewed_status === 'reviewed' ? 'bg-green-50 text-green-500' : 'bg-orange-50 text-orange-500'
+                                            }`}
+                                    >
                                         {sub.reviewed_status === 'reviewed' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
                                         {sub.reviewed_status === 'reviewed' ? 'Reviewed' : 'Pending'}
-                                    </span>
+                                    </button>
                                 </td>
                                 <td className="px-8 py-6 text-right">
                                     <Link

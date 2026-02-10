@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Check, ArrowRight, BookOpen, Users } from 'lucide-react';
@@ -11,6 +12,11 @@ const ServicesPage = () => {
 
     return (
         <div className="min-h-screen bg-white font-sans text-black">
+            <SEO
+                title="Tailored Support Services"
+                description="Discover the comprehensive support services provided to every student, from CV development to interview coaching and on-the-job guidance."
+                url="/services"
+            />
             <Navbar />
 
             {/* Hero Section - Full Screen & Fixed BG */}

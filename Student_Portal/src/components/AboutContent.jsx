@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
 const AboutContent = () => {
     return (
@@ -82,9 +83,11 @@ const AboutContent = () => {
                                 </div>
 
                                 <div className="pt-6">
-                                    <button className="bg-primary text-white px-10 py-4 rounded-md font-bold text-sm tracking-wide uppercase shadow-xl shadow-primary/20 hover:-translate-y-1 transition-transform">
-                                        Show Interest
-                                    </button>
+                                    <Link to="/show-interest">
+                                        <button className="bg-primary text-white px-10 py-4 rounded-md font-bold text-sm tracking-wide uppercase shadow-xl shadow-primary/20 hover:-translate-y-1 transition-transform">
+                                            Show Interest
+                                        </button>
+                                    </Link>
                                 </div>
                             </div>
                         </div>

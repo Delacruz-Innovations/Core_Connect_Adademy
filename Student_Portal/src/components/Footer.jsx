@@ -1,5 +1,6 @@
 import React from 'react';
 import { Facebook, Twitter, Instagram, Linkedin, Youtube, Mail, Phone, MapPin, Send } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Footer = ({ className = "", hideScroll = false }) => {
     return (
@@ -34,22 +35,22 @@ const Footer = ({ className = "", hideScroll = false }) => {
                     <div className="lg:col-span-2 not-italic">
                         <h4 className="font-bold text-black mb-8 uppercase tracking-[0.2em] text-[11px]">Courses</h4>
                         <ul className="space-y-4 text-gray-500 text-sm font-semibold uppercase tracking-wider">
-                            <li><a href="#" className="hover:text-primary transition-colors">Project Mgmt</a></li>
-                            <li><a href="#" className="hover:text-primary transition-colors">Business Analysis</a></li>
-                            <li><a href="#" className="hover:text-primary transition-colors">Data Analysis</a></li>
-                            <li><a href="#" className="hover:text-primary transition-colors">Cyber Security</a></li>
-                            <li><a href="#" className="hover:text-primary transition-colors">Cloud Eng</a></li>
+                            <li><Link to="/courses" className="hover:text-primary transition-colors">Project Mgmt</Link></li>
+                            <li><Link to="/courses" className="hover:text-primary transition-colors">Business Analysis</Link></li>
+                            <li><Link to="/courses" className="hover:text-primary transition-colors">Data Analysis</Link></li>
+                            <li><Link to="/courses" className="hover:text-primary transition-colors">Cyber Security</Link></li>
+                            <li><Link to="/courses" className="hover:text-primary transition-colors">Cloud Eng</Link></li>
                         </ul>
                     </div>
 
                     <div className="lg:col-span-2 not-italic">
                         <h4 className="font-bold text-black mb-8 uppercase tracking-[0.2em] text-[11px]">Useful Links</h4>
                         <ul className="space-y-4 text-gray-500 text-sm font-semibold uppercase tracking-wider">
-                            <li><a href="#" className="hover:text-primary transition-colors">Privacy Policy</a></li>
-                            <li><a href="#" className="hover:text-primary transition-colors">Support Center</a></li>
-                            <li><a href="#" className="hover:text-primary transition-colors">About Us</a></li>
-                            <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
-                            <li><a href="#" className="hover:text-primary transition-colors">FAQs</a></li>
+                            <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+                            <li><Link to="/contact" className="hover:text-primary transition-colors">Support Center</Link></li>
+                            <li><Link to="/about" className="hover:text-primary transition-colors">About Us</Link></li>
+                            <li><Link to="/careers" className="hover:text-primary transition-colors">Careers</Link></li>
+                            <li><Link to="/faq" className="hover:text-primary transition-colors">FAQs</Link></li>
                         </ul>
                     </div>
 
