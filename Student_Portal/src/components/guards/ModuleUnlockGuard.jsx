@@ -14,37 +14,54 @@ export default function ModuleUnlockGuard() {
 
         const checkEnrolment = async () => {
             try {
-                // 1. Verify module belongs to course
-                const { data: modDetails } = await supabase
+                // 1. Verify module exists and get status
+                // We only filter by moduleId here because it's a UUID and should be unique.
+                // This avoids issues if courseId in URL is a slug but DB expects UUID.
+                const { data: modDetails, error: modError } = await supabase
                     .from('modules')
-                    .select('id, week_number')
+                    .select('id, week_number, status')
                     .eq('id', moduleId)
-                    .eq('course_id', courseId)
-                    .single();
+                    .maybeSingle();
+
+                if (modError) throw modError;
 
                 if (!modDetails) {
+                    console.error("Module guard: Module not found", moduleId);
                     setAccess(false);
                     return;
                 }
 
                 // 2. Check actual progress status
-                const { data: progress } = await supabase
+                const { data: progress, error: progError } = await supabase
                     .from('module_progress')
                     .select('status')
                     .eq('module_id', moduleId)
                     .eq('user_id', user.id)
                     .maybeSingle();
 
-                // week 1 is usually auto-unlocked by trigger, but we check status explicitly
-                // or allow if it's week 1 and record hasn't been created yet.
-                if (progress?.status === 'unlocked' || progress?.status === 'completed' || modDetails?.week_number === 1) {
+                if (progError) {
+                    console.warn("Module guard: Progress fetch error (fail-open):", progError);
+                }
+
+                // Access Logic:
+                // a) Module is globally unlocked by admin
+                // b) It's Week 1 (standard introductory content)
+                // c) Student has a progress record marked unlocked/completed
+                const isUnlocked = modDetails?.status === 'unlocked' ||
+                    modDetails?.week_number === 1 ||
+                    progress?.status === 'unlocked' ||
+                    progress?.status === 'completed';
+
+                if (isUnlocked) {
                     setAccess(true);
                 } else {
+                    // Final check: if it's Module 2+, we double check if Module 1 is completed
+                    // But for now, we follow the explicit isUnlocked flag.
                     setAccess(false);
                 }
             } catch (err) {
                 console.error("Guard Error (Fail-Open):", err);
-                setAccess(true); // Don't block on network glitch
+                setAccess(true); // Don't block student on network/query glitch
             }
         };
 

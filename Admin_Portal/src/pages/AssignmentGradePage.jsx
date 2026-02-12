@@ -5,7 +5,8 @@ import { useModal } from '../context/ModalContext';
 import {
     ArrowLeft, Download, CheckCircle2,
     FileText, User, MessageSquare,
-    Award, Info, Loader2, Save
+    Award, Info, Loader2, Save,
+    ChevronRight
 } from 'lucide-react';
 import BrandedLoader from '../components/BrandedLoader';
 
@@ -17,13 +18,32 @@ const AssignmentGradePage = () => {
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Grading States
     const [grade, setGrade] = useState('');
     const [feedback, setFeedback] = useState('');
+    const [nextSubmissionId, setNextSubmissionId] = useState(null);
 
     useEffect(() => {
         fetchSubmission();
+        fetchNextSubmissionId();
     }, [submissionId]);
+
+    const fetchNextSubmissionId = async () => {
+        try {
+            const { data } = await supabase
+                .from('assignment_submissions')
+                .select('id')
+                .eq('reviewed_status', 'pending')
+                .neq('id', submissionId)
+                .order('created_at', { ascending: true })
+                .limit(1)
+                .maybeSingle();
+
+            if (data) setNextSubmissionId(data.id);
+            else setNextSubmissionId(null);
+        } catch (err) {
+            console.error('Error fetching next submission:', err);
+        }
+    };
 
     const fetchSubmission = async () => {
         try {
@@ -60,7 +80,7 @@ const AssignmentGradePage = () => {
 
         setIsSaving(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user: authUser } } = await supabase.auth.getUser();
             const { error } = await supabase
                 .from('assignment_submissions')
                 .update({
@@ -68,13 +88,23 @@ const AssignmentGradePage = () => {
                     admin_feedback: feedback.trim(),
                     reviewed_status: 'reviewed',
                     graded_at: new Date().toISOString(),
-                    graded_by: user.id
+                    graded_by: authUser.id
                 })
                 .eq('id', submissionId);
 
             if (error) throw error;
-            showAlert('Grade and feedback synchronized successfully.', 'Protocol Complete', 'success');
-            fetchSubmission();
+
+            if (nextSubmissionId) {
+                const proceed = await showAlert(
+                    'Grade and feedback synchronized. Would you like to review the next pending submission?',
+                    'Protocol Complete',
+                    'success'
+                );
+                navigate(`/admin/submissions/${nextSubmissionId}/grade`);
+            } else {
+                showAlert('Grade and feedback synchronized successfully.', 'Protocol Complete', 'success');
+                fetchSubmission();
+            }
         } catch (err) {
             showAlert('Sync failed: ' + err.message, 'System Error', 'error');
         } finally {
@@ -86,7 +116,7 @@ const AssignmentGradePage = () => {
         try {
             const { data, error } = await supabase.storage
                 .from('assignment-submissions')
-                .createSignedUrl(submission.file_path, 60);
+                .createSignedUrl(submission.file_path, 3600);
             if (error) throw error;
             window.open(data.signedUrl, '_blank');
         } catch (err) {
@@ -112,28 +142,41 @@ const AssignmentGradePage = () => {
                         <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 block">Critique & Grading Node</span>
                         <div className="flex items-center gap-6">
                             <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">Review Submission</h1>
-                            <button
-                                onClick={async () => {
-                                    setIsSaving(true);
-                                    try {
-                                        const { error } = await supabase
-                                            .from('assignment_submissions')
-                                            .update({ reviewed_status: 'reviewed' })
-                                            .eq('id', submissionId);
-                                        if (error) throw error;
-                                        showAlert('Submission marked as reviewed.', 'Status Updated', 'success');
-                                        fetchSubmission();
-                                    } catch (err) {
-                                        showAlert('Update failed: ' + err.message, 'Error', 'error');
-                                    } finally {
-                                        setIsSaving(false);
-                                    }
-                                }}
-                                disabled={isSaving || submission.reviewed_status === 'reviewed'}
-                                className="px-6 py-3 border-2 border-black text-[10px] font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all disabled:opacity-20 flex items-center gap-2"
-                            >
-                                <CheckCircle2 size={14} /> Quick Review
-                            </button>
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={async () => {
+                                        setIsSaving(true);
+                                        try {
+                                            const { error } = await supabase
+                                                .from('assignment_submissions')
+                                                .update({ reviewed_status: 'reviewed' })
+                                                .eq('id', submissionId);
+                                            if (error) throw error;
+                                            showAlert('Submission marked as reviewed.', 'Status Updated', 'success');
+                                            fetchSubmission();
+                                            fetchNextSubmissionId();
+                                        } catch (err) {
+                                            showAlert('Update failed: ' + err.message, 'Error', 'error');
+                                        } finally {
+                                            setIsSaving(false);
+                                        }
+                                    }}
+                                    disabled={isSaving || submission.reviewed_status === 'reviewed'}
+                                    className="px-6 py-3 border-2 border-black text-[10px] font-black uppercase tracking-widest hover:bg-black hover:text-white transition-all disabled:opacity-20 flex items-center gap-2"
+                                >
+                                    <CheckCircle2 size={14} /> Quick Review
+                                </button>
+
+                                {nextSubmissionId && (
+                                    <button
+                                        onClick={() => navigate(`/admin/submissions/${nextSubmissionId}/grade`)}
+                                        className="px-6 py-3 bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 shadow-lg shadow-primary/20 animate-pulse"
+                                    >
+                                        Next Submission <ChevronRight size={14} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

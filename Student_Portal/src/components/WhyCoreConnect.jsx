@@ -2,6 +2,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import frustratedStudentImg from '../assets/images/frustrated_student.png';
+
 const WhyCoreConnect = () => {
     return (
         <section className="py-24 bg-white overflow-hidden">
@@ -28,28 +30,6 @@ const WhyCoreConnect = () => {
                         </motion.div>
 
                         <div className="space-y-8">
-                            {/* The Trap */}
-                            <motion.div
-                                initial={{ opacity: 0, x: -20 }}
-                                whileInView={{ opacity: 1, x: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: 0.2 }}
-                                className="bg-red-50 p-6 border border-red-100"
-                            >
-                                <div className="flex items-center gap-3 mb-4">
-                                    <AlertCircle className="text-red-500" />
-                                    <h3 className="font-bold text-red-900">The Common Trap</h3>
-                                </div>
-                                <ul className="space-y-3">
-                                    {["Watched random videos without direction", "Took isolated courses with no connection", "Tried to 'figure it out' alone"].map((item, i) => (
-                                        <li key={i} className="flex items-start gap-3 text-red-800/80">
-                                            <span className="w-1.5 h-1.5 bg-red-400 mt-2 shrink-0"></span>
-                                            {item}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </motion.div>
-
                             {/* The Solution */}
                             <motion.div
                                 initial={{ opacity: 0, x: -20 }}
@@ -94,9 +74,9 @@ const WhyCoreConnect = () => {
                     >
                         <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent -rotate-3 transform scale-105 -z-10"></div>
                         <img
-                            src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
-                            alt="Structured Planning vs Chaos"
-                            className="shadow-2xl w-full h-auto object-cover border border-gray-100"
+                            src={frustratedStudentImg}
+                            alt="Frustrated student with coffee mug trying to learn tech"
+                            className="shadow-2xl w-full h-auto object-cover border border-gray-100 filter contrast-125 saturate-50"
                         />
 
                         {/* Floating Quote Card */}

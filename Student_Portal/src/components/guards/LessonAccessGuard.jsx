@@ -17,46 +17,53 @@ export default function LessonAccessGuard() {
 
         const checkLessonLink = async () => {
             try {
-                // 1. Fetch lesson details and its order context
+                // 1. Fetch lesson details
                 const { data: lesson, error: lessonError } = await supabase
                     .from('lessons')
                     .select('id, module_id, order_index')
                     .eq('id', lessonId)
-                    .single(); // Lessons should exist, so single is fine here
+                    .maybeSingle();
 
-                if (lessonError || !lesson) {
+                if (lessonError) throw lessonError;
+
+                if (!lesson) {
+                    console.error("Lesson guard: Lesson not found", lessonId);
                     setAccess(false);
                     return;
                 }
 
                 // 2. Check Module Unlock Status
-                const { data: modDetails } = await supabase
+                const { data: modDetails, error: modError } = await supabase
                     .from('modules')
-                    .select('id, week_number')
+                    .select('id, week_number, status')
                     .eq('id', moduleId)
-                    .single();
+                    .maybeSingle();
 
-                const { data: modProgress } = await supabase
+                if (modError) throw modError;
+
+                const { data: modProgress, error: progError } = await supabase
                     .from('module_progress')
                     .select('status')
                     .eq('module_id', moduleId)
                     .eq('user_id', user.id)
                     .maybeSingle();
 
-                // Access granted if:
-                // a) Progress record exists and is unlocked/completed
-                // b) Record missing but it's Week 1 (and earlier enrollment check passed by implication of being here)
-                const isUnlocked = modProgress?.status === 'unlocked' ||
-                    modProgress?.status === 'completed' ||
-                    modDetails?.week_number === 1;
+                if (progError) {
+                    console.warn("Lesson guard: Progress fetch error (fail-open):", progError);
+                }
+
+                const isUnlocked = modDetails?.status === 'unlocked' ||
+                    modDetails?.week_number === 1 ||
+                    modProgress?.status === 'unlocked' ||
+                    modProgress?.status === 'completed';
 
                 if (!isUnlocked) {
                     setAccess(false);
                     return;
                 }
 
-                // 3. If not the first lesson, check if previous lesson is completed
-                if (lesson.order_index > 1) {
+                // 3. Sequential check: Previous lesson must be completed
+                if (lesson.order_index > 0) {
                     const { data: prevLesson } = await supabase
                         .from('lessons')
                         .select('id')
@@ -72,7 +79,9 @@ export default function LessonAccessGuard() {
                             .eq('user_id', user.id)
                             .maybeSingle();
 
-                        if (!prevProgress?.is_completed) {
+                        if (!prevProgress?.is_completed && lesson.order_index > 1) {
+                            // If index is 1, it's the second lesson.
+                            // We only block if it's NOT the first lesson of the module.
                             setAccess(false);
                             return;
                         }
@@ -82,7 +91,7 @@ export default function LessonAccessGuard() {
                 setAccess(true);
             } catch (err) {
                 console.error('Guard Check Failed (Fail-Open)', err);
-                setAccess(true); // Don't block on network glitch
+                setAccess(true); // Don't block student on network glitch
             }
         };
 

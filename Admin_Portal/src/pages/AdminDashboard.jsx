@@ -157,6 +157,7 @@ const AdminDashboard = () => {
                         <QuickAction icon={UserPlus} label="Enrollments" to="/admin/enrolments" />
                         <QuickAction icon={PlusCircle} label="New Course" to="/admin/courses/new" />
                         <QuickAction icon={CheckSquare} label="Audit Logs" color="bg-secondary" to="/admin/audit-logs" />
+                        <QuickAction icon={TrendingUp} label="Analytics" to="/admin/analytics" />
                         <QuickAction icon={BrainCircuit} label="AI Settings" color="bg-black" to="/admin/ai-knowledge" />
                     </div>
 

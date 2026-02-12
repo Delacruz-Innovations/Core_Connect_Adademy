@@ -153,19 +153,21 @@ export default function LessonListPage() {
 
                                     {/* Left: Info */}
                                     <div className="flex items-center gap-5 mb-4 sm:mb-0">
-                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-lg ${lesson.video_path ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-400'}`}>
-                                            {lesson.video_path ? <Video size={20} /> : <FileQuestion size={20} />}
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-lg ${lesson.mux_playback_id ? 'bg-secondary/10 text-secondary' : lesson.video_path ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-400'}`}>
+                                            {lesson.mux_playback_id ? <Zap size={20} className="fill-current" /> : lesson.video_path ? <Video size={20} /> : <FileQuestion size={20} />}
                                         </div>
                                         <div className="space-y-1">
                                             <h3 className="font-black text-gray-900 uppercase tracking-tight text-sm">
                                                 {index + 1}. {lesson.title}
                                             </h3>
                                             <div className="flex items-center gap-3">
-                                                <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded border tracking-widest ${lesson.video_path
-                                                    ? 'bg-green-50 text-green-700 border-green-100'
-                                                    : 'bg-orange-50 text-orange-600 border-orange-100'
+                                                <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded border tracking-widest ${lesson.mux_playback_id
+                                                    ? 'bg-secondary/5 text-secondary border-secondary/20'
+                                                    : lesson.video_path
+                                                        ? 'bg-green-50 text-green-700 border-green-100'
+                                                        : 'bg-orange-50 text-orange-600 border-orange-100'
                                                     }`}>
-                                                    {lesson.video_path ? 'Live' : 'Draft'}
+                                                    {lesson.mux_playback_id ? 'Mux HD' : lesson.video_path ? 'S3 Legacy' : 'Draft'}
                                                 </span>
                                                 <span className="text-[9px] font-black uppercase text-gray-300 tracking-[0.2em] flex items-center gap-1">
                                                     <Clock size={10} /> {Math.floor((lesson.duration_seconds || 0) / 60)}m {(lesson.duration_seconds || 0) % 60}s

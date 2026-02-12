@@ -4,7 +4,7 @@ import {
     LayoutDashboard, Users, BookOpen, GraduationCap,
     FileCheck, History, Database, UserCircle,
     LogOut, Menu, X, Bell, Search, ShieldCheck, Settings, HelpCircle,
-    MessageSquare
+    MessageSquare, TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import NotificationCenter from '../components/NotificationCenter';
@@ -44,6 +44,7 @@ const AdminLayout = () => {
         { label: 'Student Enrolments', icon: GraduationCap, href: '/admin/enrolments' },
         { label: 'Student Q&A Desk', icon: MessageSquare, href: '/admin/qa' },
         { label: 'AI Knowledge Base', icon: Database, href: '/admin/ai-knowledge' },
+        { label: 'Advanced Analytics', icon: TrendingUp, href: '/admin/analytics' },
         { label: 'System Audit Logs', icon: History, href: '/admin/audit-logs' },
     ];
 

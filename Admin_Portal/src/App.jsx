@@ -8,6 +8,7 @@ import AdminGuard from './components/AdminGuard';
 import AdminLogin from './pages/AdminLogin';
 import AdminSignup from './pages/AdminSignup';
 import AdminDashboard from './pages/AdminDashboard';
+import AnalyticsBoard from './pages/AnalyticsBoard';
 import UserManagement from './pages/UserManagement';
 import UserDetail from './pages/UserDetail';
 import CourseListPage from './pages/courses/CourseListPage';
@@ -53,6 +54,7 @@ function App() {
               <Route element={<AdminLayout />}>
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                <Route path="/admin/analytics" element={<AnalyticsBoard />} />
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/users/:id" element={<UserDetail />} />
 

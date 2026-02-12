@@ -18,7 +18,8 @@ const AssignmentManagement = () => {
         title: '',
         brief: '',
         submission_required: true,
-        allowed_file_types: ['pdf', 'doc', 'docx']
+        allowed_file_types: ['pdf', 'doc', 'docx'],
+        is_final_artefact: false
     });
     const [moduleData, setModuleData] = useState(null);
 
@@ -63,6 +64,7 @@ const AssignmentManagement = () => {
                 brief: assignment.brief || '',
                 submission_required: assignment.submission_required ?? true,
                 allowed_file_types: assignment.allowed_file_types || ['pdf', 'doc', 'docx'],
+                is_final_artefact: assignment.is_final_artefact || false,
                 updated_at: new Date().toISOString()
             };
 
@@ -211,6 +213,19 @@ const AssignmentManagement = () => {
                                     />
                                     <label htmlFor="submission_required" className="text-xs font-black uppercase tracking-widest text-gray-900 cursor-pointer">
                                         Mandatory for Progression
+                                    </label>
+                                </div>
+
+                                <div className="flex items-center gap-3 pt-6">
+                                    <input
+                                        type="checkbox"
+                                        id="is_final_artefact"
+                                        checked={assignment.is_final_artefact}
+                                        onChange={(e) => setAssignment({ ...assignment, is_final_artefact: e.target.checked })}
+                                        className="w-5 h-5 accent-secondary"
+                                    />
+                                    <label htmlFor="is_final_artefact" className="text-xs font-black uppercase tracking-widest text-secondary cursor-pointer">
+                                        Final Graduation Artefact
                                     </label>
                                 </div>
                             </div>

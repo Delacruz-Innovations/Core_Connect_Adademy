@@ -49,6 +49,13 @@ const AssignmentReviewBoard = () => {
 
     const handleToggleReview = async (subId, currentStatus) => {
         const newStatus = currentStatus === 'reviewed' ? 'pending' : 'reviewed';
+
+        // Optimistic UI Update
+        const previousSubmissions = [...submissions];
+        setSubmissions(submissions.map(s =>
+            s.id === subId ? { ...s, reviewed_status: newStatus } : s
+        ));
+
         try {
             const { error } = await supabase
                 .from('assignment_submissions')
@@ -59,12 +66,10 @@ const AssignmentReviewBoard = () => {
                 .eq('id', subId);
 
             if (error) throw error;
-
-            setSubmissions(submissions.map(s =>
-                s.id === subId ? { ...s, reviewed_status: newStatus } : s
-            ));
         } catch (err) {
             console.error('Toggle error:', err);
+            // Rollback on error
+            setSubmissions(previousSubmissions);
             alert('Failed to update review status');
         }
     };

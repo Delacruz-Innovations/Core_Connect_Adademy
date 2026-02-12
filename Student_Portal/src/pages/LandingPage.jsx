@@ -28,12 +28,12 @@ const LandingPage = () => {
             <AudienceFit />
             <WhyCoreConnect />
             <HowWeTeach />
-            <Partners />
-            <Courses />
+            {/* <Partners /> */}
+
             <SuccessStories />
-            <AboutFeatures />
-            <Podcast />
-            <FAQ />
+            {/* <AboutFeatures /> */}
+            {/* <Podcast /> */}
+            {/* <FAQ /> */}
             <CTA />
             <Footer />
         </div>

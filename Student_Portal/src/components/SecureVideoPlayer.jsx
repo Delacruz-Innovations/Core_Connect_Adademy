@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import {
     Play,
@@ -8,13 +8,25 @@ import {
     Volume2,
     VolumeX,
     Maximize,
-    Settings,
     Loader2,
     AlertCircle,
     CheckCircle2
 } from 'lucide-react';
+import MuxPlayer from '@mux/mux-player-react';
 
-export default function SecureVideoPlayer({ lessonId, courseId, moduleId, videoPath, initialTime = 0, onProgressUpdate, onEnded }) {
+export default function SecureVideoPlayer({
+    lessonId,
+    lessonTitle,
+    courseId,
+    courseTitle,
+    moduleId,
+    studentId,
+    videoPath,
+    muxPlaybackId,
+    initialTime = 0,
+    onProgressUpdate,
+    onEnded
+}) {
     // --- State ---
     const [videoUrl, setVideoUrl] = useState('');
     const [loading, setLoading] = useState(true);
@@ -28,19 +40,32 @@ export default function SecureVideoPlayer({ lessonId, courseId, moduleId, videoP
     const [playbackRate, setPlaybackRate] = useState(1);
     const [showControls, setShowControls] = useState(true);
     const [hasResumed, setHasResumed] = useState(false);
+    const isMounted = useRef(true);
+
+    // Scrubbing State
+    const [isScrubbing, setIsScrubbing] = useState(false);
+    const [scrubTime, setScrubTime] = useState(0); // Temporary time while scrubbing
 
     // --- Refs ---
     const videoRef = useRef(null);
     const containerRef = useRef(null);
+    const progressBarRef = useRef(null);
     const controlsTimeoutRef = useRef(null);
     const progressSyncRef = useRef(null);
     const lastSyncTimeRef = useRef(0);
 
     // --- Effects ---
 
+    // 0. Mount Tracking
+    useEffect(() => {
+        isMounted.current = true;
+        return () => { isMounted.current = false; };
+    }, []);
+
     // 1. Initial Load & Signed URL
     useEffect(() => {
         const fetchUrl = async () => {
+            if (!isMounted.current) return;
             setLoading(true);
             setError(null);
             try {
@@ -50,13 +75,21 @@ export default function SecureVideoPlayer({ lessonId, courseId, moduleId, videoP
                     .from('lesson-videos')
                     .createSignedUrl(videoPath, 3600); // 1hr validity
 
-                if (urlError) throw urlError;
+                if (!isMounted.current) return;
+
+                if (urlError) {
+                    if (urlError.name === 'AbortError' || urlError.message?.includes('aborted')) return;
+                    throw urlError;
+                }
                 setVideoUrl(data.signedUrl);
             } catch (err) {
+                if (!isMounted.current) return;
+                if (err.name === 'AbortError' || err.message?.includes('aborted')) return;
+
                 console.error('Player Load Fault:', err);
                 setError('Secure channel authentication failed.');
             } finally {
-                setLoading(false);
+                if (isMounted.current) setLoading(false);
             }
         };
 
@@ -95,7 +128,7 @@ export default function SecureVideoPlayer({ lessonId, courseId, moduleId, videoP
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isPlaying, isMuted]);
+    }, [isPlaying, isMuted, duration]);
 
     // --- Logic ---
 
@@ -120,13 +153,60 @@ export default function SecureVideoPlayer({ lessonId, courseId, moduleId, videoP
         videoRef.current.currentTime = Math.min(duration, Math.max(0, videoRef.current.currentTime + seconds));
     };
 
-    const handleProgressScrub = (e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const pos = (e.clientX - rect.left) / rect.width;
-        if (videoRef.current) {
-            videoRef.current.currentTime = pos * duration;
+    // --- Scrubbing Logic ---
+    const calculateScrubPosition = useCallback((clientX) => {
+        if (!progressBarRef.current || duration === 0) return 0;
+        const rect = progressBarRef.current.getBoundingClientRect();
+        const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        return pos * duration;
+    }, [duration]);
+
+    const handleScrubStart = (e) => {
+        e.preventDefault(); // Prevent text selection
+        setIsScrubbing(true);
+        const newTime = calculateScrubPosition(e.clientX);
+        setScrubTime(newTime);
+
+        // Pause while scrubbing for smoother experience
+        if (isPlaying && videoRef.current) {
+            videoRef.current.pause();
         }
     };
+
+    const handleScrubMove = useCallback((e) => {
+        if (isScrubbing) {
+            const newTime = calculateScrubPosition(e.clientX);
+            setScrubTime(newTime);
+        }
+    }, [isScrubbing, calculateScrubPosition]);
+
+    const handleScrubEnd = useCallback((e) => {
+        if (isScrubbing) {
+            const newTime = calculateScrubPosition(e.clientX); // Ensure final position is captured
+            if (videoRef.current) {
+                videoRef.current.currentTime = newTime;
+                // Resume playback
+                videoRef.current.play().catch(() => { });
+            }
+            setIsScrubbing(false);
+        }
+    }, [isScrubbing, calculateScrubPosition]);
+
+    // Attach global listeners for move/up to handle dragging outside the bar
+    useEffect(() => {
+        if (isScrubbing) {
+            window.addEventListener('mousemove', handleScrubMove);
+            window.addEventListener('mouseup', handleScrubEnd);
+        } else {
+            window.removeEventListener('mousemove', handleScrubMove);
+            window.removeEventListener('mouseup', handleScrubEnd);
+        }
+        return () => {
+            window.removeEventListener('mousemove', handleScrubMove);
+            window.removeEventListener('mouseup', handleScrubEnd);
+        };
+    }, [isScrubbing, handleScrubMove, handleScrubEnd]);
+
 
     const toggleFullscreen = () => {
         if (!containerRef.current) return;
@@ -150,21 +230,19 @@ export default function SecureVideoPlayer({ lessonId, courseId, moduleId, videoP
     // --- Video Events ---
 
     const onTimeUpdate = () => {
-        if (!videoRef.current) return;
+        if (isScrubbing) return; // Don't update state from video while scrubbing to avoid jumping
+
         setCurrentTime(videoRef.current.currentTime);
 
-        // Auto-Sync progress every 15 seconds to Supabase
+        // Auto-Sync progress every 15 seconds to Supabase (Legacy Player)
         const now = Date.now();
         if (now - lastSyncTimeRef.current > 15000) {
-            syncProgress();
+            syncProgress(videoRef.current.currentTime, videoRef.current.duration);
             lastSyncTimeRef.current = now;
         }
     };
 
-    const syncProgress = async () => {
-        if (!videoRef.current) return;
-        const cur = videoRef.current.currentTime;
-        const dur = videoRef.current.duration;
+    const syncProgress = async (cur, dur) => {
         if (dur <= 0) return;
 
         const percent = Math.round((cur / dur) * 100);
@@ -218,7 +296,7 @@ export default function SecureVideoPlayer({ lessonId, courseId, moduleId, videoP
     const handleActivity = () => {
         setShowControls(true);
         if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-        if (isPlaying) {
+        if (isPlaying && !isScrubbing) { // Only auto-hide if not scrubbing
             controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3000);
         }
     };
@@ -252,44 +330,92 @@ export default function SecureVideoPlayer({ lessonId, courseId, moduleId, videoP
         </div>
     );
 
+    // Determine the progress % to show: either currentTime or scrubTime if scrubbing
+    const displayTime = isScrubbing ? scrubTime : currentTime;
+    const progressPercent = duration > 0 ? (displayTime / duration) * 100 : 0;
+
     return (
         <div
             ref={containerRef}
-            className={`relative aspect-video bg-black rounded-xl overflow-hidden shadow-2xl shadow-black group overflow-hidden ${!showControls ? 'cursor-none' : ''}`}
+            className={`relative aspect-video bg-black rounded-xl overflow-hidden shadow-2xl shadow-black group overflow-hidden ${!showControls && !isScrubbing ? 'cursor-none' : ''}`}
             onMouseMove={handleActivity}
-            onMouseLeave={() => isPlaying && setShowControls(false)}
+            onMouseLeave={() => isPlaying && !isScrubbing && setShowControls(false)}
         >
-            {/* Main Video Engine */}
-            <video
-                ref={videoRef}
-                src={videoUrl}
-                className="w-full h-full object-contain"
-                onTimeUpdate={onTimeUpdate}
-                onLoadedMetadata={handleLoadedMetadata}
-                onPlay={() => { setIsPlaying(true); handleActivity(); }}
-                onPause={() => setIsPlaying(false)}
-                onEnded={async () => {
-                    setIsPlaying(false);
-                    await syncProgress();
-                    if (onEnded) onEnded();
-                }}
-                onWaiting={() => setIsBuffering(true)}
-                onPlaying={() => setIsBuffering(false)}
-                onError={handleVideoError}
-                onStalled={() => setIsBuffering(true)}
-                muted={isMuted}
-            />
+            {/* Mux Engine: High Performance Adaptive Streaming */}
+            {muxPlaybackId ? (
+                <MuxPlayer
+                    playbackId={muxPlaybackId}
+                    streamType="on-demand"
+                    startTime={initialTime}
+                    onTimeUpdate={(e) => {
+                        if (!isScrubbing) {
+                            const cur = e.target.currentTime;
+                            const dur = e.target.duration;
+                            setCurrentTime(cur);
+                            setDuration(dur);
 
-            {/* Click-to-Play Overlay */}
+                            // Sync more frequently for Mux
+                            const now = Date.now();
+                            if (now - lastSyncTimeRef.current > 5000) {
+                                syncProgress(cur, dur);
+                                lastSyncTimeRef.current = now;
+                            }
+                        }
+                    }}
+                    onPlay={() => { setIsPlaying(true); handleActivity(); }}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={async (e) => {
+                        setIsPlaying(false);
+                        await syncProgress(e.target.currentTime, e.target.duration);
+                        if (onEnded) onEnded();
+                    }}
+                    onWaiting={() => setIsBuffering(true)}
+                    onPlaying={() => setIsBuffering(false)}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    envKey={import.meta.env.VITE_MUX_ENV_KEY}
+                    metadata={{
+                        video_id: lessonId,
+                        video_title: lessonTitle || lessonId,
+                        viewer_user_id: studentId,
+                        sub_property_id: courseTitle || courseId,
+                        player_name: "Core Connect Secure Player",
+                        video_series: courseTitle
+                    }}
+                />
+            ) : (
+                <video
+                    ref={videoRef}
+                    src={videoUrl}
+                    className="w-full h-full object-contain"
+                    onTimeUpdate={onTimeUpdate}
+                    onLoadedMetadata={handleLoadedMetadata}
+                    onPlay={() => { setIsPlaying(true); handleActivity(); }}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={async () => {
+                        setIsPlaying(false);
+                        await syncProgress(videoRef.current.currentTime, videoRef.current.duration);
+                        if (onEnded) onEnded();
+                    }}
+                    onWaiting={() => setIsBuffering(true)}
+                    onPlaying={() => setIsBuffering(false)}
+                    onError={handleVideoError}
+                    onStalled={() => setIsBuffering(true)}
+                    muted={isMuted}
+                />
+            )}
+
+            {/* Click-to-Play Overlay (disabled when scrubbing) */}
             <div
                 className="absolute inset-0 z-10 cursor-pointer"
-                onClick={togglePlay}
+                onClick={(e) => {
+                    if (!isScrubbing) togglePlay();
+                }}
                 onDoubleClick={toggleFullscreen}
             />
 
             {/* Buffering Indicator */}
             {isBuffering && (
-                <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/20 backdrop-blur-[2px]">
+                <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/20 backdrop-blur-[2px] pointer-events-none">
                     <div className="relative">
                         <Loader2 className="text-white animate-spin" size={64} strokeWidth={1} />
                         <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white italic tracking-tighter">HD</div>
@@ -299,30 +425,61 @@ export default function SecureVideoPlayer({ lessonId, courseId, moduleId, videoP
 
             {/* Premium Controls HUD */}
             <div className={`
-                absolute bottom-0 left-0 right-0 z-30 transition-all duration-500 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-6 pt-12
-                ${showControls ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}
+                absolute bottom-0 left-0 right-0 z-30 transition-all duration-500 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 pt-16
+                ${showControls || isScrubbing ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}
             `}>
-                {/* Progress Bar Tier */}
-                <div className="relative h-1.5 mb-6 group/progress">
+                {/* Custom Progress Bar */}
+                <div
+                    className="group/props absolute top-0 left-0 right-0 h-4 cursor-pointer z-40 px-6 box-content -mt-4 py-2"
+                    onMouseDown={handleScrubStart}
+                >
                     <div
-                        className="absolute inset-0 bg-white/10 rounded-full cursor-pointer overflow-hidden"
-                        onClick={handleProgressScrub}
+                        ref={progressBarRef}
+                        className="relative w-full h-full flex items-center group-hover/props:scale-y-110 transition-transform"
                     >
-                        {/* Buffer Bar (Simulated) */}
-                        <div className="absolute h-full bg-white/10 w-[85%] transition-all duration-1000" />
+                        {/* Background Track */}
+                        <div className="absolute left-0 right-0 h-1.5 bg-white/20 rounded-full overflow-hidden backdrop-blur-sm shadow-sm">
 
-                        {/* Progress Fill */}
+                            {/* Buffer/Load Progress (Mock for now, or use buffered end) */}
+                            {videoRef.current && videoRef.current.buffered.length > 0 && (
+                                <div
+                                    className="absolute top-0 left-0 h-full bg-white/20"
+                                    style={{ width: `${Math.min(100, (videoRef.current.buffered.end(videoRef.current.buffered.length - 1) / duration) * 100)}%` }}
+                                />
+                            )}
+
+                            {/* Play Progress */}
+                            <div
+                                className="absolute top-0 left-0 h-full bg-primary shadow-[0_0_15px_rgba(59,130,246,0.8)]"
+                                style={{ width: `${progressPercent}%` }}
+                            />
+                        </div>
+
+                        {/* Handle */}
                         <div
-                            className="absolute h-full bg-primary relative"
-                            style={{ width: `${(currentTime / duration) * 100}%` }}
+                            className={`
+                                 absolute h-4 w-4 bg-white rounded-full shadow-lg transform -translate-x-1/2 transition-all duration-150 ease-out z-50
+                                 ${isScrubbing || true ? 'scale-100 opacity-100' : 'scale-0 opacity-0 group-hover/props:scale-100 group-hover/props:opacity-100'}
+                             `}
+                            style={{ left: `${progressPercent}%` }}
                         >
-                            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-xl opacity-0 group-hover/progress:opacity-100 transition-opacity scale-0 group-hover/progress:scale-100" />
+                            <div className="absolute inset-0 rounded-full bg-primary/20 animate-pulse ring-2 ring-white/50" />
                         </div>
                     </div>
+
+                    {/* Hover Time Tooltip */}
+                    {isScrubbing && (
+                        <div
+                            className="absolute bottom-full mb-4 bg-black/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded border border-white/10 transform -translate-x-1/2"
+                            style={{ left: `${progressPercent}%` }}
+                        >
+                            {formatTime(displayTime)}
+                        </div>
+                    )}
                 </div>
 
                 {/* Control Icons Tier */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between relative z-50 mt-1">
                     <div className="flex items-center gap-6">
                         {/* Playback Controls */}
                         <button onClick={togglePlay} className="text-white hover:text-primary transition-colors hover:scale-110 active:scale-95">
@@ -359,7 +516,7 @@ export default function SecureVideoPlayer({ lessonId, courseId, moduleId, videoP
 
                         {/* Timing HUD */}
                         <div className="text-[11px] font-black text-white/90 uppercase tracking-widest font-mono">
-                            <span className="text-primary">{formatTime(currentTime)}</span>
+                            <span className="text-primary">{formatTime(displayTime)}</span>
                             <span className="mx-2 text-white/20">/</span>
                             <span>{formatTime(duration)}</span>
                         </div>

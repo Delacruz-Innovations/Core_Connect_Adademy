@@ -20,6 +20,8 @@ export default function CoursePlayer() {
     const [signedUrl, setSignedUrl] = useState(null);
     const [expandedModules, setExpandedModules] = useState({});
 
+    const [enrollment, setEnrollment] = useState(null);
+
     useEffect(() => {
         const controller = new AbortController();
         const fetchData = () => fetchCourseAndLessonData(controller.signal);
@@ -35,14 +37,28 @@ export default function CoursePlayer() {
 
     const fetchCourseAndLessonData = async (signal) => {
         try {
-            const { data: courseData, error: courseError } = await supabase
-                .from('courses')
-                .select(`*, modules:modules(*, lessons:lessons(*))`)
-                .eq('id', courseId)
-                .abortSignal(signal)
-                .single();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
 
-            if (courseError) throw courseError;
+            const [courseRes, enrollRes] = await Promise.all([
+                supabase
+                    .from('courses')
+                    .select(`*, modules:modules(*, lessons:lessons(*))`)
+                    .eq('id', courseId)
+                    .abortSignal(signal)
+                    .single(),
+                supabase
+                    .from('enrollments')
+                    .select('status')
+                    .eq('course_id', courseId)
+                    .eq('student_id', user.id)
+                    .abortSignal(signal)
+                    .maybeSingle()
+            ]);
+
+            if (courseRes.error) throw courseRes.error;
+            const courseData = courseRes.data;
+            setEnrollment(enrollRes.data);
 
             const sortedModules = (courseData.modules || []).sort((a, b) => a.week_number - b.week_number).map(mod => ({
                 ...mod,
@@ -138,10 +154,12 @@ export default function CoursePlayer() {
                         <Share2 size={14} />
                         <span className="text-[10px] font-black uppercase tracking-widest">Share</span>
                     </button>
-                    <button className="hidden sm:flex items-center gap-2 bg-primary text-white px-4 py-2 hover:bg-black transition-all shadow-lg shadow-primary/20">
-                        <Award size={14} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Claim Certificate</span>
-                    </button>
+                    {enrollment?.status === 'completed' && (
+                        <button className="hidden sm:flex items-center gap-2 bg-primary text-white px-4 py-2 hover:bg-black transition-all shadow-lg shadow-primary/20">
+                            <Award size={14} />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Claim Certificate</span>
+                        </button>
+                    )}
                 </div>
             </header>
 

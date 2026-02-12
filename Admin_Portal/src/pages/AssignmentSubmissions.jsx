@@ -64,6 +64,13 @@ const AssignmentSubmissions = () => {
 
     const handleToggleReview = async (subId, currentStatus) => {
         const newStatus = currentStatus === 'reviewed' ? 'pending' : 'reviewed';
+
+        // Optimistic UI Update
+        const previousSubmissions = [...submissions];
+        setSubmissions(submissions.map(s =>
+            s.id === subId ? { ...s, reviewed_status: newStatus } : s
+        ));
+
         try {
             const { error } = await supabase
                 .from('assignment_submissions')
@@ -72,10 +79,19 @@ const AssignmentSubmissions = () => {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', subId);
+
             if (error) throw error;
-            fetchSubmissions();
+
+            showAlert(
+                `Submission marked as ${newStatus}.`,
+                'Status Synchronized',
+                newStatus === 'reviewed' ? 'success' : 'info'
+            );
         } catch (err) {
-            alert('Review update failed: ' + err.message);
+            console.error('Review update failed:', err);
+            // Rollback on error
+            setSubmissions(previousSubmissions);
+            showAlert('Failed to update status: ' + err.message, 'System Error', 'error');
         }
     };
 

@@ -54,7 +54,7 @@ const AudienceFit = () => {
 
                         <div className="space-y-8">
                             {/* Don't Need Group */}
-                            <motion.div
+                            {/* <motion.div
                                 initial={{ opacity: 0, x: 20 }}
                                 whileInView={{ opacity: 1, x: 0 }}
                                 viewport={{ once: true }}
@@ -70,7 +70,7 @@ const AudienceFit = () => {
                                         </div>
                                     ))}
                                 </div>
-                            </motion.div>
+                            </motion.div> */}
 
                             {/* Do Need Group */}
                             <motion.div

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { FileText, CheckCircle2, Clock, ClipboardList, Filter, Search, ArrowUpRight, History, Activity, ShieldCheck } from 'lucide-react';
+import { FileText, CheckCircle2, Clock, Filter, Search, ArrowUpRight, History, BookOpen } from 'lucide-react';
 import { useConnectivity } from '../../context/ConnectivityContext';
+import { Link } from 'react-router-dom';
 
 const AssignmentHistory = () => {
     const { notifySyncFailure, registerRetry } = useConnectivity();
@@ -42,7 +43,7 @@ const AssignmentHistory = () => {
                 return;
             }
 
-            // 2. Fetch all assignments from these courses (Modules and Lessons)
+            // 2. Fetch all assignments from these courses
             const { data: allAssignmentsData, error: assignError } = await supabase
                 .from('assignments')
                 .select(`
@@ -57,9 +58,6 @@ const AssignmentHistory = () => {
             // Filter assignments that belong to the user's enrolled courses
             const filteredAll = allAssignmentsData.filter(a => {
                 if (a.parent_type === 'module') return courseIds.includes(a.module?.course_id);
-                // For lesson assignments, we need to ensure the lesson belongs to a module in an enrolled course
-                // But since we selected module/lesson above, we can check.
-                // Re-fetching with more depth or filtering here.
                 return courseIds.includes(a.module?.course_id);
             });
 
@@ -103,128 +101,130 @@ const AssignmentHistory = () => {
     });
 
     if (loading) return (
-        <div className="h-screen w-full flex flex-col items-center justify-center gap-4">
+        <div className="min-h-screen w-full flex flex-col items-center justify-center gap-4">
             <div className="w-10 h-10 border-4 border-gray-100 border-t-primary rounded-full animate-spin"></div>
-            <p className="text-[10px] uppercase font-black tracking-[0.2em] text-gray-400 animate-pulse">Synchronizing Records...</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Loading Assignments...</p>
         </div>
     );
 
     return (
-        <div className="space-y-8 md:space-y-12 mx-auto min-h-screen">
+        <div className="max-w-[1600px] mx-auto relative min-h-screen pb-20">
+            {/* Watermark */}
+            <div className="fixed right-0 bottom-0 opacity-[0.03] pointer-events-none z-0 transform translate-y-1/4 translate-x-1/4">
+                <BookOpen size={600} />
+            </div>
 
-            {/* Premium Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 md:gap-8 border-b border-gray-100 pb-8">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10 relative z-10">
                 <div>
-                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-4 block">Assignments</span>
-                    <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight text-gray-900 leading-none">
-                        Assignment <span className="text-primary">History</span>
-                    </h1>
+                    <h1 className="text-3xl font-bold text-gray-900">Assignments</h1>
+                    <p className="text-gray-500 mt-1">Track your progress and submissions</p>
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex p-1 bg-gray-100 rounded-xl overflow-x-auto no-scrollbar">
+                    {[
+                        { id: 'all', label: 'All' },
+                        { id: 'active', label: 'To Do' },
+                        { id: 'pending', label: 'Submitted' },
+                        { id: 'graded', label: 'Graded' }
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setFilter(tab.id)}
+                            className={`px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all whitespace-nowrap ${filter === tab.id
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            {/* Filter Tabs */}
-            <div className="bg-white border border-gray-100 p-2 flex gap-2 md:gap-4 overflow-x-auto no-scrollbar rounded-sm">
-                <button
-                    onClick={() => setFilter('all')}
-                    className={`px-4 md:px-8 py-3 md:py-4 text-[10px] font-bold uppercase tracking-[0.2em] transition-all whitespace-nowrap rounded-sm ${filter === 'all' ? 'bg-black text-white' : 'hover:bg-gray-50 text-gray-400'}`}
-                >
-                    All
-                </button>
-                <button
-                    onClick={() => setFilter('active')}
-                    className={`px-4 md:px-8 py-3 md:py-4 text-[10px] font-bold uppercase tracking-[0.2em] transition-all whitespace-nowrap rounded-sm ${filter === 'active' ? 'bg-primary text-white' : 'hover:bg-gray-50 text-gray-400'}`}
-                >
-                    To Do
-                </button>
-                <button
-                    onClick={() => setFilter('pending')}
-                    className={`px-4 md:px-8 py-3 md:py-4 text-[10px] font-bold uppercase tracking-[0.2em] transition-all whitespace-nowrap rounded-sm ${filter === 'pending' ? 'bg-yellow-500 text-white' : 'hover:bg-gray-50 text-gray-400'}`}
-                >
-                    Submitted
-                </button>
-                <button
-                    onClick={() => setFilter('graded')}
-                    className={`px-4 md:px-8 py-3 md:py-4 text-[10px] font-bold uppercase tracking-[0.2em] transition-all whitespace-nowrap rounded-sm ${filter === 'graded' ? 'bg-green-600 text-white' : 'hover:bg-gray-50 text-gray-400'}`}
-                >
-                    Graded
-                </button>
-            </div>
-
             {/* Assignments List */}
-            <div className="bg-white border border-gray-100 shadow-sm rounded-sm">
+            <div className="bg-white border border-gray-100 shadow-sm rounded-3xl overflow-hidden relative z-10">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-gray-100 bg-gray-50/50">
-                                <th className="p-6 text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none">Assignment Name</th>
-                                <th className="p-6 text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none">Course</th>
-                                <th className="p-6 text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none">Date Submitted</th>
-                                <th className="p-6 text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none text-right">Grade / Status</th>
+                                <th className="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Assignment</th>
+                                <th className="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Course Context</th>
+                                <th className="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                                <th className="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-gray-50">
                             {filteredAssignments.length === 0 ? (
                                 <tr>
                                     <td colSpan="4" className="p-16 text-center">
-                                        <div className="flex flex-col items-center gap-6">
+                                        <div className="flex flex-col items-center gap-4">
                                             <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
-                                                <FileText size={32} />
+                                                <FileText size={24} />
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-sm font-bold text-gray-900 uppercase tracking-widest">Clear Slate</p>
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">No assignments found for this category.</p>
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-900">No assignments found</p>
+                                                <p className="text-xs text-gray-500 mt-1">Try changing the filter or check back later.</p>
                                             </div>
                                         </div>
                                     </td>
                                 </tr>
                             ) : (
                                 filteredAssignments.map((assignment) => (
-                                    <tr key={assignment.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors group">
+                                    <tr key={assignment.id} className="hover:bg-gray-50/50 transition-colors group">
                                         <td className="p-6">
                                             <div className="font-bold text-sm text-gray-900 flex items-center gap-3">
-                                                <div className={`w-1.5 h-1.5 rounded-full ${assignment.is_submitted ? 'bg-gray-200' : 'bg-primary animate-pulse'}`}></div>
+                                                <div className={`w-2 h-2 rounded-full ${assignment.is_submitted ? 'bg-gray-200' : 'bg-primary'}`}></div>
                                                 {assignment.title}
                                             </div>
-                                            <div className="pl-4.5 text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">
+                                            <div className="pl-5 text-xs text-gray-400 mt-1">
                                                 {assignment.parent_type === 'lesson'
-                                                    ? `UNIT: ${assignment.lesson?.title}`
-                                                    : `MODULE: ${assignment.module?.title}`
+                                                    ? `Unit: ${assignment.lesson?.title}`
+                                                    : `Module: ${assignment.module?.title}`
                                                 }
                                             </div>
                                         </td>
                                         <td className="p-6">
-                                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                                                {assignment.module?.courses?.title || (assignment.parent_type === 'lesson' ? 'Core Course' : 'Legacy Course')}
-                                            </div>
+                                            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                                {assignment.module?.courses?.title || 'General Course'}
+                                            </span>
                                         </td>
                                         <td className="p-6">
-                                            <div className="flex items-center gap-2 text-gray-400 font-medium text-xs">
-                                                {assignment.is_submitted ? (
-                                                    <><History size={12} /> {new Date(assignment.submitted_at).toLocaleDateString()}</>
+                                            <div className="flex items-center gap-2">
+                                                {assignment.reviewed_status === 'reviewed' ? (
+                                                    <span className="inline-flex items-center gap-1.5 text-green-600 text-xs font-bold bg-green-50 px-2.5 py-1 rounded-full">
+                                                        <CheckCircle2 size={12} /> {assignment.grade_score}% Graded
+                                                    </span>
+                                                ) : assignment.is_submitted ? (
+                                                    <span className="inline-flex items-center gap-1.5 text-yellow-600 text-xs font-bold bg-yellow-50 px-2.5 py-1 rounded-full">
+                                                        <Clock size={12} /> Under Review
+                                                    </span>
                                                 ) : (
-                                                    <span className="text-primary font-bold">READY TO SUBMIT</span>
+                                                    <span className="inline-flex items-center gap-1.5 text-gray-500 text-xs font-medium">
+                                                        <div className="w-1.5 h-1.5 bg-gray-300 rounded-full"></div> Pending
+                                                    </span>
                                                 )}
                                             </div>
+                                            {assignment.is_submitted && (
+                                                <div className="text-[10px] text-gray-400 mt-1 pl-1">
+                                                    Submitted: {new Date(assignment.submitted_at).toLocaleDateString()}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="p-6 text-right">
-                                            {assignment.reviewed_status === 'reviewed' ? (
-                                                <div className="inline-flex flex-col items-end">
-                                                    <span className="text-lg font-black text-gray-900">{assignment.grade_score}%</span>
-                                                    <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest flex items-center gap-1.5">
-                                                        <CheckCircle2 size={10} /> Graded
-                                                    </span>
-                                                </div>
-                                            ) : assignment.is_submitted ? (
-                                                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-yellow-50 text-yellow-600 border border-yellow-100 rounded-sm text-[9px] font-bold uppercase tracking-widest">
-                                                    <Clock size={10} /> Pending Review
-                                                </span>
-                                            ) : (
+                                            {!assignment.is_submitted && (
                                                 <Link
                                                     to={`/student/assignments/${assignment.id}`}
-                                                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all rounded-sm"
+                                                    className="inline-flex items-center gap-2 px-5 py-2 bg-gray-900 text-white text-xs font-bold hover:bg-primary transition-all rounded-xl shadow-sm hover:shadow-md"
                                                 >
-                                                    Start Work <ArrowUpRight size={12} />
+                                                    Start Assignment <ArrowUpRight size={14} />
                                                 </Link>
+                                            )}
+                                            {assignment.is_submitted && (
+                                                <button disabled className="text-xs font-bold text-gray-400 cursor-not-allowed">
+                                                    View Submission
+                                                </button>
                                             )}
                                         </td>
                                     </tr>
@@ -235,22 +235,14 @@ const AssignmentHistory = () => {
                 </div>
             </div>
 
-            {/* Footer Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-gray-100">
-                <div className="space-y-3">
-                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Grading Policy</h4>
-                    <p className="text-xs text-gray-500 font-medium leading-relaxed">
-                        Assignments are typically graded within 72 hours of submission. You will receive a notification once your grade is posted.
-                    </p>
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
+                    <h4 className="font-bold text-blue-900 mb-2">Grading Policy</h4>
+                    <p className="text-sm text-blue-800/70">Assignments are usually graded within 72 hours. You'll receive a notification once your grade is ready.</p>
                 </div>
-                <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                        <ArrowUpRight size={14} className="text-primary" />
-                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Need Help?</h4>
-                    </div>
-                    <p className="text-xs text-gray-500 font-medium leading-relaxed">
-                        If you have questions about a grade or feedback, please contact your instructor or submit a specialized inquiry.
-                    </p>
+                <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
+                    <h4 className="font-bold text-gray-900 mb-2">Need Help?</h4>
+                    <p className="text-sm text-gray-500">If you're stuck on an assignment, check the AI Assistant or reach out to your instructor.</p>
                 </div>
             </div>
 

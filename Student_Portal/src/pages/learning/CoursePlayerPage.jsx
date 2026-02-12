@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { motion } from 'framer-motion';
 import {
     ArrowLeft, Lock, CheckCircle,
     PlayCircle, FileText, Layout,
-    Loader2, ChevronRight, Play
+    Loader2, ChevronRight, Play, Award,
+    Trophy, Sparkles
 } from 'lucide-react';
 
 export default function CoursePlayerPage() {
@@ -241,33 +243,78 @@ export default function CoursePlayerPage() {
             {/* Navigation Workspace */}
             <main className="flex-1 flex flex-col h-full relative bg-gray-50/30 overflow-hidden">
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center max-w-lg p-12 bg-white border border-gray-100 shadow-2xl relative">
-                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20 rounded-sm">
-                            <Layout size={40} />
-                        </div>
-                        <div className="mt-12 space-y-6">
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2">
-                                    {modules.length === 0 ? "Under Construction" : "Sequence Initiated"}
-                                </span>
-                                <h2 className="text-3xl font-black italic uppercase tracking-tighter text-gray-900 leading-none">
-                                    {modules.length === 0 ? "No Curriculum Logic Found" : "Select a Curriculum Node"}
-                                </h2>
+                    {(() => {
+                        const totalModules = modules.length;
+                        const completedModules = modules.filter(m => progress[m.id] === 'completed').length;
+                        const isGraduated = totalModules > 0 && completedModules === totalModules;
+
+                        if (isGraduated) {
+                            return (
+                                <div className="text-center max-w-lg p-16 bg-black text-white shadow-2xl relative overflow-hidden group">
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.5 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="absolute -top-10 -right-10 text-primary/20 pointer-events-none"
+                                    >
+                                        <Trophy size={200} />
+                                    </motion.div>
+
+                                    <div className="relative z-10 space-y-8">
+                                        <div className="w-20 h-20 bg-primary mx-auto flex items-center justify-center text-white shadow-xl shadow-primary/40 rounded-full mb-8">
+                                            <Award size={40} />
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.5em] block">Legacy Achieved</span>
+                                            <h2 className="text-5xl font-black italic uppercase tracking-tighter leading-none mb-4">
+                                                Graduation Ready
+                                            </h2>
+                                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest leading-relaxed">
+                                                All curriculum nodes synchronized. Your final artefact has been validated by the board.
+                                            </p>
+                                        </div>
+
+                                        <Link
+                                            to={`/student/course/${courseId}/completion`}
+                                            className="w-full bg-primary text-white py-5 px-10 rounded-sm font-black text-[12px] uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-3 group"
+                                        >
+                                            Claim Your Credentials <Sparkles size={18} className="group-hover:rotate-12 transition-transform" />
+                                        </Link>
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <div className="text-center max-w-lg p-12 bg-white border border-gray-100 shadow-2xl relative">
+                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20 rounded-sm">
+                                    <Layout size={40} />
+                                </div>
+                                <div className="mt-12 space-y-6">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2">
+                                            {modules.length === 0 ? "Under Construction" : "Sequence Initiated"}
+                                        </span>
+                                        <h2 className="text-3xl font-black italic uppercase tracking-tighter text-gray-900 leading-none">
+                                            {modules.length === 0 ? "No Curriculum Logic Found" : "Select a Curriculum Node"}
+                                        </h2>
+                                    </div>
+                                    <p className="text-gray-400 text-sm font-medium leading-relaxed italic border-l-2 border-primary/20 pl-6 mx-auto max-w-sm">
+                                        {modules.length === 0
+                                            ? "Architecture for this learning path is still being deployed by engineers. Check back shortly."
+                                            : "Choose a learning week to access video streams, technical documents, and assessment portals."
+                                        }
+                                    </p>
+                                    <div className="pt-4 flex items-center justify-center gap-3">
+                                        <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${modules.length === 0 ? 'bg-orange-500' : 'bg-green-500'}`}></div>
+                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                                            {modules.length === 0 ? "Awaiting Core Deployment" : "Awaiting Direct Link Interaction"}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            <p className="text-gray-400 text-sm font-medium leading-relaxed italic border-l-2 border-primary/20 pl-6 mx-auto max-w-sm">
-                                {modules.length === 0
-                                    ? "Architecture for this learning path is still being deployed by engineers. Check back shortly."
-                                    : "Choose a learning week to access video streams, technical documents, and assessment portals."
-                                }
-                            </p>
-                            <div className="pt-4 flex items-center justify-center gap-3">
-                                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${modules.length === 0 ? 'bg-orange-500' : 'bg-green-500'}`}></div>
-                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                                    {modules.length === 0 ? "Awaiting Core Deployment" : "Awaiting Direct Link Interaction"}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+                        );
+                    })()}
                 </div>
 
                 {/* Visual Watermark Wrapper */}

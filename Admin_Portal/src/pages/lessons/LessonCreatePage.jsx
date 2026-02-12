@@ -4,12 +4,12 @@ import { supabase } from '../../lib/supabase';
 import { useModal } from '../../context/ModalContext';
 import {
     ArrowLeft, Save, UploadCloud, FileVideo,
-    CheckCircle, AlertCircle, Info, Clapperboard, FileText
+    CheckCircle, AlertCircle, Info, Clapperboard, FileText,
+    Zap, ClipboardList
 } from 'lucide-react';
 import BrandedLoader from '../../components/BrandedLoader';
 import DocumentManager from '../../components/documents/DocumentManager';
 import AssignmentManager from '../../components/assignments/AssignmentManager';
-import { ClipboardList } from 'lucide-react';
 
 export default function LessonCreatePage() {
     const { moduleId, lessonId } = useParams();
@@ -23,6 +23,7 @@ export default function LessonCreatePage() {
         title: '',
         description: '',
         video_path: '',
+        mux_playback_id: '',
         duration_seconds: 0
     });
 
@@ -72,7 +73,7 @@ export default function LessonCreatePage() {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setLoading(true);
 
         try {
@@ -89,6 +90,7 @@ export default function LessonCreatePage() {
                 title: formData.title,
                 description: formData.description,
                 video_path: finalPath,
+                mux_playback_id: formData.mux_playback_id || '',
                 duration_seconds: formData.duration_seconds,
                 updated_at: new Date().toISOString()
             };
@@ -171,10 +173,38 @@ export default function LessonCreatePage() {
                             />
                         </div>
 
+                        {/* Mux Integration Section */}
+                        <div className="pt-10 border-t border-gray-50">
+                            <div className="flex justify-between items-center mb-6">
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">High Performance Streaming (Mux)</label>
+                                {formData.mux_playback_id && (
+                                    <span className="flex items-center gap-1 text-[9px] font-black text-primary uppercase tracking-widest">
+                                        <Zap size={10} /> Fast Start Enabled
+                                    </span>
+                                )}
+                            </div>
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter leading-relaxed">
+                                    Provide a Mux Playback ID to bypass Supabase Storage lag. This enables HLS adaptive bitrate streaming for an instant-start experience.
+                                </p>
+                                <div className="flex items-center gap-4 bg-gray-50 p-6 rounded-[1.5rem] border border-gray-100">
+                                    <div className="p-3 bg-white text-primary rounded-xl shadow-sm">
+                                        <Clapperboard size={20} />
+                                    </div>
+                                    <input
+                                        value={formData.mux_playback_id || ''}
+                                        onChange={e => setFormData({ ...formData, mux_playback_id: e.target.value })}
+                                        className="flex-1 bg-transparent border-none focus:outline-none font-mono text-sm text-gray-900"
+                                        placeholder="Enter Mux Playback ID (e.g. ds02vO02...) "
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Video Vault Section */}
                         <div className="pt-10 border-t border-gray-50">
                             <div className="flex justify-between items-center mb-6">
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Secure Media Vault</label>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Legacy Media Vault (S3)</label>
                                 {formData.video_path && (
                                     <span className="flex items-center gap-1 text-[9px] font-black text-green-500 uppercase tracking-widest">
                                         <CheckCircle size={10} /> Media Optimized
@@ -293,7 +323,6 @@ export default function LessonCreatePage() {
                         </div>
                         <AssignmentManager parentType="lesson" parentId={lessonId} />
                     </div>
-                    )}
                 </div>
             </div>
         </div>

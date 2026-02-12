@@ -11,6 +11,7 @@ import {
     Send, MessageCircle, HelpCircle, ClipboardCheck
 } from 'lucide-react';
 import SecureVideoPlayer from '../../components/SecureVideoPlayer';
+import { useAuth } from '../../context/AuthContext';
 import { useConnectivity } from '../../context/ConnectivityContext';
 import { usePersistentQuery } from '../../hooks/usePersistentQuery';
 import { useMediaCache } from '../../hooks/useMediaCache';
@@ -18,6 +19,7 @@ import { useMediaCache } from '../../hooks/useMediaCache';
 export default function LessonPlayerPage() {
     const { courseId, moduleId, lessonId } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { notifySyncFailure } = useConnectivity();
     const { cacheAsset } = useMediaCache();
 
@@ -27,59 +29,35 @@ export default function LessonPlayerPage() {
     const [expandedModules, setExpandedModules] = useState({});
     const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState(null);
     const [showAutoAdvance, setShowAutoAdvance] = useState(false);
+    const [submittingAssignment, setSubmittingAssignment] = useState(false);
 
-    // States that will be derived or synced from the persistent query
+    // AI States
     const [aiMessages, setAiMessages] = useState([
         { role: 'assistant', content: "Hello! I'm your AI curriculum assistant. How can I help you understand this lesson better?" }
     ]);
     const [isAiTyping, setIsAiTyping] = useState(false);
     const chatEndRef = useRef(null);
 
-    // fetchLessonData: The revalidation logic for SWR
-    const fetchLessonData = useCallback(async (signal) => {
+    // --- 1. Course Structure Query (Persists across lessons) ---
+    const fetchCourseStructure = useCallback(async (signal) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
 
-        // 1. Fetch Course with nested structure
         const { data: fetchedCourse, error: courseError } = await supabase
             .from('courses')
-            .select(`*, modules:modules(*, lessons:lessons(*), assignments:assignments(*))`)
+            .select(`*, modules:modules(*, lessons:lessons(id, title, description, video_path, mux_playback_id, module_id, order_index, duration_seconds), assignments:assignments(*))`)
             .eq('id', courseId)
+            .order('week_number', { foreignTable: 'modules', ascending: true })
+            .order('order_index', { foreignTable: 'modules.lessons', ascending: true })
             .abortSignal(signal)
             .single();
 
         if (courseError) throw courseError;
 
-        // 2. Fetch Progress (Module & Lesson)
         const [modProgRes, lessProgRes] = await Promise.all([
             supabase.from('module_progress').select('*').eq('user_id', user.id).eq('course_id', courseId).abortSignal(signal),
             supabase.from('lesson_progress').select('*').eq('user_id', user.id).eq('course_id', courseId).abortSignal(signal)
         ]);
-
-        // 3. Fetch Lesson Specifics (Resources, Assignments, Q&A)
-        const [resRes, assignRes, qaRes] = await Promise.all([
-            // Resources: Fetch using parent_id (polymorphic)
-            supabase.from('resources').select('*')
-                .or(`parent_id.eq.${lessonId},parent_id.eq.${moduleId}`)
-                .eq('visibility_status', 'published')
-                .abortSignal(signal),
-            // Assignment: Fetch for current lesson
-            supabase.from('assignments').select('*').eq('lesson_id', lessonId).abortSignal(signal).maybeSingle(),
-            // Q&A: Use correct table name 'lesson_questions' and profile join hint
-            supabase.from('lesson_questions').select('*, profiles!student_id(full_name)')
-                .eq('lesson_id', lessonId)
-                .order('created_at', { ascending: false })
-                .abortSignal(signal)
-        ]);
-
-        // 4. Fetch ALL assignment submissions for the student to check hard-locks
-        const { data: allSubmissions } = await supabase.from('assignment_submissions')
-            .select('assignment_id')
-            .eq('user_id', user.id)
-            .abortSignal(signal);
-
-        const subIds = new Set(allSubmissions?.map(s => s.assignment_id) || []);
-        const subsData = assignRes.data ? allSubmissions?.find(s => s.assignment_id === assignRes.data.id) : null;
 
         const modProgress = {};
         modProgRes.data?.forEach(p => modProgress[p.module_id] = p);
@@ -87,49 +65,99 @@ export default function LessonPlayerPage() {
         const lessProgress = {};
         lessProgRes.data?.forEach(p => lessProgress[p.lesson_id] = p);
 
-        const currentL = lessProgRes.data?.find(p => p.lesson_id === lessonId);
-        const currentLessonObj = fetchedCourse.modules
-            .flatMap(m => m.lessons)
-            .find(l => l.id === lessonId);
+        const { data: allSubmissions } = await supabase.from('assignment_submissions')
+            .select('assignment_id, reviewed_status')
+            .eq('user_id', user.id)
+            .abortSignal(signal);
+
+        const subIds = new Set(allSubmissions?.filter(s => s.reviewed_status !== 'blocked').map(s => s.assignment_id) || []);
+        const allSubsMap = new Map(allSubmissions?.map(s => [s.assignment_id, s.reviewed_status]) || []);
 
         return {
             course: fetchedCourse,
-            currentLesson: currentLessonObj,
             moduleProgress: modProgress,
             lessonProgress: lessProgress,
-            savedPosition: currentL?.last_position || 0,
+            allSubIds: Array.from(subIds),
+            allSubsMap: Array.from(allSubsMap.entries())
+        };
+    }, [courseId]);
+
+    const { data: courseData, loading: courseLoading, revalidate: revalidateCourse } = usePersistentQuery(
+        `cc_course_structure_${courseId}`,
+        fetchCourseStructure,
+        [courseId]
+    );
+
+    // --- 2. Lesson Specific Query (Refreshes on navigation) ---
+    const fetchLessonSpecifics = useCallback(async (signal) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        const [resRes, assignRes, qaRes, lessProgRes] = await Promise.all([
+            supabase.from('resources').select('*')
+                .or(`parent_id.eq.${lessonId},parent_id.eq.${moduleId}`)
+                .eq('visibility_status', 'published')
+                .abortSignal(signal),
+            supabase.from('assignments').select('*').eq('lesson_id', lessonId).abortSignal(signal).maybeSingle(),
+            supabase.from('lesson_questions').select('*, profiles!student_id(full_name)')
+                .eq('lesson_id', lessonId)
+                .order('created_at', { ascending: false })
+                .abortSignal(signal),
+            supabase.from('lesson_progress').select('*')
+                .eq('user_id', user.id)
+                .eq('lesson_id', lessonId)
+                .abortSignal(signal)
+                .maybeSingle()
+        ]);
+
+        const submissionRes = assignRes.data ? await supabase.from('assignment_submissions')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('assignment_id', assignRes.data.id)
+            .abortSignal(signal)
+            .maybeSingle() : { data: null };
+
+        return {
+            currentLessonProgress: lessProgRes.data,
             lessonAssignment: assignRes.data,
-            assignmentSubmission: subsData,
-            allSubIds: subIds,
+            assignmentSubmission: submissionRes.data,
             lessonResources: resRes.data?.filter(r => r.parent_id === lessonId) || [],
             moduleResources: resRes.data?.filter(r => r.parent_id === moduleId) || [],
             questions: qaRes.data || []
         };
-    }, [courseId, moduleId, lessonId]);
+    }, [lessonId, moduleId]);
 
-    const { data: pageData, loading: contentLoading, revalidate } = usePersistentQuery(
-        `cc_lesson_player_${lessonId}`,
-        fetchLessonData,
-        [courseId, moduleId, lessonId]
+    const { data: lessonData, loading: lessonLoading, revalidate: revalidateLesson } = usePersistentQuery(
+        `cc_lesson_details_${lessonId}`,
+        fetchLessonSpecifics,
+        [lessonId, moduleId]
     );
 
-    const course = pageData?.course || null;
-    const currentLesson = pageData?.currentLesson || null;
-    const moduleProgress = pageData?.moduleProgress || {};
-    const lessonProgress = pageData?.lessonProgress || {};
-    const savedPosition = pageData?.savedPosition || 0;
-    const lessonAssignment = pageData?.lessonAssignment || null;
-    const assignmentSubmission = pageData?.assignmentSubmission || null;
-    const allSubIds = pageData?.allSubIds || new Set();
-    const lessonResources = pageData?.lessonResources || [];
-    const moduleResources = pageData?.moduleResources || [];
-    const questions = pageData?.questions || [];
-    const loading = contentLoading && !pageData;
+    // Derived values
+    const course = courseData?.course || null;
+    const moduleProgress = courseData?.moduleProgress || {};
+    const globalLessonProgress = courseData?.lessonProgress || {};
+    const allSubIds = new Set(Array.isArray(courseData?.allSubIds) ? courseData.allSubIds : []);
+    const allSubsMap = new Map(Array.isArray(courseData?.allSubsMap) ? courseData.allSubsMap : []);
 
-    // Trigger Video Auto-Download when currentLesson is available
+    const lessonResources = lessonData?.lessonResources || [];
+    const moduleResources = lessonData?.moduleResources || [];
+    const questions = lessonData?.questions || [];
+    const lessonAssignment = lessonData?.lessonAssignment || null;
+    const assignmentSubmission = lessonData?.assignmentSubmission || null;
+    const savedPosition = lessonData?.currentLessonProgress?.watched_seconds || 0;
+
+    const currentLesson = course?.modules
+        .flatMap(m => m.lessons)
+        .find(l => l.id === lessonId);
+
+    const revalidate = useCallback((background = true) => {
+        revalidateCourse(background);
+        revalidateLesson(background);
+    }, [revalidateCourse, revalidateLesson]);
+
     useEffect(() => {
         if (currentLesson?.video_path) {
-            console.log("💾 Triggering auto-cache for lesson video:", currentLesson.video_path);
             cacheAsset(currentLesson.video_path);
         }
     }, [currentLesson?.video_path, cacheAsset]);
@@ -137,7 +165,6 @@ export default function LessonPlayerPage() {
     const [newQuestion, setNewQuestion] = useState('');
     const [postingQuestion, setPostingQuestion] = useState(false);
     const [aiInput, setAiInput] = useState('');
-
 
     const scrollToBottom = () => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -169,7 +196,6 @@ export default function LessonPlayerPage() {
             });
 
             if (error) throw error;
-
             setAiMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
         } catch (err) {
             console.error('AI Error:', err);
@@ -178,10 +204,6 @@ export default function LessonPlayerPage() {
             setIsAiTyping(false);
         }
     };
-
-
-
-
 
     useEffect(() => {
         const handleResize = () => {
@@ -214,7 +236,7 @@ export default function LessonPlayerPage() {
             setShowAutoAdvance(false);
         }
         return () => clearInterval(interval);
-    }, [showAutoAdvance, autoAdvanceCountdown]);
+    }, [showAutoAdvance, autoAdvanceCountdown, course, courseId, navigate]); // Added dependencies
 
     const findPrevLesson = () => {
         if (!course || !currentLesson) return null;
@@ -243,12 +265,12 @@ export default function LessonPlayerPage() {
                 if (hasPendingPrev) return false;
 
                 return candidateModule?.status === 'unlocked' ||
-                    moduleProgress[candidateModule?.id] === 'unlocked' ||
-                    moduleProgress[candidateModule?.id] === 'completed';
+                    moduleProgress[candidateModule?.id]?.status === 'unlocked' ||
+                    moduleProgress[candidateModule?.id]?.status === 'completed';
             })();
 
             if (!isModAccessible) break;
-            if (skipCompleted && lessonProgress[candidate.id]?.is_completed) continue;
+            if (skipCompleted && globalLessonProgress[candidate.id]?.is_completed) continue;
             return candidate;
         }
         return null;
@@ -259,6 +281,21 @@ export default function LessonPlayerPage() {
         if (next) {
             setShowAutoAdvance(true);
             setAutoAdvanceCountdown(5);
+        } else if (course && currentLesson) {
+            // Check if blocked specifically by the current module's assignment
+            const currentMod = course.modules.find(m => m.id === moduleId);
+            const modAssigns = currentMod?.assignments || [];
+            const hasPendingCurrent = modAssigns.some(a => !allSubIds.has(a.id));
+
+            if (hasPendingCurrent) {
+                const blockedBy = allSubsMap.get(modAssigns.find(a => allSubsMap.get(a.id) === 'blocked')?.id);
+                const message = blockedBy === 'blocked'
+                    ? "Resubmission Required: Your assignment needs revisions before you can proceed."
+                    : "Module Assessment Required: Please upload your assignment to unlock the next module.";
+
+                // using native alert for immediate visibility, could be replaced with ModalContext later
+                alert(message);
+            }
         }
     };
 
@@ -338,10 +375,10 @@ export default function LessonPlayerPage() {
                 user_id: user.id,
                 file_path: filePath,
                 updated_at: new Date().toISOString()
-            }).select().single();
+            }, { onConflict: 'user_id,assignment_id' }).select().single();
 
             if (error) throw error;
-            setAssignmentSubmission(data);
+            revalidate(true); // Refresh data node
             alert('Assignment submitted successfully protocol initiated.');
         } catch (err) {
             console.error('Submission error:', err);
@@ -351,14 +388,19 @@ export default function LessonPlayerPage() {
         }
     };
 
-    if (loading) return (
+    // Initial Full-Page Loading State
+    if (courseLoading && !course) return (
         <div className="h-screen w-screen bg-white flex flex-col items-center justify-center gap-6">
             <Loader2 className="text-primary animate-spin" size={48} />
             <div className="font-black uppercase tracking-[0.4em] text-gray-400 text-[10px] animate-pulse">Initializing Stream...</div>
         </div>
     );
 
-    if (!course || !currentLesson) return <div className="p-20 text-center uppercase font-black text-gray-400 tracking-widest italic">Session Link Broken. Redirecting...</div>;
+    if (!course) return (
+        <div className="p-20 text-center uppercase font-black text-gray-400 tracking-widest italic">
+            Session Link Broken. Redirecting...
+        </div>
+    );
 
 
 
@@ -429,13 +471,25 @@ export default function LessonPlayerPage() {
                 <main className="flex-1 flex flex-col overflow-y-auto bg-white scrollbar-hide">
                     {/* Video Area */}
                     <div className="bg-black aspect-video shrink-0 relative group flex items-center justify-center overflow-hidden">
-                        <div className="w-full max-w-[1280px] aspect-video">
-                            {currentLesson.video_path ? (
+                        <div className="w-full max-w-[1280px] aspect-video relative">
+                            {lessonLoading && !lessonData && (
+                                <div className="absolute inset-0 z-50 bg-[#0a0a0b] flex flex-col items-center justify-center gap-4">
+                                    <Loader2 className="text-primary animate-spin" size={32} />
+                                    <div className="text-[10px] uppercase font-black tracking-[0.4em] text-white/20">Loading Lesson Protocol</div>
+                                </div>
+                            )}
+
+                            {currentLesson?.video_path ? (
                                 <SecureVideoPlayer
+                                    key={lessonId}
                                     lessonId={currentLesson.id}
+                                    lessonTitle={currentLesson.title}
                                     courseId={courseId}
                                     moduleId={moduleId}
+                                    courseTitle={course?.title}
+                                    studentId={user?.id}
                                     videoPath={currentLesson.video_path}
+                                    muxPlaybackId={currentLesson.mux_playback_id}
                                     initialTime={savedPosition}
                                     onProgressUpdate={handleLessonProgress}
                                     onEnded={handleVideoEnded}
@@ -443,7 +497,7 @@ export default function LessonPlayerPage() {
                             ) : (
                                 <div className="w-full h-full bg-zinc-900/50 flex flex-col items-center justify-center gap-6">
                                     <Video size={40} className="text-white/20" />
-                                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">No Stream Protocol</span>
+                                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">No Stream Protocol (Mux/S3 Missing)</span>
                                 </div>
                             )}
 
@@ -482,7 +536,12 @@ export default function LessonPlayerPage() {
                             ))}
                         </div>
 
-                        <div className="px-4 md:px-8 py-6 md:py-8">
+                        <div className="px-4 md:px-8 py-6 md:py-8 min-h-[400px] relative">
+                            {lessonLoading && !lessonData && (
+                                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                                    <Loader2 className="text-primary animate-spin" size={24} />
+                                </div>
+                            )}
                             {activeTab === 'overview' && (
                                 <div className="max-w-4xl space-y-10">
                                     <div className="space-y-4">
@@ -609,7 +668,7 @@ export default function LessonPlayerPage() {
                                                                 </div>
                                                                 <div>
                                                                     <p className="text-[10px] font-black text-green-600 uppercase tracking-widest leading-none mb-1">Submission Verified</p>
-                                                                    <p className="text-[9px] font-bold text-green-400 uppercase tracking-tighter">Cipher: {assignmentSubmission.id.slice(0, 8)}</p>
+                                                                    <p className="text-[9px] font-bold text-green-400 uppercase tracking-tighter">Cipher: {assignmentSubmission.id?.slice(0, 8)}</p>
                                                                 </div>
                                                             </div>
                                                             {assignmentSubmission.grade_score !== null && (
@@ -734,7 +793,7 @@ export default function LessonPlayerPage() {
                         {sidebarTab === 'content' ? (
                             <div className="flex-1">
                                 {course.modules?.map((mod) => {
-                                    const isModLocked = mod.status !== 'unlocked' && mod.week_number !== 1 && moduleProgress[mod.id] !== 'unlocked' && moduleProgress[mod.id] !== 'completed';
+                                    const isModLocked = mod.status !== 'unlocked' && mod.week_number !== 1 && moduleProgress[mod.id]?.status !== 'unlocked' && moduleProgress[mod.id]?.status !== 'completed';
                                     if (isModLocked) return null;
 
                                     return (
@@ -761,7 +820,7 @@ export default function LessonPlayerPage() {
                                                     <div className="flex items-center gap-2 text-[10px] text-gray-500 font-black uppercase tracking-widest">
                                                         <span>{mod.lessons?.length || 0} units</span>
                                                         <span>•</span>
-                                                        <span>{mod.total_minutes}m total</span>
+                                                        <span>{Math.floor((mod.lessons?.reduce((acc, l) => acc + (l.duration_seconds || 0), 0) || 0) / 60)}m total</span>
                                                     </div>
                                                 </div>
                                                 <ChevronRight size={16} className={`shrink-0 transition-transform ${expandedModules[mod.id] ? 'rotate-[-90deg]' : 'rotate-90 text-gray-400'}`} />
@@ -770,11 +829,11 @@ export default function LessonPlayerPage() {
                                             {expandedModules[mod.id] && (
                                                 <div className="bg-white">
                                                     {mod.lessons?.map((lesson, lIdx) => {
-                                                        const isCompleted = lessonProgress[lesson.id]?.is_completed;
+                                                        const isCompleted = globalLessonProgress[lesson.id]?.is_completed;
                                                         const mIdx = course.modules.findIndex(m => m.id === mod.id);
                                                         const isHardLocked = mIdx > 0 && course.modules[mIdx - 1].assignments?.some(a => !allSubIds.has(a.id));
                                                         let isLessonLocked = isHardLocked;
-                                                        if (lIdx > 0 && !lessonProgress[mod.lessons[lIdx - 1].id]?.is_completed) isLessonLocked = true;
+                                                        if (lIdx > 0 && !globalLessonProgress[mod.lessons[lIdx - 1].id]?.is_completed) isLessonLocked = true;
 
                                                         return (
                                                             <button

@@ -21,10 +21,13 @@ import ShowInterestPage from './pages/ShowInterestPage';
 import HowItWorksPage from './pages/HowItWorksPage';
 import LoginPage from './pages/LoginPage';
 import SetPasswordPage from './pages/SetPasswordPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 // Student Portal Layout & Pages
 import StudentLayout from './layouts/StudentLayout';
 import StudentDashboard from './pages/student/StudentDashboard';
+import StudentCourses from './pages/student/StudentCourses';
 import CoursePlayerPage from './pages/learning/CoursePlayerPage';
 import ModuleViewPage from './pages/learning/ModuleViewPage';
 import LessonPlayerPage from './pages/learning/LessonPlayerPage';
@@ -35,6 +38,7 @@ import AIFAQInterface from './pages/student/AIFAQInterface';
 import StudentProfile from './pages/student/StudentProfile';
 import ResourceLibrary from './pages/student/ResourceLibrary';
 import ApplicationForm from './pages/student/ApplicationForm';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 
 // Guards
 import AuthGuard from './components/guards/AuthGuard';
@@ -42,6 +46,7 @@ import EnrolmentGuard from './components/guards/EnrolmentGuard';
 import ModuleUnlockGuard from './components/guards/ModuleUnlockGuard';
 import LessonAccessGuard from './components/guards/LessonAccessGuard';
 import GuestGuard from './components/guards/GuestGuard';
+import VerificationGuard from './components/guards/VerificationGuard';
 
 import NetworkSyncOverlay from './components/NetworkSyncOverlay';
 
@@ -70,6 +75,8 @@ function AppContent() {
         <Route path="/faqs" element={<FAQPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/set-password" element={<SetPasswordPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Guest Routes (Redirect to dashboard if logged in) */}
         <Route element={<GuestGuard />}>
@@ -82,30 +89,34 @@ function AppContent() {
 
         {/* Protected Student Routes */}
         <Route element={<AuthGuard />}>
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-          {/* Standard Dashboard Layout */}
-          <Route element={<StudentLayout />}>
-            <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
-            <Route path="/student/dashboard" element={<StudentDashboard />} />
-            <Route path="/student/courses" element={<StudentDashboard />} /> {/* Should likely be StudentCourses component if exists, but import says StudentDashboard or similar */}
-            <Route path="/student/course/:courseId/completed" element={<CourseCompletion />} />
-            <Route path="/student/assignments" element={<AssignmentHistory />} />
-            <Route path="/student/assignments/:assignmentId" element={<AssignmentUpload />} />
-            <Route path="/student/ai-assistant" element={<AIFAQInterface />} />
-            <Route path="/student/profile" element={<StudentProfile />} />
-            <Route path="/student/resources" element={<ResourceLibrary />} />
-            <Route path="/student/apply" element={<ApplicationForm />} />
-          </Route>
+          {/* Verification Guarded Routes */}
+          <Route element={<VerificationGuard />}>
+            {/* Standard Dashboard Layout */}
+            <Route element={<StudentLayout />}>
+              <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
+              <Route path="/student/dashboard" element={<StudentDashboard />} />
+              <Route path="/student/courses" element={<StudentCourses />} />
+              <Route path="/student/course/:courseId/completed" element={<CourseCompletion />} />
+              <Route path="/student/assignments" element={<AssignmentHistory />} />
+              <Route path="/student/assignments/:assignmentId" element={<AssignmentUpload />} />
+              <Route path="/student/ai-assistant" element={<AIFAQInterface />} />
+              <Route path="/student/profile" element={<StudentProfile />} />
+              <Route path="/student/resources" element={<ResourceLibrary />} />
+              <Route path="/student/apply" element={<ApplicationForm />} />
+            </Route>
 
-          {/* Immersive Learning Routes (No Layout) - Sequentially Guarded */}
-          <Route element={<EnrolmentGuard />}>
-            <Route path="/student/course/:courseId" element={<CoursePlayerPage />} />
+            {/* Immersive Learning Routes (No Layout) - Sequentially Guarded */}
+            <Route element={<EnrolmentGuard />}>
+              <Route path="/student/course/:courseId" element={<CoursePlayerPage />} />
 
-            <Route element={<ModuleUnlockGuard />}>
-              <Route path="/student/course/:courseId/module/:moduleId" element={<ModuleViewPage />} />
+              <Route element={<ModuleUnlockGuard />}>
+                <Route path="/student/course/:courseId/module/:moduleId" element={<ModuleViewPage />} />
 
-              <Route element={<LessonAccessGuard />}>
-                <Route path="/student/course/:courseId/module/:moduleId/lesson/:lessonId" element={<LessonPlayerPage />} />
+                <Route element={<LessonAccessGuard />}>
+                  <Route path="/student/course/:courseId/module/:moduleId/lesson/:lessonId" element={<LessonPlayerPage />} />
+                </Route>
               </Route>
             </Route>
           </Route>

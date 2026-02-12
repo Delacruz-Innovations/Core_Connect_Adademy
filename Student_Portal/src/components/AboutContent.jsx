@@ -6,19 +6,19 @@ const AboutContent = () => {
     return (
         <div className="flex flex-col">
             {/* OUR STORY Section (Replaces Welcome) */}
-            <section className="py-24 bg-white">
+            <section className="py-10 bg-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
-                        <div className="space-y-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                        <div className="space-y-6">
                             <div>
-                                <span className="text-secondary font-black uppercase tracking-[0.3em] text-[10px] mb-6 block">Our Story</span>
-                                <h2 className="text-3xl md:text-5xl lg:text-7xl font-black text-black mb-10 leading-[0.9] italic uppercase tracking-tighter">Why this <br /><span className="text-primary italic">Academy</span> exists</h2>
+                                <span className="text-secondary font-black uppercase tracking-[0.3em] text-[10px] mb-4 block">Our Story</span>
+                                <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-black mb-6 leading-[0.9] italic uppercase tracking-tighter">Why this <br /><span className="text-primary italic">Academy</span> exists</h2>
 
-                                <div className="text-gray-600 text-[18px] leading-relaxed font-medium space-y-8 italic">
+                                <div className="text-gray-600 text-[16px] leading-relaxed font-medium space-y-6 italic">
                                     <p>
                                         CoreConnectAcademy was created because too many capable people were locked out of opportunity simply because no one explained things properly.
                                     </p>
-                                    <ul className="space-y-3 border-l-4 border-primary/20 pl-6 my-6 text-gray-900 font-bold">
+                                    <ul className="space-y-2 border-l-4 border-primary/20 pl-6 my-4 text-gray-900 font-bold">
                                         <li>Not everyone grew up around tech.</li>
                                         <li>Not everyone had mentors.</li>
                                         <li>Not everyone knew where to start.</li>
@@ -30,16 +30,20 @@ const AboutContent = () => {
                             </div>
                         </div>
 
-                        {/* Image Side - Squared Off */}
-                        <div className="relative">
-                            <div className="aspect-[4/5] overflow-hidden shadow-2xl">
+                        {/* Image Side - Squared Off with Logo Overlay */}
+                        <div className="relative group">
+                            <div className="aspect-[4/5] overflow-hidden shadow-2xl relative">
                                 <img
-                                    src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
-                                    alt="Students learning"
+                                    src="https://images.unsplash.com/photo-1531545514256-b1400bc00f31?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
+                                    alt="Diverse collaborative learning"
                                     className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-1000"
                                 />
+                                {/* CSS Overlay Branding */}
+                                <div className="absolute top-6 right-6 w-20 h-20 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 shadow-lg group-hover:scale-110 transition-transform duration-500">
+                                    <img src="/logo.png" alt="Core Connect Logo" className="w-12 h-12 object-contain opacity-90" />
+                                </div>
                             </div>
-                            <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-secondary/10 -z-10"></div>
+                            <div className="absolute -bottom-4 -left-4 w-24 h-24 bg-secondary/10 -z-10"></div>
                         </div>
                     </div>
                 </div>
