@@ -17,8 +17,11 @@ export default function ModuleEditPage() {
     const [formData, setFormData] = useState({
         title: '',
         week_number: 1,
-        status: 'locked'
+        status: 'locked',
+        is_published: false,
+        thumbnail_url: ''
     });
+    const [uploading, setUploading] = useState(false);
 
     const [lessons, setLessons] = useState([]);
     const [lessonsLoading, setLessonsLoading] = useState(true);
@@ -44,17 +47,48 @@ export default function ModuleEditPage() {
         fetchModuleAndLessons();
     }, [moduleId]);
 
+    const handleFileUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `modules/${fileName}`;
+
+            // Using course-thumbnails bucket for consistency, or we could use a dedicated one
+            const { error: uploadError } = await supabase.storage
+                .from('course-thumbnails')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('course-thumbnails')
+                .getPublicUrl(filePath);
+
+            setFormData(prev => ({ ...prev, thumbnail_url: publicUrl }));
+            showAlert('Thumbnail uploaded successfully', 'Success', 'success');
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            await showAlert('Error uploading image: ' + error.message, 'Upload Failed', 'error');
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (isSubmitting) return;
 
-        // Validation: Block unlock if any lesson is draft
-        if (formData.status === 'unlocked') {
-            const drafts = lessons.filter(l => !l.video_path);
+        // Validation: Block publish if any lesson is draft
+        if (formData.is_published) {
+            const drafts = lessons.filter(l => !l.is_published);
             if (drafts.length > 0) {
                 showAlert(
-                    `Cannot unlock module: ${drafts.length} lesson(s) are still in Draft status. All lessons must have video content before unlocking.`,
-                    'Action Restricted',
+                    `Cannot publish module: ${drafts.length} lesson(s) are still in Draft status. All lessons must be "Live" before a module can go live.`,
+                    'Hierarchy Violation',
                     'warning'
                 );
                 return;
@@ -68,6 +102,8 @@ export default function ModuleEditPage() {
                 title: formData.title.trim(),
                 week_number: formData.week_number,
                 status: formData.status,
+                is_published: formData.is_published,
+                thumbnail_url: formData.thumbnail_url,
                 updated_at: new Date().toISOString()
             }).eq('id', moduleId);
 
@@ -136,17 +172,57 @@ export default function ModuleEditPage() {
                     </div>
 
                     <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Module Graphic Identity</label>
+                        <div className="flex flex-col gap-4">
+                            <div className={`relative border-2 border-dashed rounded-[1.5rem] p-8 transition-all flex flex-col items-center justify-center text-center ${formData.thumbnail_url ? 'border-primary/20 bg-primary/5' : 'border-gray-100 hover:border-black/20 bg-gray-50'}`}>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleFileUpload}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    disabled={uploading}
+                                />
+                                {uploading ? (
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                ) : formData.thumbnail_url ? (
+                                    <div className="space-y-4">
+                                        <img src={formData.thumbnail_url} alt="Preview" className="h-20 w-auto mx-auto rounded-lg shadow-sm border border-gray-100" />
+                                        <p className="text-[9px] font-black uppercase text-primary tracking-widest leading-none">Identity Linked Surface</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <Layout className="mx-auto text-gray-200" size={32} />
+                                        <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Upload Module Thumbnail</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
                         <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Global Access Tier</label>
-                        <select
-                            value={formData.status}
-                            onChange={e => setFormData({ ...formData, status: e.target.value })}
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-black font-bold uppercase tracking-widest text-xs"
-                        >
-                            <option value="locked">Locked (Cohort Sequenced)</option>
-                            <option value="unlocked">Unlocked (Open Protocol)</option>
-                        </select>
+                        <div className="grid grid-cols-2 gap-4">
+                            <select
+                                value={formData.status}
+                                onChange={e => setFormData({ ...formData, status: e.target.value })}
+                                className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-black font-bold uppercase tracking-widest text-xs"
+                            >
+                                <option value="locked">Locked (Cohort Sequenced)</option>
+                                <option value="unlocked">Unlocked (Open Protocol)</option>
+                            </select>
+                            <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl">
+                                <input
+                                    type="checkbox"
+                                    id="is_published"
+                                    checked={formData.is_published}
+                                    onChange={e => setFormData({ ...formData, is_published: e.target.checked })}
+                                    className="w-5 h-5 accent-black"
+                                />
+                                <label htmlFor="is_published" className="text-[10px] font-black uppercase tracking-widest text-gray-900 cursor-pointer">Live Node</label>
+                            </div>
+                        </div>
                         <p className="text-[10px] text-gray-400 mt-3 italic">
-                            "Locked" enforces sequential learning prerequisites. "Unlocked" exposes the node to all enrolled learners immediately.
+                            "Live Node" exposes the module to the student portal. Draft nodes remain hidden from active curriculum views.
                         </p>
                     </div>
 

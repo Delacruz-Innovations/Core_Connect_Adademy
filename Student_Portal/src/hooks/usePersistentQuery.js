@@ -78,5 +78,11 @@ export function usePersistentQuery(cacheKey, fetchFn, dependencies = []) {
         };
     }, [...dependencies, revalidate, registerRetry]);
 
-    return { data, loading, error, revalidate };
+    const setDataAndCache = useCallback((newData) => {
+        setData(newData);
+        localStorage.setItem(cacheKey, JSON.stringify(newData));
+        localStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
+    }, [cacheKey]);
+
+    return { data, loading, error, revalidate, setDataAndCache };
 }

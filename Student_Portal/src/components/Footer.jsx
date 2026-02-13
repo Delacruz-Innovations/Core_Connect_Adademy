@@ -46,11 +46,11 @@ const Footer = ({ className = "", hideScroll = false }) => {
                     <div className="lg:col-span-2 not-italic">
                         <h4 className="font-bold text-black mb-8 uppercase tracking-[0.2em] text-[11px]">Useful Links</h4>
                         <ul className="space-y-4 text-gray-500 text-sm font-semibold uppercase tracking-wider">
-                            <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
-                            <li><Link to="/contact" className="hover:text-primary transition-colors">Support Center</Link></li>
+                            <li><Link to="/about#privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+                            <li><Link to="/about#support" className="hover:text-primary transition-colors">Support Center</Link></li>
                             <li><Link to="/about" className="hover:text-primary transition-colors">About Us</Link></li>
-                            <li><Link to="/careers" className="hover:text-primary transition-colors">Careers</Link></li>
-                            <li><Link to="/faq" className="hover:text-primary transition-colors">FAQs</Link></li>
+                            <li><Link to="/about#careers" className="hover:text-primary transition-colors">Careers</Link></li>
+                            <li><Link to="/about#faqs" className="hover:text-primary transition-colors">FAQs</Link></li>
                         </ul>
                     </div>
 
@@ -95,7 +95,7 @@ const Footer = ({ className = "", hideScroll = false }) => {
                 <div className="not-italic pt-12 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="flex items-center gap-2">
                         <span className="w-8 h-[1px] bg-primary"></span>
-                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">© 2024 CORE CONNECT ACADEMY. All rights reserved.</p>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">© 2024 - 2026 CORE CONNECT ACADEMY. All rights reserved.</p>
                     </div>
                     <div className="flex gap-8">
                         {['Privacy', 'Terms', 'Sitemap'].map((item) => (

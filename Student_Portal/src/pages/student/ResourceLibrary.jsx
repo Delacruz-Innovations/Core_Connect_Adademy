@@ -1,27 +1,104 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-    Download,
-    Search,
-    Loader2,
-    FileText,
-    FileType,
-    BookOpen,
-    Lock,
-    ExternalLink,
-    AlertCircle
+    Download, Search, Loader2, FileText,
+    FileType, BookOpen, Lock, ExternalLink,
+    AlertCircle, BarChart3, Clock, LayoutGrid,
+    List as ListIcon, Star, Filter, ArrowUpRight,
+    ChevronRight, Archive, Shield, Globe
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { useConnectivity } from '../../context/ConnectivityContext';
+import ResourceDetailModal from '../../components/ResourceDetailModal';
+
+const StatCard = ({ label, value, icon: Icon, color }) => (
+    <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-xl hover:shadow-black/5 transition-all duration-500">
+        <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 block">{label}</span>
+            <span className="text-3xl font-black italic tracking-tighter text-gray-900">{value}</span>
+        </div>
+        <div className={`w-12 h-12 rounded-2xl ${color} flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg shadow-black/5`}>
+            <Icon size={20} className="text-white" />
+        </div>
+    </div>
+);
+
+const ResourceCard = ({ resource, onClick, onDownload }) => {
+    const isLocked = resource.isLocked;
+
+    return (
+        <motion.div
+            layout
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="group relative bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 overflow-hidden flex flex-col"
+        >
+            <div className="p-8 space-y-6 flex-1">
+                {/* Header */}
+                <div className="flex justify-between items-start">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500 ${resource.type === 'PDF' ? 'bg-red-50 text-red-500' :
+                        ['DOC', 'DOCX'].includes(resource.type) ? 'bg-blue-50 text-blue-500' : 'bg-gray-50 text-gray-500'
+                        }`}>
+                        <FileText size={24} />
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                        <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${isLocked ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-green-50 text-green-600 border-green-100'
+                            }`}>
+                            {isLocked ? 'Locked' : 'Available'}
+                        </div>
+                        <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">{resource.type}</span>
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div className="space-y-2">
+                    <span className="text-[9px] font-black text-primary uppercase tracking-[0.3em] block">
+                        {resource.course}
+                    </span>
+                    <h3 className="text-xl font-black text-gray-900 leading-tight uppercase tracking-tight line-clamp-2 min-h-[3.5rem]">
+                        {resource.title}
+                    </h3>
+                </div>
+
+                {/* Description */}
+                <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                    {resource.description || 'No digital summary available for this archive entry.'}
+                </p>
+            </div>
+
+            {/* Actions */}
+            <div className="p-6 bg-gray-50/50 border-t border-gray-50 mt-auto flex gap-3">
+                <button
+                    onClick={() => onClick(resource)}
+                    className="flex-1 h-12 bg-white border border-gray-100 text-gray-900 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:border-black transition-all shadow-sm"
+                >
+                    Metadata <ChevronRight size={14} />
+                </button>
+                <button
+                    onClick={() => onDownload(resource)}
+                    disabled={isLocked}
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-xl shadow-black/5 ${isLocked ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-black text-white hover:bg-primary'
+                        }`}
+                >
+                    {isLocked ? <Lock size={16} /> : <Download size={16} />}
+                </button>
+            </div>
+        </motion.div>
+    );
+};
 
 const ResourceLibrary = () => {
     const { user } = useAuth();
     const { notifySyncFailure, registerRetry } = useConnectivity();
     const [filter, setFilter] = useState('All');
+    const [categoryFilter, setCategoryFilter] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
     const [resources, setResources] = useState([]);
     const [loading, setLoading] = useState(true);
     const [courseFilters, setCourseFilters] = useState(['All']);
+    const [selectedResource, setSelectedResource] = useState(null);
+    const [modalOpen, setModalOpen] = useState(false);
 
     useEffect(() => {
         if (!user) return;
@@ -40,7 +117,6 @@ const ResourceLibrary = () => {
 
     const fetchResources = async (signal) => {
         try {
-            // 1. Get Enrollments (including completed ones for Alumni access)
             const { data: enrollments } = await supabase
                 .from('enrollments')
                 .select('course_id, status, course:courses(title)')
@@ -50,58 +126,42 @@ const ResourceLibrary = () => {
             const isAlumni = enrollments?.some(e => e.status === 'completed');
 
             const titles = Array.from(new Set(enrollments?.map(e => e.course?.title).filter(Boolean)));
-            const availableFilters = ['All', ...titles];
-            if (isAlumni) {
-                availableFilters.push('Post-Course Guidance');
-            } else {
-                availableFilters.push('Alumni (Locked)');
-            }
-            setCourseFilters(availableFilters);
+            setCourseFilters(['All', ...titles]);
 
-            // 2. Fetch resources based on visibility
-            let query = supabase
+            const { data: resData } = await supabase
                 .from('resources')
-                .select(`
-id, title, description, resource_type, file_path, parent_type, parent_id, visibility_status
-    `);
+                .select('*')
+                .eq('visibility_status', 'published')
+                .abortSignal(signal);
 
-            query = query.in('visibility_status', ['published', 'alumni']);
-
-            const { data: resData } = await query.abortSignal(signal);
-
-            // 3. Resolve context (Course/Module/Lesson) for filtering
             const { data: modules } = await supabase.from('modules').select('id, course_id');
             const { data: lessons } = await supabase.from('lessons').select('id, module_id');
 
-            const validModuleIds = new Set(modules?.map(m => m.id));
-            const validLessonIds = new Set(lessons?.map(l => l.id));
             const validCourseIds = new Set(enrollments?.map(e => e.course_id) || []);
+            const moduleMap = new Map(modules?.map(m => [m.id, m.course_id]));
+            const lessonMap = new Map(lessons?.map(l => [l.id, moduleMap.get(l.module_id)]));
 
             const filteredRes = (resData || []).filter(item => {
                 if (item.visibility_status === 'alumni') return true;
-
-                if (item.parent_type === 'course') return validCourseIds.has(item.parent_id);
-                if (item.parent_type === 'module') return validModuleIds.has(item.parent_id);
-                if (item.parent_type === 'lesson') return validLessonIds.has(item.parent_id);
-                return false;
+                const courseId = item.parent_type === 'course' ? item.parent_id :
+                    item.parent_type === 'module' ? moduleMap.get(item.parent_id) :
+                        item.parent_type === 'lesson' ? lessonMap.get(item.parent_id) : null;
+                return validCourseIds.has(courseId);
             }).map(item => {
-                let courseTitle = item.visibility_status === 'alumni' ? (isAlumni ? 'Post-Course Guidance' : 'Alumni (Locked)') : 'General';
-
-                if (item.parent_type === 'course') {
+                let courseTitle = 'Archive';
+                if (item.visibility_status === 'alumni') {
+                    courseTitle = isAlumni ? 'Alumni Network' : 'Alumni (Locked)';
+                } else if (item.parent_type === 'course') {
                     courseTitle = enrollments.find(e => e.course_id === item.parent_id)?.course?.title || 'Course';
-                } else if (item.parent_type === 'module') {
-                    const mod = modules.find(m => m.id === item.parent_id);
-                    courseTitle = enrollments.find(e => e.course_id === mod?.course_id)?.course?.title || 'Course';
-                } else if (item.parent_type === 'lesson') {
-                    const les = lessons.find(l => l.id === item.parent_id);
-                    const mod = modules.find(m => m.id === les?.module_id);
-                    courseTitle = enrollments.find(e => e.course_id === mod?.course_id)?.course?.title || 'Course';
+                } else {
+                    const courseId = item.parent_type === 'module' ? moduleMap.get(item.parent_id) : lessonMap.get(item.parent_id);
+                    courseTitle = enrollments.find(e => e.course_id === courseId)?.course?.title || 'General';
                 }
 
                 return {
                     ...item,
                     course: courseTitle,
-                    type: item.file_path.split('.').pop().toUpperCase(),
+                    type: (item.file_path || '').split('.').pop().toUpperCase(),
                     isLocked: item.visibility_status === 'alumni' && !isAlumni,
                     size: 'Variable'
                 };
@@ -137,116 +197,172 @@ id, title, description, resource_type, file_path, parent_type, parent_id, visibi
         }
     };
 
+    const stats = useMemo(() => {
+        return {
+            total: resources.length,
+            courses: courseFilters.length - 1,
+            unlocked: resources.filter(r => !r.isLocked).length
+        };
+    }, [resources, courseFilters]);
+
     const filteredResources = resources.filter(r => {
-        const matchesFilter = filter === 'All' || r.course === filter;
+        const matchesCourse = filter === 'All' || r.course === filter;
+        const matchesCategory = categoryFilter === 'All' || r.resource_type === categoryFilter;
         const matchesSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesFilter && matchesSearch;
+        return matchesCourse && matchesCategory && matchesSearch;
     });
 
+    const openDetails = (res) => {
+        setSelectedResource(res);
+        setModalOpen(true);
+    };
+
+    if (loading) return (
+        <div className="min-h-screen w-full flex flex-col items-center justify-center gap-6">
+            <div className="w-12 h-12 border-4 border-gray-100 border-t-primary rounded-full animate-spin shadow-xl shadow-primary/10"></div>
+            <div className="font-black uppercase tracking-[0.4em] text-gray-400 text-[10px] animate-pulse">Syncing Archive...</div>
+        </div>
+    );
+
     return (
-        <div className="max-w-[1600px] mx-auto min-h-screen relative pb-20">
-            {/* Watermark */}
-            <div className="fixed right-0 bottom-0 opacity-[0.03] pointer-events-none z-0 transform translate-y-1/4 translate-x-1/4">
-                <BookOpen size={600} />
+        <div className="max-w-[1600px] mx-auto space-y-12 pb-20 px-4 md:px-0">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
+                <div>
+                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-4 block">Knowledge Hub</span>
+                    <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none text-gray-900">Archive</h1>
+                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-4">Access course artifacts, instructional protocols, and reference assets.</p>
+                </div>
+
+                <div className="relative group w-full md:w-96">
+                    <Search size={18} className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-black transition-colors" />
+                    <input
+                        type="text"
+                        placeholder="SEARCH ARCHIVE..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-14 pr-6 py-5 bg-white border border-gray-100 rounded-[1.5rem] shadow-sm text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-black transition-all"
+                    />
+                </div>
             </div>
 
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10 relative z-10">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Resources</h1>
-                    <p className="text-gray-500 mt-1">Access course materials and external documents</p>
-                </div>
-                <div className="flex items-center gap-4 w-full md:w-auto">
-                    <div className="relative group w-full md:w-auto">
-                        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
-                        <input
-                            type="text"
-                            placeholder="Search files..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full md:w-80 pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-full shadow-sm text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                        />
+            {/* Stats Ribbon */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard label="Total Artifacts" value={stats.total} icon={Archive} color="bg-gray-900" />
+                <StatCard label="Course Contexts" value={stats.courses} icon={Globe} color="bg-primary" />
+                <StatCard label="Unlocked Nodes" value={stats.unlocked} icon={Shield} color="bg-green-500" />
+            </div>
+
+            {/* Filters Bar */}
+            <div className="space-y-6">
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-3 p-1.5 bg-gray-100/50 rounded-2xl border border-gray-200/50">
+                        {courseFilters.map((cat) => (
+                            <button
+                                key={cat}
+                                onClick={() => setFilter(cat)}
+                                className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${filter === cat
+                                    ? 'bg-black text-white shadow-xl shadow-black/10'
+                                    : 'text-gray-400 hover:text-gray-900'
+                                    }`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center gap-3 p-1.5 bg-gray-50/50 rounded-2xl border border-gray-100">
+                        {[
+                            { id: 'All', label: 'All Types' },
+                            { id: 'reference', label: 'Reference' },
+                            { id: 'instruction', label: 'Instructional' },
+                            { id: 'policy', label: 'Protocols' }
+                        ].map((type) => (
+                            <button
+                                key={type.id}
+                                onClick={() => setCategoryFilter(type.id)}
+                                className={`px-5 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${categoryFilter === type.id
+                                    ? 'bg-primary text-white'
+                                    : 'text-gray-400 hover:text-gray-900'
+                                    }`}
+                            >
+                                {type.label}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex flex-wrap gap-2 mb-8 relative z-10">
-                {courseFilters.map((cat) => (
-                    <button
-                        key={cat}
-                        onClick={() => setFilter(cat)}
-                        className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all rounded-full border ${filter === cat
-                            ? 'bg-gray-900 border-gray-900 text-white shadow-md'
-                            : 'bg-white border-gray-100 text-gray-500 hover:border-gray-300 hover:text-gray-900'
-                            }`}
-                    >
-                        {cat}
-                    </button>
-                ))}
-            </div>
-
-            {/* Resources Grid */}
-            {loading ? (
-                <div className="py-20 flex flex-col items-center justify-center gap-4">
-                    <Loader2 className="text-primary animate-spin" size={40} />
-                    <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Loading Library...</span>
+            {/* Featured Section (Mock New Additions) */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <Star size={18} className="text-primary fill-primary" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-900">Premium Artifacts</h3>
                 </div>
-            ) : filteredResources.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
-                    {filteredResources.map((res) => (
-                        <div key={res.id} className="bg-white border border-gray-100 p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group flex flex-col justify-between h-full rounded-3xl">
-                            <div className="block">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="w-12 h-12 bg-gray-50 flex items-center justify-center text-gray-600 group-hover:bg-primary group-hover:text-white transition-all rounded-2xl">
-                                        <FileText size={20} />
-                                    </div>
-                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-gray-50 px-2.5 py-1.5 rounded-full">{res.type}</span>
-                                </div>
-                                <h4 className="text-lg font-bold text-gray-900 leading-tight mb-2 group-hover:text-primary transition-colors line-clamp-2">{res.title}</h4>
-                                <p className="text-xs text-gray-500 line-clamp-2 mb-4 leading-relaxed">{res.description || 'No description provided.'}</p>
-
-                                <div className="space-y-3 mb-8 border-t border-gray-50 pt-4">
-                                    <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                        <BookOpen size={12} />
-                                        <span>{res.course}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                        <FileType size={12} />
-                                        <span>{res.size}</span>
-                                    </div>
-                                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {filteredResources.slice(0, 4).map((res) => (
+                        <div key={`feat-${res.id}`} className="bg-gray-900 p-8 rounded-[2rem] group relative overflow-hidden flex flex-col justify-between h-48 cursor-pointer" onClick={() => openDetails(res)}>
+                            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-125 transition-transform duration-700">
+                                <FileText size={80} className="text-white" />
                             </div>
-
-                            <button
-                                onClick={() => handleDownload(res)}
-                                disabled={res.isLocked}
-                                className={`w-full flex items-center justify-center gap-2 py-3.5 text-xs font-bold uppercase tracking-wider transition-all rounded-xl shadow-sm ${res.isLocked
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                                    : 'bg-gray-900 text-white hover:bg-primary group-hover:shadow-md'
-                                    }`}
-                            >
-                                {res.isLocked ? (
-                                    <>
-                                        <Lock size={14} /> Alumni Only
-                                    </>
-                                ) : (
-                                    <>
-                                        <Download size={14} /> Download
-                                    </>
-                                )}
-                            </button>
+                            <div>
+                                <span className="text-[9px] font-black text-primary uppercase tracking-[0.3em] block mb-2">New Arrival</span>
+                                <h4 className="text-white font-black uppercase tracking-tight line-clamp-2 leading-tight">{res.title}</h4>
+                            </div>
+                            <div className="flex items-center gap-2 text-[9px] font-black text-primary/60 uppercase tracking-widest hover:text-primary transition-colors">
+                                Access <ArrowUpRight size={10} />
+                            </div>
                         </div>
                     ))}
                 </div>
-            ) : (
-                <div className="bg-white border border-dashed border-gray-200 p-16 text-center rounded-3xl relative z-10">
-                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
-                        <Search size={24} />
+            </div>
+
+            {/* Main Library Grid */}
+            <div className="space-y-8">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                    <div className="flex items-center gap-3">
+                        <LayoutGrid size={18} className="text-gray-400" />
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">Digital Repository</h3>
                     </div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No resources found.</p>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-300">{filteredResources.length} Artifacts in View</span>
                 </div>
-            )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                    <AnimatePresence mode="popLayout">
+                        {filteredResources.length === 0 ? (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="col-span-full py-20 bg-white border border-dashed border-gray-200 rounded-[3rem] flex flex-col items-center justify-center text-center space-y-6"
+                            >
+                                <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-200">
+                                    <Archive size={40} strokeWidth={1} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black uppercase tracking-tight text-gray-900 italic">Registry Empty</h3>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2 px-10">No artifacts match your current authorization or search criteria.</p>
+                                </div>
+                            </motion.div>
+                        ) : (
+                            filteredResources.map((res) => (
+                                <ResourceCard
+                                    key={res.id}
+                                    resource={res}
+                                    onClick={openDetails}
+                                    onDownload={handleDownload}
+                                />
+                            ))
+                        )}
+                    </AnimatePresence>
+                </div>
+            </div>
+
+            <ResourceDetailModal
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
+                resource={selectedResource}
+                onDownload={handleDownload}
+            />
         </div>
     );
 };

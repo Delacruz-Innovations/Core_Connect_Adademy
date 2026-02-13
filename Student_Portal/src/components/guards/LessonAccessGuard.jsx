@@ -15,6 +15,8 @@ export default function LessonAccessGuard() {
             return;
         }
 
+        const controller = new AbortController();
+
         const checkLessonLink = async () => {
             try {
                 // 1. Fetch lesson details
@@ -22,12 +24,12 @@ export default function LessonAccessGuard() {
                     .from('lessons')
                     .select('id, module_id, order_index')
                     .eq('id', lessonId)
+                    .abortSignal(controller.signal)
                     .maybeSingle();
 
                 if (lessonError) throw lessonError;
 
                 if (!lesson) {
-                    console.error("Lesson guard: Lesson not found", lessonId);
                     setAccess(false);
                     return;
                 }
@@ -37,6 +39,7 @@ export default function LessonAccessGuard() {
                     .from('modules')
                     .select('id, week_number, status')
                     .eq('id', moduleId)
+                    .abortSignal(controller.signal)
                     .maybeSingle();
 
                 if (modError) throw modError;
@@ -46,6 +49,7 @@ export default function LessonAccessGuard() {
                     .select('status')
                     .eq('module_id', moduleId)
                     .eq('user_id', user.id)
+                    .abortSignal(controller.signal)
                     .maybeSingle();
 
                 if (progError) {
@@ -69,6 +73,7 @@ export default function LessonAccessGuard() {
                         .select('id')
                         .eq('module_id', moduleId)
                         .eq('order_index', lesson.order_index - 1)
+                        .abortSignal(controller.signal)
                         .maybeSingle();
 
                     if (prevLesson) {
@@ -77,11 +82,10 @@ export default function LessonAccessGuard() {
                             .select('is_completed')
                             .eq('lesson_id', prevLesson.id)
                             .eq('user_id', user.id)
+                            .abortSignal(controller.signal)
                             .maybeSingle();
 
                         if (!prevProgress?.is_completed && lesson.order_index > 1) {
-                            // If index is 1, it's the second lesson.
-                            // We only block if it's NOT the first lesson of the module.
                             setAccess(false);
                             return;
                         }
@@ -90,12 +94,14 @@ export default function LessonAccessGuard() {
 
                 setAccess(true);
             } catch (err) {
+                if (err.name === 'AbortError' || err.message?.includes('aborted')) return;
                 console.error('Guard Check Failed (Fail-Open)', err);
                 setAccess(true); // Don't block student on network glitch
             }
         };
 
         checkLessonLink();
+        return () => controller.abort();
     }, [user, moduleId, lessonId]);
 
     if (access === null) {

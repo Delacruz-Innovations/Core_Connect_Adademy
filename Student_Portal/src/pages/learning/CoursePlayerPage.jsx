@@ -39,19 +39,22 @@ export default function CoursePlayerPage() {
                 .single();
             setCourse(courseData);
 
+            // Filter for only Live (published) modules
             const { data: modulesData } = await supabase
                 .from('modules')
                 .select('*')
                 .eq('course_id', courseId)
+                .eq('is_published', true)
                 .order('week_number', { ascending: true });
 
             const fetchedModules = modulesData || [];
 
             // 1. Fetch Assignments, Submissions, and Progress in parallel for hard-locking rules
-            const [assignsRes, subsRes, progRes] = await Promise.all([
+            const [assignsRes, subsRes, progRes, lessonsRes] = await Promise.all([
                 supabase.from('assignments').select('*').in('module_id', fetchedModules.map(m => m.id)),
                 supabase.from('assignment_submissions').select('assignment_id').eq('user_id', authUser.id),
-                supabase.from('module_progress').select('module_id, status').eq('user_id', authUser.id).eq('course_id', courseId)
+                supabase.from('module_progress').select('module_id, status').eq('user_id', authUser.id).eq('course_id', courseId),
+                supabase.from('lessons').select('id, title, module_id, is_published').in('module_id', fetchedModules.map(m => m.id)).eq('is_published', true).order('order_index', { ascending: true })
             ]);
 
             const subIds = new Set(subsRes.data?.map(s => s.assignment_id) || []);
@@ -59,7 +62,8 @@ export default function CoursePlayerPage() {
 
             const modulesWithAssigns = fetchedModules.map(m => ({
                 ...m,
-                assignments: assignsRes.data?.filter(a => a.module_id === m.id) || []
+                assignments: assignsRes.data?.filter(a => a.module_id === m.id) || [],
+                lessons: lessonsRes.data?.filter(l => l.module_id === m.id) || []
             }));
             setModules(modulesWithAssigns);
 
@@ -84,13 +88,17 @@ export default function CoursePlayerPage() {
                     .maybeSingle();
 
                 if (lastLessonRecord) {
-                    // Check if the resume module is hard-locked
-                    const modIdx = fetchedModules.findIndex(m => m.id === lastLessonRecord.module_id);
-                    const isResumeLocked = modIdx > 0 && modulesWithAssigns[modIdx - 1]?.assignments?.some(a => !subIds.has(a.id));
+                    // Check if the resume lesson is actually published
+                    const isLessonLive = lessonsRes.data?.some(l => l.id === lastLessonRecord.lesson_id);
 
-                    if (!isResumeLocked) {
-                        navigate(`/student/course/${courseId}/module/${lastLessonRecord.module_id}/lesson/${lastLessonRecord.lesson_id}`, { replace: true });
-                        return;
+                    if (isLessonLive) {
+                        const modIdx = fetchedModules.findIndex(m => m.id === lastLessonRecord.module_id);
+                        const isResumeLocked = modIdx > 0 && modulesWithAssigns[modIdx - 1]?.assignments?.some(a => !subIds.has(a.id));
+
+                        if (!isResumeLocked) {
+                            navigate(`/student/course/${courseId}/module/${lastLessonRecord.module_id}/lesson/${lastLessonRecord.lesson_id}`, { replace: true });
+                            return;
+                        }
                     }
                 }
 
@@ -100,13 +108,7 @@ export default function CoursePlayerPage() {
                     const isHardLocked = i > 0 && modulesWithAssigns[i - 1]?.assignments?.some(a => !subIds.has(a.id));
 
                     if (!isHardLocked) {
-                        const { data: firstLesson } = await supabase
-                            .from('lessons')
-                            .select('id')
-                            .eq('module_id', m.id)
-                            .order('order_index', { ascending: true })
-                            .limit(1)
-                            .maybeSingle();
+                        const firstLesson = m.lessons?.[0];
 
                         if (firstLesson) {
                             navigate(`/student/course/${courseId}/module/${m.id}/lesson/${firstLesson.id}`, { replace: true });
@@ -207,7 +209,7 @@ export default function CoursePlayerPage() {
                             <div
                                 key={mod.id}
                                 className={`
-                                    relative p-6 border transition-all duration-300 group
+                                    relative border transition-all duration-300 group overflow-hidden
                                     ${locked
                                         ? 'bg-gray-50 border-transparent opacity-60 cursor-not-allowed grayscale'
                                         : 'bg-white border-gray-100 hover:border-primary/30 cursor-pointer shadow-sm hover:shadow-xl'
@@ -215,21 +217,34 @@ export default function CoursePlayerPage() {
                                     ${completed ? 'border-primary/20 bg-primary/[0.02]' : ''}
                                 `}
                             >
-                                <div className="flex items-center justify-between mb-4">
-                                    <span className={`text-[10px] uppercase font-black tracking-widest ${locked ? 'text-gray-300' : 'text-primary'}`}>
-                                        Week {mod.week_number}
-                                    </span>
-                                    {locked ? (
-                                        <Lock size={12} className="text-gray-300" />
-                                    ) : completed ? (
-                                        <CheckCircle size={14} className="text-primary" />
-                                    ) : (
-                                        <ChevronRight size={14} className="text-primary group-hover:translate-x-1 transition-transform" />
+                                <div className="flex h-16">
+                                    {mod.thumbnail_url && !locked && (
+                                        <div className="w-20 shrink-0 relative overflow-hidden">
+                                            <img src={mod.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                            <div className="absolute inset-0 bg-black/20" />
+                                        </div>
+                                    )}
+                                    <div className="flex-1 p-4 flex flex-col justify-center">
+                                        <div className="flex items-center justify-between mb-0.5">
+                                            <span className={`text-[8px] uppercase font-black tracking-widest ${locked ? 'text-gray-300' : 'text-primary'}`}>
+                                                Week {mod.week_number}
+                                            </span>
+                                            {locked ? (
+                                                <Lock size={10} className="text-gray-300" />
+                                            ) : completed && (
+                                                <CheckCircle size={10} className="text-primary" />
+                                            )}
+                                        </div>
+                                        <h3 className={`font-bold text-[11px] uppercase italic tracking-tight leading-tight ${locked ? 'text-gray-300' : 'text-gray-900'}`}>
+                                            {mod.title}
+                                        </h3>
+                                    </div>
+                                    {!locked && (
+                                        <div className="flex items-center pr-4">
+                                            <ChevronRight size={12} className="text-gray-300 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                                        </div>
                                     )}
                                 </div>
-                                <h3 className={`font-bold text-xs uppercase italic tracking-tight ${locked ? 'text-gray-300' : 'text-gray-900'}`}>
-                                    {mod.title}
-                                </h3>
 
                                 {!locked && (
                                     <Link to={`/student/course/${courseId}/module/${mod.id}`} className="absolute inset-0" />

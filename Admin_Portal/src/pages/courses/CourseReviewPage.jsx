@@ -91,22 +91,44 @@ export default function CourseReviewPage() {
         } else {
             stats.modules = data.modules.length;
             data.modules.forEach(mod => {
+                if (!mod.is_published) {
+                    errors.push(`Module "${mod.title}" is in Draft mode. All modules must be "Live" before the course can launch.`);
+                }
+                if (!mod.thumbnail_url) {
+                    errors.push(`Module "${mod.title}" is missing a thumbnail image.`);
+                }
+
                 if (!mod.lessons || mod.lessons.length === 0) {
                     errors.push(`Module "${mod.title}" has no lessons.`);
                 } else {
                     stats.lessons += mod.lessons.length;
                     mod.lessons.forEach(lesson => {
+                        if (!lesson.is_published) {
+                            errors.push(`Lesson "${lesson.title}" in ${mod.title} is in Draft mode.`);
+                        }
+                        if (!lesson.thumbnail_url) {
+                            errors.push(`Lesson "${lesson.title}" in ${mod.title} is missing a thumbnail image.`);
+                        }
+
                         if (!lesson.video_path) {
                             errors.push(`Lesson "${lesson.title}" in ${mod.title} is missing a video.`);
                         } else {
                             stats.videos++;
+                            if (!lesson.mux_playback_id) {
+                                errors.push(`Lesson "${lesson.title}" in ${mod.title} is missing a Mux Playback ID (Required for performance).`);
+                            }
                         }
                     });
                 }
                 stats.documents += (mod.documents?.length || 0);
             });
         }
-        stats.documents += (data.documents?.filter(d => d.parent_type === 'course').length || 0);
+
+        if (!data.thumbnail_url) {
+            errors.push("Course is missing a primary thumbnail image.");
+        }
+
+        stats.documents += (data.documents?.filter(d => d.parent_id === courseId).length || 0);
 
         setReadiness({
             passes: errors.length === 0,
@@ -115,27 +137,29 @@ export default function CourseReviewPage() {
         });
     };
 
-    // This function is implied by the Code Edit, replacing the direct check of readiness.passes
-    const validateCourse = () => {
-        return readiness.passes;
-    };
-
     const handlePublish = async () => {
-        if (!validateCourse()) {
-            await showAlert("CANNOT PUBLISH: Protocol violations detected.", "Validation Failed", "error");
+        const isCurrentlyPublished = course.is_published;
+
+        if (!isCurrentlyPublished && !readiness.passes) {
+            await showAlert("CANNOT PUBLISH: Protocol violations detected. Review the audit checklist.", "Validation Failed", "error");
             return;
         }
 
         try {
-            // Updated status to 'published'
             const { error } = await supabase.from('courses')
-                .update({ status: 'published' })
+                .update({ is_published: !isCurrentlyPublished })
                 .eq('id', courseId);
 
             if (error) throw error;
 
-            await showAlert('Course launched successfully into public domain.', 'Launch Success', 'success');
-            navigate('/admin/courses');
+            await showAlert(
+                !isCurrentlyPublished
+                    ? 'Course launched successfully into public domain.'
+                    : 'Course visibility revoked. It is now in Draft mode.',
+                !isCurrentlyPublished ? 'Launch Success' : 'Revocation Success',
+                'success'
+            );
+            fetchCourseData();
 
         } catch (err) {
             console.error('Publishing error:', err);

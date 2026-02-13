@@ -24,7 +24,9 @@ export default function LessonCreatePage() {
         description: '',
         video_path: '',
         mux_playback_id: '',
-        duration_seconds: 0
+        duration_seconds: 0,
+        is_published: false,
+        thumbnail_url: ''
     });
 
     const [videoFile, setVideoFile] = useState(null);
@@ -72,11 +74,48 @@ export default function LessonCreatePage() {
         return filePath;
     };
 
+    const handleThumbnailUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${crypto.randomUUID()}.${fileExt}`;
+            const filePath = `thumbnails/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('course-thumbnails')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('course-thumbnails')
+                .getPublicUrl(filePath);
+
+            setFormData(prev => ({ ...prev, thumbnail_url: publicUrl }));
+            showAlert('Thumbnail uploaded', 'Success', 'success');
+        } catch (error) {
+            console.error('Thumbnail upload error:', error);
+            showAlert('Thumbnail upload failed: ' + error.message, 'Error', 'error');
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
         setLoading(true);
 
         try {
+            // Validation: Video lessons must have Mux ID to be published
+            if (formData.is_published && !formData.mux_playback_id) {
+                showAlert('PROTOCOL VIOLATION: Video lessons must have a valid Mux Playback ID before being marked as "Live".', 'Validation Error', 'error');
+                setLoading(false);
+                return;
+            }
+
             let finalPath = formData.video_path;
 
             if (videoFile) {
@@ -92,6 +131,8 @@ export default function LessonCreatePage() {
                 video_path: finalPath,
                 mux_playback_id: formData.mux_playback_id || '',
                 duration_seconds: formData.duration_seconds,
+                is_published: formData.is_published,
+                thumbnail_url: formData.thumbnail_url,
                 updated_at: new Date().toISOString()
             };
 
@@ -276,6 +317,52 @@ export default function LessonCreatePage() {
                                         className="w-32 px-6 py-3 bg-gray-900 border border-gray-800 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary font-mono text-base text-primary"
                                     />
                                     <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Seconds</span>
+                                </div>
+                            </div>
+
+                            <div className="pt-8 border-t border-gray-800 space-y-6">
+                                <div className="space-y-4">
+                                    <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic">Visual Identity</label>
+                                    <div className={`relative border border-gray-800 rounded-2xl p-6 text-center transition-all ${formData.thumbnail_url ? 'bg-primary/5 border-primary/20' : 'bg-black/40 hover:bg-black/60'}`}>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleThumbnailUpload}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            disabled={uploading}
+                                        />
+                                        {formData.thumbnail_url ? (
+                                            <div className="flex items-center gap-3 text-left">
+                                                <img src={formData.thumbnail_url} alt="" className="w-12 h-12 object-cover rounded-lg border border-gray-800" />
+                                                <div>
+                                                    <p className="text-[9px] font-black text-primary uppercase">Asset Linked</p>
+                                                    <p className="text-[8px] text-gray-600 font-bold uppercase truncate w-32">Click to Swap</p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Zap size={16} className="text-gray-700" />
+                                                <p className="text-[9px] font-black text-gray-600 uppercase">Apply Thumbnail</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between p-4 bg-gray-900/50 border border-gray-800 rounded-2xl">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-2 h-2 rounded-full ${formData.is_published ? 'bg-green-500' : 'bg-gray-700'}`}></div>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Node Status</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="is_published"
+                                            checked={formData.is_published}
+                                            onChange={e => setFormData({ ...formData, is_published: e.target.checked })}
+                                            className="w-4 h-4 accent-primary"
+                                        />
+                                        <label htmlFor="is_published" className="text-[9px] font-black uppercase text-white cursor-pointer select-none">Live</label>
+                                    </div>
                                 </div>
                             </div>
 

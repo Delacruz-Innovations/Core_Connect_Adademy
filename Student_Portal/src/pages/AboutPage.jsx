@@ -6,9 +6,17 @@ import AboutContent from '../components/AboutContent';
 import Footer from '../components/Footer';
 
 const AboutPage = () => {
-    // Scroll to top on mount
+    // Scroll to top on mount OR to hash if present
     useEffect(() => {
-        window.scrollTo(0, 0);
+        if (window.location.hash) {
+            const id = window.location.hash.substring(1);
+            const element = document.getElementById(id);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+            }
+        } else {
+            window.scrollTo(0, 0);
+        }
     }, []);
 
     return (

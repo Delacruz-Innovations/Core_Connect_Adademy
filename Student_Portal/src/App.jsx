@@ -10,13 +10,11 @@ import AboutPage from './pages/AboutPage';
 import ServicesPage from './pages/ServicesPage';
 import CoursesPage from './pages/CoursesPage';
 import EventsPage from './pages/EventsPage';
-import CareersPage from './pages/CareersPage';
 import BlogsPage from './pages/BlogsPage';
 import ResourcesPage from './pages/ResourcesPage';
 import ContactPage from './pages/ContactPage';
 import CourseDetailPage from './pages/CourseDetailPage';
 import NotFound from './pages/NotFound';
-import FAQPage from './pages/FAQPage';
 import ShowInterestPage from './pages/ShowInterestPage';
 import HowItWorksPage from './pages/HowItWorksPage';
 import LoginPage from './pages/LoginPage';
@@ -69,10 +67,8 @@ function AppContent() {
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/courses" element={<CoursesPage />} />
         <Route path="/events" element={<EventsPage />} />
-        <Route path="/careers" element={<CareersPage />} />
         <Route path="/news" element={<BlogsPage />} />
         <Route path="/resources" element={<ResourcesPage />} />
-        <Route path="/faqs" element={<FAQPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/set-password" element={<SetPasswordPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />

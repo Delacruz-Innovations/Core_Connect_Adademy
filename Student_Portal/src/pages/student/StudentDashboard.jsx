@@ -4,7 +4,7 @@ import { useLoading } from '../../context/LoadingContext';
 import { supabase } from '../../lib/supabaseClient';
 import { usePersistentQuery } from '../../hooks/usePersistentQuery';
 import {
-    Search, Edit, ChevronLeft, ChevronRight,
+    Search, Edit, ChevronLeft, ChevronRight, ArrowRight,
     BookOpen, FileText, CheckCircle2, Clock, PlayCircle
 } from 'lucide-react';
 import NotificationCenter from '../../components/NotificationCenter';
@@ -40,25 +40,37 @@ const SectionHeader = ({ title }) => (
 );
 
 const CourseCard = ({ course, color }) => {
-    // Calculate progress if available (using mock logic or real data if present)
-    const totalLessons = course.lessonsCount || 0;
-    // We don't have completed_lessons count in the query yet, so we'll show total lessons
+    const isCompleted = course.progress_percent === 100;
 
     return (
-        <div className={`p-6 rounded-2xl ${color} min-w-[280px] flex-1 transition-transform hover:scale-[1.02]`}>
+        <div className={`p-6 rounded-2xl ${color} min-w-[280px] flex-1 transition-transform hover:scale-[1.02] relative group`}>
             <div className="w-10 h-10 bg-white/40 rounded-full flex items-center justify-center mb-4 text-gray-900 backdrop-blur-sm">
                 <BookOpen size={20} />
             </div>
-            <h3 className="font-bold text-gray-900 mb-1 line-clamp-1">{course.title}</h3>
-            <p className="text-xs text-gray-600 mb-6 line-clamp-1">{course.category || 'Course'}</p>
+
+            <div className="flex justify-between items-start mb-1">
+                <h3 className="font-bold text-gray-900 line-clamp-1">{course.course_title}</h3>
+                <span className="text-[10px] font-black italic text-gray-900">{course.progress_percent}%</span>
+            </div>
+            <p className="text-xs text-gray-600 mb-4 line-clamp-1">{course.course_code || 'Course'}</p>
+
+            {/* Progress Bar */}
+            <div className="h-1.5 w-full bg-white/30 rounded-full overflow-hidden mb-6">
+                <div
+                    className={`h-full transition-all duration-1000 ${isCompleted ? 'bg-[#EAB308]' : 'bg-primary'}`}
+                    style={{ width: `${course.progress_percent}%` }}
+                />
+            </div>
 
             <div className="flex items-center gap-4 text-xs font-medium text-gray-700">
                 <div className="flex items-center gap-1.5 bg-white/30 px-2 py-1 rounded-md">
-                    <BookOpen size={14} /> <span>{totalLessons} Lessons</span>
+                    <BookOpen size={14} /> <span>{course.total_lessons} Lessons</span>
                 </div>
-                <div className="flex items-center gap-1.5 bg-white/30 px-2 py-1 rounded-md">
-                    <FileText size={14} /> <span>{course.assignmentsCount || 0} Assignments</span>
-                </div>
+                {course.last_accessed_at && (
+                    <div className="flex items-center gap-1.5 bg-white/30 px-2 py-1 rounded-md">
+                        <Clock size={14} /> <span>{new Date(course.last_accessed_at).toLocaleDateString()}</span>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -107,7 +119,7 @@ const CalendarWidget = () => {
             </div>
 
             <div className="grid grid-cols-7 gap-y-3 text-center">
-                {days.map(d => <span key={d} className="text-xs text-gray-400 font-medium">{d}</span>)}
+                {days.map((d, i) => <span key={`${d}-${i}`} className="text-xs text-gray-400 font-medium">{d}</span>)}
 
                 {/* Offset for start of month */}
                 {Array.from({ length: firstDayIndex }).map((_, i) => <span key={`empty-${i}`} />)}
@@ -126,34 +138,39 @@ const CalendarWidget = () => {
 };
 const TaskList = ({ assignments }) => (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-bold text-gray-900 mb-6">Upcoming Tasks</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-6 uppercase tracking-widest text-[10px]">Upcoming Artifacts</h3>
         <div className="space-y-6">
             {assignments.length === 0 && (
                 <div className="text-center py-8">
-                    <p className="text-gray-400 text-sm">No pending tasks</p>
-                    <p className="text-xs text-gray-300 mt-1">You're all caught up!</p>
+                    <p className="text-gray-400 text-sm italic">Archive cleared.</p>
                 </div>
             )}
-            {assignments.map((task, i) => (
-                <div key={i} className="flex gap-4 items-start">
-                    <div className={`w-5 h-5 rounded border-2 mt-0.5 flex items-center justify-center shrink-0 border-gray-300`}>
+            {assignments.map((task) => (
+                <Link key={task.id} to={`/student/assignments/${task.id}`} className="flex gap-4 items-start group">
+                    <div className={`w-5 h-5 rounded border-2 mt-0.5 flex items-center justify-center shrink-0 border-gray-200 group-hover:border-primary transition-colors`}>
+                        <div className="w-1.5 h-1.5 rounded-full bg-gray-100 group-hover:bg-primary transition-colors"></div>
                     </div>
-                    <div>
-                        <h4 className="font-bold text-gray-900 text-sm line-clamp-1">{task.title}</h4>
+                    <div className="flex-1">
+                        <h4 className="font-bold text-gray-900 text-sm line-clamp-1 group-hover:text-primary transition-colors">{task.title}</h4>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <span className="text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
-                                {task.courses?.title || 'Assignment'}
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                {task.module?.course?.title || task.lesson?.module?.course?.title || 'Assignment'}
                             </span>
                             {task.due_date && (
-                                <span className="text-[10px] font-medium text-orange-500">
-                                    Due: {new Date(task.due_date).toLocaleDateString()}
+                                <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+                                    Term: {new Date(task.due_date).toLocaleDateString()}
                                 </span>
                             )}
                         </div>
                     </div>
-                </div>
+                    <ArrowRight size={14} className="text-gray-200 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1" />
+                </Link>
             ))}
         </div>
+        <Link to="/student/assignments" className="mt-8 pt-6 border-t border-gray-50 flex items-center justify-between group">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 group-hover:text-gray-900 transition-colors">Digital Registry</span>
+            <ArrowRight size={14} className="text-gray-300 group-hover:text-primary transition-colors" />
+        </Link>
     </div>
 );
 
@@ -174,76 +191,78 @@ const CourseProgressBanner = ({ course, userName }) => {
         </div>
     );
 
-    // Mock data for "Where he/she stopped"
-    const currentLesson = {
-        title: "Introduction to Stakeholder Analysis",
-        module: "Module 2",
-        duration: "15 min left"
-    };
-    const progress = 35;
+    const hasProgress = course.last_accessed_lesson_id && course.last_accessed_module_id;
+    const progress = course.progress_percent || 0;
 
     return (
         <div className="relative mb-10 group">
-            {/* Main Banner Card */}
             <div className="bg-gray-900 rounded-3xl overflow-hidden shadow-xl shadow-gray-900/20 relative">
+                {/* Background Image */}
+                <div className="absolute inset-0 z-0">
+                    <img
+                        src={course.course_image_path || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60"}
+                        className="w-full h-full object-cover opacity-30 grayscale group-hover:scale-105 transition-transform duration-1000"
+                        alt=""
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/80 to-primary/40"></div>
+                </div>
 
-                {/* Background Art - Abstract or Course Image */}
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/90 to-primary/80 z-0"></div>
-
-                {/* Content Container */}
                 <div className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row items-center gap-8">
-
-                    {/* Left: Text Info */}
                     <div className="flex-1 w-full text-center md:text-left space-y-4">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 backdrop-blur-sm self-center md:self-start mx-auto md:mx-0">
                             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-                            <span className="text-[10px] uppercase tracking-widest font-bold text-white">Resume Learning</span>
+                            <span className="text-[10px] uppercase tracking-widest font-bold text-white">
+                                {progress === 100 ? 'Certified Expert' : progress > 0 ? 'Resume Learning' : 'Initialize Protocol'}
+                            </span>
                         </div>
 
                         <div>
-                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">{course.title}</p>
-                            <h2 className="text-2xl md:text-4xl font-bold text-white leading-tight">
-                                {currentLesson.title}
+                            <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">{course.course_title}</p>
+                            <h2 className="text-2xl md:text-4xl font-black text-white leading-tight italic uppercase tracking-tighter">
+                                {course.last_accessed_lesson_title || "Ready to Start"}
                             </h2>
-                            <p className="text-gray-400 text-sm mt-2 flex items-center justify-center md:justify-start gap-2">
-                                <span>{currentLesson.module}</span>
-                                <span className="w-1 h-1 rounded-full bg-gray-600"></span>
-                                <span>{currentLesson.duration}</span>
-                            </p>
+                            {course.last_accessed_module_title && (
+                                <p className="text-gray-400 text-xs mt-2 flex items-center justify-center md:justify-start gap-2 font-bold uppercase tracking-widest">
+                                    <span>{course.last_accessed_module_title}</span>
+                                    {course.last_accessed_at && (
+                                        <>
+                                            <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                                            <span className="text-primary">Last Activity: {new Date(course.last_accessed_at).toLocaleDateString()}</span>
+                                        </>
+                                    )}
+                                </p>
+                            )}
                         </div>
 
-                        {/* Progress Bar Label */}
                         <div className="w-full max-w-sm mx-auto md:mx-0 pt-2">
-                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">
-                                <span>Lesson Progress</span>
+                            <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-2">
+                                <span>Course Integrity</span>
                                 <span>{progress}%</span>
                             </div>
                             <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                                 <div
-                                    className="h-full bg-primary rounded-full relative shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                                    className={`h-full rounded-full relative transition-all duration-1000 ${progress === 100 ? 'bg-[#EAB308]' : 'bg-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]'}`}
                                     style={{ width: `${progress}%` }}
                                 ></div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Right: Big Play Action */}
                     <div className="flex-shrink-0">
                         <Link
-                            to={`/student/course/${course.id}`}
+                            to={hasProgress
+                                ? `/student/course/${course.id}/module/${course.last_accessed_module_id}/lesson/${course.last_accessed_lesson_id}`
+                                : `/student/course/${course.id}`
+                            }
                             className="relative w-24 h-24 md:w-28 md:h-28 flex items-center justify-center group/play focus:outline-none"
                         >
-                            {/* Pulse Effects */}
                             <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping opacity-75"></div>
                             <div className="absolute inset-0 bg-primary/40 rounded-full animate-pulse"></div>
-
-                            {/* Button */}
                             <div className="relative w-full h-full bg-white rounded-full text-primary shadow-2xl flex items-center justify-center transform transition-transform group-hover/play:scale-110 active:scale-95">
                                 <PlayCircle size={48} className="ml-1.5" fill="currentColor" strokeWidth={1.5} />
                             </div>
                         </Link>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -258,25 +277,32 @@ const StudentDashboard = () => {
     const fetchDashboardData = useCallback(async (signal) => {
         if (!user) return null;
 
-        // Fetch Enrollments for Course Cards
-        const { data: enrollments } = await supabase
-            .from('enrollments')
-            .select('*, course:course_id(*, md:modules(*, lessons(id), assignments(id)))')
-            .eq('student_id', user.id)
+        // Use RPC for optimized progress analytics
+        const { data: analytics, error: analyticsError } = await supabase
+            .rpc('get_student_dashboard_progress', { p_student_id: user.id })
             .abortSignal(signal);
 
+        if (analyticsError && analyticsError.message !== 'AbortError' && !analyticsError.message?.includes('aborted')) {
+            console.error('Dashboard Analytics Error:', analyticsError);
+        }
+
         // Fetch Assignments for To-Do
-        // Assuming assignments table has a due_date column, ordering by it. 
-        // If not, we'll order by created_at descending.
-        const { data: assignments } = await supabase
+        const { data: assignments, error: assignmentsError } = await supabase
             .from('assignments')
-            .select('*, courses:course_id(title)')
-            // .gte('due_date', new Date().toISOString()) // filtered for future if due_date exists
-            .order('created_at', { ascending: false }) // Fallback since we might not have due_date column confirmed
+            .select(`
+                *,
+                module:module_id(id, title, course:course_id(title)),
+                lesson:lesson_id(id, title, module:module_id(course:course_id(title)))
+            `)
+            .order('created_at', { ascending: false })
             .limit(5)
             .abortSignal(signal);
 
-        return { enrollments, assignments };
+        if (assignmentsError && assignmentsError.message !== 'AbortError' && !assignmentsError.message?.includes('aborted')) {
+            console.error('Dashboard Assignments Error:', assignmentsError);
+        }
+
+        return { analytics, assignments };
     }, [user]);
 
     const { data: dashboardData, loading: contentLoading, revalidate } = usePersistentQuery(
@@ -285,26 +311,14 @@ const StudentDashboard = () => {
         [user?.id]
     );
 
-    const enrolledCourses = dashboardData?.enrollments || [];
+    const enrollments = dashboardData?.analytics || [];
     const assignments = dashboardData?.assignments || [];
 
-    // Transform Enrollments to Card Data
-    const courseCards = enrolledCourses
-        .filter(e => e.course)
-        .map((e, index) => {
-            const c = e.course;
-            // Calculate counts
-            const lessons = c.md?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || 0;
-            const assigns = c.md?.reduce((acc, m) => acc + (m.assignments?.length || 0), 0) || 0;
-
-            return {
-                title: c.title,
-                category: c.code || 'Course',
-                lessonsCount: lessons,
-                assignmentsCount: assigns,
-                color: index % 3 === 0 ? 'bg-[#E6F0FF]' : index % 3 === 1 ? 'bg-[#FFF0E6]' : 'bg-[#E6F9F0]'
-            };
-        });
+    // Map analytics data to visual cards
+    const courseCards = enrollments.map((item, index) => ({
+        ...item,
+        color: index % 3 === 0 ? 'bg-[#E6F0FF]' : index % 3 === 1 ? 'bg-[#FFF0E6]' : 'bg-[#E6F9F0]'
+    }));
 
     return (
         <div className="max-w-[1600px] mx-auto">
@@ -314,13 +328,16 @@ const StudentDashboard = () => {
                 <div className="col-span-1 lg:col-span-8">
                     <GreetingHeader name={profile?.full_name?.split(' ')[0] || 'Student'} />
 
+                    {/* Dynamic Resume Banner - Picks the most recently active course */}
+                    <CourseProgressBanner course={courseCards[0]} userName={profile?.full_name?.split(' ')[0] || 'Student'} />
+
                     {/* Active Courses Section */}
                     {courseCards.length > 0 ? (
                         <div className="mb-10">
-                            <SectionHeader title="My Active Courses" />
+                            <SectionHeader title="My Core Learning Tracks" />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {courseCards.map((c, i) => (
-                                    <CourseCard key={i} course={c} color={c.color} />
+                                {courseCards.map((c) => (
+                                    <CourseCard key={c.id} course={c} color={c.color} />
                                 ))}
                             </div>
                         </div>

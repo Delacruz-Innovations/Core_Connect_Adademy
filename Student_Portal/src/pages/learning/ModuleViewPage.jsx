@@ -50,6 +50,10 @@ export default function ModuleViewPage() {
                 .single();
 
             if (error) throw error;
+            if (modData.is_published === false) {
+                navigate(`/student/course/${courseId}`);
+                return;
+            }
             setModule(modData);
 
             // Check lock status
@@ -101,7 +105,7 @@ export default function ModuleViewPage() {
 
             if (!isActuallyLocked) {
                 const [lessonsRes, resourcesRes, progressRes, assignmentRes] = await Promise.all([
-                    supabase.from('lessons').select('*').eq('module_id', moduleId).order('order_index', { ascending: true }).abortSignal(signal),
+                    supabase.from('lessons').select('*').eq('module_id', moduleId).eq('is_published', true).order('order_index', { ascending: true }).abortSignal(signal),
                     supabase.from('resources').select('*').eq('parent_id', moduleId).eq('visibility_status', 'published').abortSignal(signal),
                     supabase.from('lesson_progress').select('lesson_id, is_completed').eq('user_id', user.id).abortSignal(signal),
                     supabase.from('assignments').select('*').eq('module_id', moduleId).maybeSingle().abortSignal(signal)

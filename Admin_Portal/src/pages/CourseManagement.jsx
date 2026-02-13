@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     BookOpen, Plus, Search,
     MoreVertical, Edit3, BookMarked,
     CheckCircle2, CircleDashed
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import BrandedLoader from '../components/BrandedLoader';
 
 const CourseCard = ({ course }) => (
     <div className="bg-white border border-gray-100 shadow-sm group hover:shadow-2xl transition-all flex flex-col">
@@ -14,32 +16,32 @@ const CourseCard = ({ course }) => (
                 <BookOpen size={48} className="text-primary opacity-20 group-hover:opacity-40 transition-opacity" />
             </div>
             <div className="absolute top-4 right-4">
-                <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest ${course.status === 'Published' ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'
+                <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest ${course.is_published ? 'bg-green-500 text-white' : 'bg-orange-50 text-white'
                     }`}>
-                    {course.status}
+                    {course.is_published ? 'Published' : 'Draft'}
                 </span>
             </div>
         </div>
         <div className="p-8 flex-1 flex flex-col">
-            <h3 className="text-xl font-black italic tracking-tight mb-4 group-hover:text-primary transition-colors">
+            <h3 className="text-xl font-black italic tracking-tight mb-4 group-hover:text-primary transition-colors line-clamp-2">
                 {course.title}
             </h3>
-            <p className="text-gray-400 text-xs font-medium leading-relaxed mb-8 flex-1">
-                {course.description}
+            <p className="text-gray-400 text-xs font-medium leading-relaxed mb-8 flex-1 line-clamp-3">
+                {course.short_description || course.description}
             </p>
 
             <div className="flex items-center justify-between pt-6 border-t border-gray-50">
                 <div className="flex items-center gap-2">
                     <BookMarked size={14} className="text-primary" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                        {course.modules} Modules
+                        Content Management
                     </span>
                 </div>
                 <div className="flex gap-2">
                     <Link
                         to={`/admin/courses/${course.id}/edit`}
                         className="p-2 bg-gray-50 text-gray-400 hover:bg-black hover:text-white transition-all"
-                        title="Edit Content"
+                        title="Edit Metadata"
                     >
                         <Edit3 size={16} />
                     </Link>
@@ -58,30 +60,40 @@ const CourseCard = ({ course }) => (
 
 const CourseManagement = () => {
     const navigate = useNavigate();
+    const [courses, setCourses] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({
+        published: 0,
+        draft: 0
+    });
 
-    const courses = [
-        {
-            id: 1,
-            title: "Business Analysis Mastery",
-            status: "Published",
-            modules: 12,
-            description: "Comprehensive guide to becoming a world-class business analyst with real-world case studies."
-        },
-        {
-            id: 2,
-            title: "Project Management Pro",
-            status: "Draft",
-            modules: 8,
-            description: "Master Agile and Scrum methodologies to lead high-performing technical teams."
-        },
-        {
-            id: 3,
-            title: "AI For Professionals",
-            status: "Published",
-            modules: 4,
-            description: "Leverage artificial intelligence to automate workflows and drive decision making."
+    useEffect(() => {
+        fetchCourses();
+    }, []);
+
+    const fetchCourses = async () => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('courses')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            setCourses(data || []);
+            setStats({
+                published: data.filter(c => c.is_published).length,
+                draft: data.filter(c => !c.is_published).length
+            });
+        } catch (error) {
+            console.error('Error fetching courses:', error);
+        } finally {
+            setLoading(false);
         }
-    ];
+    };
+
+    if (loading) return <BrandedLoader message="Synchronizing Curriculum..." />;
 
     return (
         <div className="space-y-12">
@@ -107,7 +119,7 @@ const CourseManagement = () => {
                     </div>
                     <div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Published</p>
-                        <p className="text-2xl font-black italic">18</p>
+                        <p className="text-2xl font-black italic">{stats.published}</p>
                     </div>
                 </div>
                 <div className="bg-white p-6 border border-gray-100 flex items-center gap-6">
@@ -116,7 +128,7 @@ const CourseManagement = () => {
                     </div>
                     <div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">In Draft</p>
-                        <p className="text-2xl font-black italic">06</p>
+                        <p className="text-2xl font-black italic">{stats.draft}</p>
                     </div>
                 </div>
                 <div className="bg-white p-6 border border-gray-100 flex items-center gap-6">
@@ -124,17 +136,23 @@ const CourseManagement = () => {
                         <BookMarked size={24} />
                     </div>
                     <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Modules</p>
-                        <p className="text-2xl font-black italic">142</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Active Nodes</p>
+                        <p className="text-2xl font-black italic">{courses.length}</p>
                     </div>
                 </div>
             </div>
 
             {/* Course Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {courses.map(course => (
-                    <CourseCard key={course.id} course={course} />
-                ))}
+                {courses.length === 0 ? (
+                    <div className="col-span-full py-20 bg-gray-50 border border-dashed border-gray-200 text-center rounded-3xl">
+                        <p className="text-gray-400 font-bold uppercase tracking-widest">No Curriculum Records Found</p>
+                    </div>
+                ) : (
+                    courses.map(course => (
+                        <CourseCard key={course.id} course={course} />
+                    ))
+                )}
             </div>
         </div>
     );

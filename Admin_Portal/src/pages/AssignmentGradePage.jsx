@@ -88,7 +88,7 @@ const AssignmentGradePage = () => {
                     admin_feedback: feedback.trim(),
                     reviewed_status: 'reviewed',
                     graded_at: new Date().toISOString(),
-                    graded_by: authUser.id
+                    graded_by: authUser?.id || null
                 })
                 .eq('id', submissionId);
 

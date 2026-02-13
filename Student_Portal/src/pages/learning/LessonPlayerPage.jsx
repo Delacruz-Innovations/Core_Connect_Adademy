@@ -15,6 +15,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useConnectivity } from '../../context/ConnectivityContext';
 import { usePersistentQuery } from '../../hooks/usePersistentQuery';
 import { useMediaCache } from '../../hooks/useMediaCache';
+import { motion, AnimatePresence } from 'framer-motion';
+import CourseCompletionModal from '../../components/CourseCompletionModal';
+import ModuleCompletionModal from '../../components/ModuleCompletionModal';
 
 export default function LessonPlayerPage() {
     const { courseId, moduleId, lessonId } = useParams();
@@ -30,6 +33,7 @@ export default function LessonPlayerPage() {
     const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState(null);
     const [showAutoAdvance, setShowAutoAdvance] = useState(false);
     const [submittingAssignment, setSubmittingAssignment] = useState(false);
+    const [showCompletionModal, setShowCompletionModal] = useState(false);
 
     // AI States
     const [aiMessages, setAiMessages] = useState([
@@ -45,7 +49,7 @@ export default function LessonPlayerPage() {
 
         const { data: fetchedCourse, error: courseError } = await supabase
             .from('courses')
-            .select(`*, modules:modules(*, lessons:lessons(id, title, description, video_path, mux_playback_id, module_id, order_index, duration_seconds), assignments:assignments(*))`)
+            .select(`*, modules:modules(*, lessons:lessons(id, title, description, thumbnail_url, is_published, video_path, mux_playback_id, module_id, order_index, duration_seconds), assignments:assignments(*))`)
             .eq('id', courseId)
             .order('week_number', { foreignTable: 'modules', ascending: true })
             .order('order_index', { foreignTable: 'modules.lessons', ascending: true })
@@ -53,6 +57,14 @@ export default function LessonPlayerPage() {
             .single();
 
         if (courseError) throw courseError;
+
+        // Hierarchical Filter: Remove Draft Modules and Lessons
+        fetchedCourse.modules = (fetchedCourse.modules || [])
+            .filter(m => m.is_published === true)
+            .map(m => ({
+                ...m,
+                lessons: (m.lessons || []).filter(l => l.is_published === true)
+            }));
 
         const [modProgRes, lessProgRes] = await Promise.all([
             supabase.from('module_progress').select('*').eq('user_id', user.id).eq('course_id', courseId).abortSignal(signal),
@@ -82,7 +94,7 @@ export default function LessonPlayerPage() {
         };
     }, [courseId]);
 
-    const { data: courseData, loading: courseLoading, revalidate: revalidateCourse } = usePersistentQuery(
+    const { data: courseData, loading: courseLoading, revalidate: revalidateCourse, setDataAndCache: updateLocalCourse } = usePersistentQuery(
         `cc_course_structure_${courseId}`,
         fetchCourseStructure,
         [courseId]
@@ -93,7 +105,7 @@ export default function LessonPlayerPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
 
-        const [resRes, assignRes, qaRes, lessProgRes] = await Promise.all([
+        const [resRes, assignRes, qaRes, lessProgRes, feedbackRes] = await Promise.all([
             supabase.from('resources').select('*')
                 .or(`parent_id.eq.${lessonId},parent_id.eq.${moduleId}`)
                 .eq('visibility_status', 'published')
@@ -105,6 +117,11 @@ export default function LessonPlayerPage() {
                 .abortSignal(signal),
             supabase.from('lesson_progress').select('*')
                 .eq('user_id', user.id)
+                .eq('lesson_id', lessonId)
+                .abortSignal(signal)
+                .maybeSingle(),
+            supabase.from('lesson_feedback').select('*')
+                .eq('student_id', user.id)
                 .eq('lesson_id', lessonId)
                 .abortSignal(signal)
                 .maybeSingle()
@@ -123,7 +140,8 @@ export default function LessonPlayerPage() {
             assignmentSubmission: submissionRes.data,
             lessonResources: resRes.data?.filter(r => r.parent_id === lessonId) || [],
             moduleResources: resRes.data?.filter(r => r.parent_id === moduleId) || [],
-            questions: qaRes.data || []
+            questions: qaRes.data || [],
+            existingFeedback: feedbackRes.data
         };
     }, [lessonId, moduleId]);
 
@@ -146,21 +164,84 @@ export default function LessonPlayerPage() {
     const lessonAssignment = lessonData?.lessonAssignment || null;
     const assignmentSubmission = lessonData?.assignmentSubmission || null;
     const savedPosition = lessonData?.currentLessonProgress?.watched_seconds || 0;
+    const existingFeedback = lessonData?.existingFeedback || null;
 
     const currentLesson = course?.modules
         .flatMap(m => m.lessons)
         .find(l => l.id === lessonId);
+
+    // Track which modules are expanded
+    useEffect(() => {
+        if (moduleId) {
+            setExpandedModules(prev => ({ ...prev, [moduleId]: true }));
+        }
+    }, [moduleId]);
+
+    // Progress Calculations
+    const totalLessons = course?.modules?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || 0;
+    const completedCount = Object.values(globalLessonProgress).filter(p => p.is_completed).length;
+    const courseProgressPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+
+    // Check for course completion
+    useEffect(() => {
+        if (courseProgressPercent === 100 && !courseLoading && !showCompletionModal) {
+            const seenKey = `seen_completion_${courseId}`;
+            const hasSeenModal = sessionStorage.getItem(seenKey);
+
+            if (!hasSeenModal) {
+                setShowCompletionModal(true);
+                sessionStorage.setItem(seenKey, 'true');
+            }
+        }
+    }, [courseProgressPercent, courseLoading, courseId]);
 
     const revalidate = useCallback((background = true) => {
         revalidateCourse(background);
         revalidateLesson(background);
     }, [revalidateCourse, revalidateLesson]);
 
+    // Feedback States
+    const [rating, setRating] = useState(0);
+    const [hoverRating, setHoverRating] = useState(0);
+    const [feedbackComment, setFeedbackComment] = useState('');
+    const [isSavingFeedback, setIsSavingFeedback] = useState(false);
+    const [showSuccessSparkle, setShowSuccessSparkle] = useState(false);
+
     useEffect(() => {
-        if (currentLesson?.video_path) {
-            cacheAsset(currentLesson.video_path);
+        if (existingFeedback) {
+            setRating(existingFeedback.rating);
+            setFeedbackComment(existingFeedback.comment || '');
+        } else {
+            setRating(0);
+            setFeedbackComment('');
         }
-    }, [currentLesson?.video_path, cacheAsset]);
+    }, [existingFeedback]);
+
+    const handleSaveFeedback = async () => {
+        if (rating === 0) return;
+        setIsSavingFeedback(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { error } = await supabase.from('lesson_feedback').upsert({
+                lesson_id: lessonId,
+                student_id: user.id, // Fixed: use student_id to match migration
+                rating,
+                comment: feedbackComment,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'lesson_id,student_id' });
+
+            if (error) throw error;
+
+            setShowSuccessSparkle(true);
+            setTimeout(() => setShowSuccessSparkle(false), 3000);
+            revalidate(true);
+        } catch (err) {
+            console.error('Feedback error:', err);
+            alert('Rating transmission failed.');
+        } finally {
+            setIsSavingFeedback(false);
+        }
+    };
 
     const [newQuestion, setNewQuestion] = useState('');
     const [postingQuestion, setPostingQuestion] = useState(false);
@@ -260,13 +341,10 @@ export default function LessonPlayerPage() {
                 if (modIdx === 0) return true;
 
                 const prevMod = course.modules[modIdx - 1];
-                const prevAssigns = prevMod.assignments || [];
-                const hasPendingPrev = prevAssigns.some(a => !allSubIds.has(a.id));
-                if (hasPendingPrev) return false;
+                // Unlock depends ONLY on lesson completion now
+                const lessonsCompleted = prevMod.lessons?.length > 0 && prevMod.lessons.every(l => globalLessonProgress[l.id]?.is_completed);
 
-                return candidateModule?.status === 'unlocked' ||
-                    moduleProgress[candidateModule?.id]?.status === 'unlocked' ||
-                    moduleProgress[candidateModule?.id]?.status === 'completed';
+                return lessonsCompleted;
             })();
 
             if (!isModAccessible) break;
@@ -278,24 +356,29 @@ export default function LessonPlayerPage() {
 
     const handleVideoEnded = () => {
         const next = findNextLesson(true);
+
+        // 1. Identify current module completion
+        const currentMod = course.modules.find(m => m.id === moduleId);
+        const allLessonsInMod = currentMod?.lessons || [];
+        const isLastLessonOfModule = allLessonsInMod[allLessonsInMod.length - 1]?.id === currentLesson.id;
+
+        if (isLastLessonOfModule) {
+            // Check if there are assignments that haven't been submitted yet
+            const pendingAssignments = currentMod.assignments?.filter(a => !allSubIds.has(a.id)) || [];
+
+            if (pendingAssignments.length > 0) {
+                setShowCompletionModal(true);
+            } else if (next) {
+                // If no pending assignments, auto-advance to next module
+                setShowAutoAdvance(true);
+                setAutoAdvanceCountdown(5);
+            }
+            return;
+        }
+
         if (next) {
             setShowAutoAdvance(true);
             setAutoAdvanceCountdown(5);
-        } else if (course && currentLesson) {
-            // Check if blocked specifically by the current module's assignment
-            const currentMod = course.modules.find(m => m.id === moduleId);
-            const modAssigns = currentMod?.assignments || [];
-            const hasPendingCurrent = modAssigns.some(a => !allSubIds.has(a.id));
-
-            if (hasPendingCurrent) {
-                const blockedBy = allSubsMap.get(modAssigns.find(a => allSubsMap.get(a.id) === 'blocked')?.id);
-                const message = blockedBy === 'blocked'
-                    ? "Resubmission Required: Your assignment needs revisions before you can proceed."
-                    : "Module Assessment Required: Please upload your assignment to unlock the next module.";
-
-                // using native alert for immediate visibility, could be replaced with ModalContext later
-                alert(message);
-            }
         }
     };
 
@@ -321,15 +404,24 @@ export default function LessonPlayerPage() {
         }
     };
 
-    const handleLessonProgress = async (data) => {
-        // Trigger revalidation to refresh current progress from DB/Cache
-        // We do it with a slight delay if it's a completion to ensure DB trigger finished
-        if (data.is_completed) {
-            setTimeout(() => revalidate(true), 1000);
-        } else {
-            revalidate(true); // Background revalidate for position updates
-        }
-    };
+    const handleLessonProgress = useCallback((update) => {
+        if (!courseData) return;
+
+        // Immediate Local UI Update (Optimistic)
+        const newLessonProgress = {
+            ...courseData.lessonProgress,
+            [update.lessonId]: {
+                ...courseData.lessonProgress[update.lessonId],
+                percent_watched: update.percent_watched,
+                is_completed: update.is_completed || courseData.lessonProgress[update.lessonId]?.is_completed
+            }
+        };
+
+        updateLocalCourse({
+            ...courseData,
+            lessonProgress: newLessonProgress
+        });
+    }, [courseData, updateLocalCourse]);
 
     const handlePostQuestion = async (e) => {
         e.preventDefault();
@@ -354,15 +446,15 @@ export default function LessonPlayerPage() {
         }
     };
 
-    const handleAssignmentUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file || !lessonAssignment) return;
+    const handleAssignmentUpload = async (file, assignmentOverride = null) => {
+        const targetAssignment = assignmentOverride || lessonAssignment;
+        if (!file || !targetAssignment) return;
 
         setSubmittingAssignment(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             const fileExt = file.name.split('.').pop();
-            const filePath = `${user.id}/${lessonAssignment.id}_${Date.now()}.${fileExt}`;
+            const filePath = `${user.id}/${targetAssignment.id}_${Date.now()}.${fileExt}`;
 
             const { error: uploadError } = await supabase.storage
                 .from('assignment-submissions')
@@ -371,7 +463,7 @@ export default function LessonPlayerPage() {
             if (uploadError) throw uploadError;
 
             const { data, error } = await supabase.from('assignment_submissions').upsert({
-                assignment_id: lessonAssignment.id,
+                assignment_id: targetAssignment.id,
                 user_id: user.id,
                 file_path: filePath,
                 updated_at: new Date().toISOString()
@@ -380,6 +472,7 @@ export default function LessonPlayerPage() {
             if (error) throw error;
             revalidate(true); // Refresh data node
             alert('Assignment submitted successfully protocol initiated.');
+            setShowCompletionModal(false); // Close if open
         } catch (err) {
             console.error('Submission error:', err);
             alert('Execution failed: ' + err.message);
@@ -402,6 +495,17 @@ export default function LessonPlayerPage() {
         </div>
     );
 
+    if (!currentLesson && !courseLoading) return (
+        <div className="h-screen w-screen bg-white flex flex-col items-center justify-center gap-6">
+            <div className="p-20 text-center uppercase font-black text-gray-400 tracking-widest italic">
+                Unit Protocol Not Found or Restricted.
+            </div>
+            <Link to="/student" className="px-8 py-3 bg-black text-white font-black uppercase text-[10px] tracking-widest hover:bg-primary transition-all">
+                Return to Registry
+            </Link>
+        </div>
+    );
+
 
 
     return (
@@ -415,6 +519,21 @@ export default function LessonPlayerPage() {
                     </Link>
                     <div className="hidden sm:block overflow-hidden max-w-[150px] md:max-w-xs">
                         <h1 className="text-xs font-bold truncate opacity-90">{course.title}</h1>
+                    </div>
+                </div>
+
+                {/* Global Progress Ring */}
+                <div className="hidden md:flex items-center gap-3 mr-4">
+                    <div className="text-right">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Progress</p>
+                        <p className="text-xs font-black text-primary">{courseProgressPercent}%</p>
+                    </div>
+                    <div className="relative w-8 h-8 flex items-center justify-center">
+                        <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                            <path className="text-gray-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
+                            <path className="text-primary transition-all duration-1000 ease-out" strokeDasharray={`${courseProgressPercent}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
+                        </svg>
+                        {courseProgressPercent === 100 && <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />}
                     </div>
                 </div>
 
@@ -524,7 +643,7 @@ export default function LessonPlayerPage() {
                                 { id: 'resources', label: `Resources (${lessonResources.length + moduleResources.length})` },
                                 { id: 'assignments', label: 'Assignment' },
                                 { id: 'qa', label: `Q&A (${questions.length})` },
-                                { id: 'notes', label: 'Notes' }
+                                { id: 'review', label: 'Review & Feedback' }
                             ].map(tab => (
                                 <button
                                     key={tab.id}
@@ -547,10 +666,10 @@ export default function LessonPlayerPage() {
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-1 h-8 bg-primary" />
-                                            <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-gray-900 leading-none">{currentLesson.title}</h2>
+                                            <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-gray-900 leading-none">{currentLesson?.title || 'Unit Not Found'}</h2>
                                         </div>
                                         <div className="prose prose-sm max-w-none text-gray-700 font-medium italic border-l-2 border-primary/10 pl-6 py-2">
-                                            <p>{currentLesson.description || "No description provided for this learning unit."}</p>
+                                            <p>{currentLesson?.description || "No description provided for this learning unit."}</p>
                                         </div>
                                     </div>
 
@@ -700,7 +819,7 @@ export default function LessonPlayerPage() {
                                                         </div>
                                                         <label className={`w-full md:w-auto px-10 py-5 bg-black text-white text-[10px] font-black uppercase tracking-[0.3em] hover:bg-primary transition-all shadow-xl shadow-black/10 flex items-center justify-center gap-3 cursor-pointer ${submittingAssignment ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}>
                                                             <FileDown size={16} /> {submittingAssignment ? 'Processing Cipher...' : 'Upload Submission Asset'}
-                                                            <input type="file" className="hidden" onChange={handleAssignmentUpload} disabled={submittingAssignment} />
+                                                            <input type="file" className="hidden" onChange={(e) => handleAssignmentUpload(e.target.files[0])} disabled={submittingAssignment} />
                                                         </label>
                                                     </div>
                                                 )}
@@ -770,9 +889,119 @@ export default function LessonPlayerPage() {
                                 </div>
                             )}
 
-                            {activeTab === 'notes' && (
-                                <div className="p-16 border-2 border-dashed border-gray-100 rounded-lg text-center font-bold text-gray-300 uppercase tracking-widest text-[10px]">
-                                    Personal encryption node (Notes) not yet provisioned.
+                            {activeTab === 'review' && (
+                                <div className="space-y-12 animate-in fade-in slide-in-from-bottom-2 max-w-4xl">
+                                    {!existingFeedback ? (
+                                        <div className="space-y-6">
+                                            <div className="flex items-center gap-4">
+                                                <Star size={20} className="text-secondary fill-secondary" />
+                                                <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-gray-900">Lesson Review</h2>
+                                            </div>
+                                            <div className="bg-gray-50/50 border border-gray-100 p-8 rounded-sm space-y-8">
+                                                <div className="space-y-4">
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Your Proficiency Rating</p>
+                                                    <div className="flex gap-2">
+                                                        {[1, 2, 3, 4, 5].map((s) => (
+                                                            <button
+                                                                key={s}
+                                                                onMouseEnter={() => setHoverRating(s)}
+                                                                onMouseLeave={() => setHoverRating(0)}
+                                                                onClick={() => setRating(s)}
+                                                                className="transition-transform hover:scale-125 duration-200"
+                                                            >
+                                                                <Star
+                                                                    size={32}
+                                                                    className={`transition-colors ${s <= (hoverRating || rating)
+                                                                        ? 'fill-secondary text-secondary'
+                                                                        : 'text-gray-200'
+                                                                        }`}
+                                                                />
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-4">
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Qualitative Feedback</p>
+                                                    <textarea
+                                                        value={feedbackComment}
+                                                        onChange={(e) => setFeedbackComment(e.target.value)}
+                                                        placeholder="SHARE YOUR THOUGHTS ON THIS LESSON..."
+                                                        className="w-full bg-white border border-gray-100 p-6 text-sm font-medium focus:outline-none focus:border-black transition-all min-h-[150px] resize-none shadow-sm"
+                                                    />
+                                                </div>
+
+                                                <div className="flex justify-end">
+                                                    <button
+                                                        onClick={handleSaveFeedback}
+                                                        disabled={isSavingFeedback || rating === 0}
+                                                        className="bg-black text-white px-10 py-4 text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-30 flex items-center gap-3 shadow-xl shadow-black/10"
+                                                    >
+                                                        {isSavingFeedback ? 'Syncing...' : 'Submit Protocol'} <Send size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-10">
+                                            <div className="p-10 bg-gray-900 text-white rounded-sm space-y-6 relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 p-8 opacity-5">
+                                                    <Sparkles size={120} />
+                                                </div>
+                                                <div className="relative z-10 space-y-2">
+                                                    <h3 className="text-2xl font-black italic uppercase tracking-tighter text-primary">Thank you for your review!</h3>
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Your contribution has been logged in the curriculum archives.</p>
+                                                </div>
+
+                                                <div className="pt-6 border-t border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+                                                    <div className="space-y-4">
+                                                        <div className="flex gap-1">
+                                                            {[1, 2, 3, 4, 5].map((s) => (
+                                                                <Star
+                                                                    key={s}
+                                                                    size={18}
+                                                                    className={s <= existingFeedback.rating ? 'fill-primary text-primary' : 'text-white/10'}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                        {existingFeedback.comment && (
+                                                            <div className="bg-white/5 p-6 border-l-2 border-primary">
+                                                                <p className="text-[13px] font-medium italic text-gray-300 leading-relaxed">"{existingFeedback.comment}"</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-primary">
+                                                            {showSuccessSparkle ? <motion.div animate={{ rotate: 360 }} duration={0.5}><Sparkles size={24} /></motion.div> : <CheckCircle2 size={24} />}
+                                                        </div>
+                                                        <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Verified Submission</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="p-8 border-2 border-dashed border-gray-100 rounded-lg flex items-center gap-6 relative overflow-hidden">
+                                                {showSuccessSparkle && (
+                                                    <motion.div
+                                                        initial={{ scale: 0, opacity: 0 }}
+                                                        animate={{ scale: [1, 1.2, 1], opacity: [0, 1, 0] }}
+                                                        transition={{ duration: 2, repeat: Infinity }}
+                                                        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                                                    >
+                                                        <Sparkles className="text-secondary opacity-20" size={100} />
+                                                    </motion.div>
+                                                )}
+                                                <div className="w-12 h-12 bg-green-50 text-green-500 rounded-full flex items-center justify-center relative z-10">
+                                                    <CheckCircle2 size={24} />
+                                                </div>
+                                                <div className="relative z-10">
+                                                    <p className="text-[10px] font-black text-green-600 uppercase tracking-widest leading-none mb-1 flex items-center gap-2">
+                                                        Protocol Secured {showSuccessSparkle && <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.5 }}><Sparkles size={12} /></motion.span>}
+                                                    </p>
+                                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter italic">One submission allowed per learning unit. Transmission finalized.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -792,75 +1021,98 @@ export default function LessonPlayerPage() {
                     <div className="flex-1 overflow-y-auto scrollbar-hide bg-gray-50 flex flex-col">
                         {sidebarTab === 'content' ? (
                             <div className="flex-1">
-                                {course.modules?.map((mod) => {
-                                    const isModLocked = mod.status !== 'unlocked' && mod.week_number !== 1 && moduleProgress[mod.id]?.status !== 'unlocked' && moduleProgress[mod.id]?.status !== 'completed';
-                                    if (isModLocked) return null;
+                                {(() => {
+                                    let chainBroken = false;
+                                    return course.modules?.map((mod, mIdx) => {
+                                        const isFirstModule = mIdx === 0;
 
-                                    return (
-                                        <div key={mod.id} className="border-b border-gray-200 bg-white">
-                                            <button
-                                                onClick={() => {
-                                                    const mIdx = course.modules.findIndex(m => m.id === mod.id);
-                                                    const isHardLocked = mIdx > 0 && course.modules[mIdx - 1].assignments?.some(a => !allSubIds.has(a.id));
-                                                    if (!isHardLocked) toggleModule(mod.id);
-                                                }}
-                                                className={`w-full flex items-center justify-between p-4 border-b border-gray-100 group transition-all ${(() => {
-                                                    const mIdx = course.modules.findIndex(m => m.id === mod.id);
-                                                    const isHardLocked = mIdx > 0 && course.modules[mIdx - 1].assignments?.some(a => !allSubIds.has(a.id));
-                                                    return isHardLocked ? 'opacity-40 cursor-not-allowed bg-gray-50' : 'bg-[#f7f9fa] hover:bg-gray-100';
-                                                })()}`}
-                                            >
-                                                <div className="flex-1 text-left min-w-0 pr-4">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h3 className="font-bold text-[12px] text-gray-900 uppercase tracking-tight line-clamp-2">Section {mod.week_number}: {mod.title}</h3>
-                                                        {(course.modules.findIndex(m => m.id === mod.id) > 0 && course.modules[course.modules.findIndex(m => m.id === mod.id) - 1].assignments?.some(a => !allSubIds.has(a.id))) && (
-                                                            <Lock size={10} className="text-red-500" />
-                                                        )}
+                                        // Strict Completion Check: Lessons ONLY (Assignments are optional for unlock)
+                                        const isCurrentModuleCompleted = mod.lessons?.length > 0 && mod.lessons.every(l => globalLessonProgress[l.id]?.is_completed);
+
+                                        // Strict Unlock Logic: First module is always open; others only if the chain is unbroken
+                                        const isUnlocked = isFirstModule || !chainBroken;
+
+                                        // If this module isn't finished, the chain is broken for all following modules
+                                        const currentChainState = chainBroken; // Capture for this iteration
+                                        if (!isCurrentModuleCompleted) {
+                                            chainBroken = true;
+                                        }
+
+                                        const isLocked = !isUnlocked;
+
+                                        return (
+                                            <div key={mod.id} className="border-b border-gray-200 bg-white">
+                                                <button
+                                                    onClick={() => !isLocked && toggleModule(mod.id)}
+                                                    className={`w-full flex items-center justify-between p-4 border-b border-gray-100 group transition-all ${isLocked ? 'opacity-40 cursor-not-allowed bg-gray-50' : 'bg-[#f7f9fa] hover:bg-gray-100'}`}
+                                                >
+                                                    <div className="flex-1 text-left min-w-0 pr-4">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <h3 className={`font-bold text-[12px] uppercase tracking-tight line-clamp-2 ${isLocked ? 'text-gray-400' : 'text-gray-900'}`}>
+                                                                Section {mod.week_number || mIdx + 1}: {mod.title}
+                                                            </h3>
+                                                            {isLocked && (
+                                                                <Lock size={10} className="text-gray-400" />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-[10px] text-gray-500 font-black uppercase tracking-widest">
+                                                            <span>{mod.lessons?.length || 0} units</span>
+                                                            <span>•</span>
+                                                            <span>{Math.floor((mod.lessons?.reduce((acc, l) => acc + (l.duration_seconds || 0), 0) || 0) / 60)}m total</span>
+                                                        </div>
+
+                                                        {/* Module Progress Bar */}
+                                                        <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-primary transition-all duration-500"
+                                                                style={{
+                                                                    width: `${(mod.lessons?.filter(l => globalLessonProgress[l.id]?.is_completed).length / (mod.lessons?.length || 1)) * 100
+                                                                        }%`
+                                                                }}
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2 text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                                                        <span>{mod.lessons?.length || 0} units</span>
-                                                        <span>•</span>
-                                                        <span>{Math.floor((mod.lessons?.reduce((acc, l) => acc + (l.duration_seconds || 0), 0) || 0) / 60)}m total</span>
+                                                    <ChevronRight size={16} className={`shrink-0 transition-transform ${expandedModules[mod.id] ? 'rotate-[-90deg]' : 'rotate-90 text-gray-400'}`} />
+                                                </button>
+
+                                                {expandedModules[mod.id] && (
+                                                    <div className="bg-white">
+                                                        {mod.lessons?.map((lesson, lIdx) => {
+                                                            const isCompleted = globalLessonProgress[lesson.id]?.is_completed;
+
+                                                            // Sequential lesson lock within the same module
+                                                            const isSequentialLocked = lIdx > 0 && !globalLessonProgress[mod.lessons[lIdx - 1].id]?.is_completed;
+
+                                                            // Final lock state for this lesson
+                                                            const isLessonLocked = isLocked || isSequentialLocked;
+
+                                                            return (
+                                                                <button
+                                                                    key={lesson.id}
+                                                                    onClick={() => !isLessonLocked && handleLessonClick(mod, lesson)}
+                                                                    className={`w-full flex items-start p-4 pr-10 text-left relative ${currentLesson?.id === lesson.id ? 'bg-[#e4e8eb]' : 'hover:bg-[#f7f9fa]'} ${isLessonLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                                                >
+                                                                    <div className="pt-1 mr-3 shrink-0">
+                                                                        <div className={`w-4 h-4 border ${isCompleted ? 'bg-primary border-primary' : currentLesson?.id === lesson.id ? 'border-primary' : 'border-gray-400'} flex items-center justify-center`}>
+                                                                            {isCompleted ? <Check size={10} strokeWidth={4} className="text-white" /> : isLessonLocked ? <Lock size={8} className="text-gray-400" /> : null}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className={`text-[12px] leading-tight mb-2 uppercase tracking-tight ${currentLesson?.id === lesson.id ? 'text-primary' : 'text-gray-900'}`}>{lIdx + 1}. {lesson.title}</p>
+                                                                        <div className="flex items-center gap-2 text-[10px] text-gray-400 font-black uppercase tracking-widest">
+                                                                            <PlayCircle size={10} />
+                                                                            <span>{Math.floor((lesson.duration_seconds || 0) / 60)}m</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        })}
                                                     </div>
-                                                </div>
-                                                <ChevronRight size={16} className={`shrink-0 transition-transform ${expandedModules[mod.id] ? 'rotate-[-90deg]' : 'rotate-90 text-gray-400'}`} />
-                                            </button>
-
-                                            {expandedModules[mod.id] && (
-                                                <div className="bg-white">
-                                                    {mod.lessons?.map((lesson, lIdx) => {
-                                                        const isCompleted = globalLessonProgress[lesson.id]?.is_completed;
-                                                        const mIdx = course.modules.findIndex(m => m.id === mod.id);
-                                                        const isHardLocked = mIdx > 0 && course.modules[mIdx - 1].assignments?.some(a => !allSubIds.has(a.id));
-                                                        let isLessonLocked = isHardLocked;
-                                                        if (lIdx > 0 && !globalLessonProgress[mod.lessons[lIdx - 1].id]?.is_completed) isLessonLocked = true;
-
-                                                        return (
-                                                            <button
-                                                                key={lesson.id}
-                                                                onClick={() => !isLessonLocked && handleLessonClick(mod, lesson)}
-                                                                className={`w-full flex items-start p-4 pr-10 text-left relative ${currentLesson?.id === lesson.id ? 'bg-[#e4e8eb]' : 'hover:bg-[#f7f9fa]'} ${isLessonLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                            >
-                                                                <div className="pt-1 mr-3 shrink-0">
-                                                                    <div className={`w-4 h-4 border ${isCompleted ? 'bg-primary border-primary' : currentLesson?.id === lesson.id ? 'border-primary' : 'border-gray-400'} flex items-center justify-center`}>
-                                                                        {isCompleted ? <Check size={10} strokeWidth={4} className="text-white" /> : isLessonLocked ? <Lock size={8} className="text-gray-400" /> : null}
-                                                                    </div>
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <p className={`text-[12px] leading-tight mb-2 uppercase tracking-tight ${currentLesson?.id === lesson.id ? 'text-primary' : 'text-gray-900'}`}>{lIdx + 1}. {lesson.title}</p>
-                                                                    <div className="flex items-center gap-2 text-[10px] text-gray-400 font-black uppercase tracking-widest">
-                                                                        <PlayCircle size={10} />
-                                                                        <span>{Math.floor((lesson.duration_seconds || 0) / 60)}m</span>
-                                                                    </div>
-                                                                </div>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                })()}
                             </div>
                         ) : (
                             <div className="flex-1 flex flex-col bg-white">
@@ -913,6 +1165,33 @@ export default function LessonPlayerPage() {
                     </div>
                 </aside>
             </div>
+            {/* Module Completion Modal */}
+            <ModuleCompletionModal
+                isOpen={showCompletionModal && courseProgressPercent < 100}
+                onClose={() => setShowCompletionModal(false)}
+                moduleTitle={course.modules.find(m => m.id === moduleId)?.title}
+                moduleNumber={course.modules.findIndex(m => m.id === moduleId) + 1}
+                assignments={course.modules.find(m => m.id === moduleId)?.assignments}
+                onSubmitAssignment={(assignment, file) => handleAssignmentUpload(file, assignment)}
+                submitting={submittingAssignment}
+                onContinue={() => {
+                    const next = findNextLesson(false);
+                    if (next) {
+                        const mod = course.modules.find(m => m.lessons.some(l => l.id === next.id));
+                        navigate(`/student/course/${courseId}/module/${mod.id}/lesson/${next.id}`);
+                    }
+                    setShowCompletionModal(false);
+                }}
+            />
+
+            {/* Completion Ritual */}
+            <CourseCompletionModal
+                isOpen={showCompletionModal && courseProgressPercent === 100}
+                onClose={() => setShowCompletionModal(false)}
+                courseTitle={course?.title}
+                studentName={user?.user_metadata?.full_name || user?.email}
+                completionDate={new Date().toLocaleDateString()}
+            />
         </div>
     );
 }

@@ -1,14 +1,120 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { FileText, CheckCircle2, Clock, Filter, Search, ArrowUpRight, History, BookOpen } from 'lucide-react';
+import {
+    FileText, CheckCircle2, Clock, Filter,
+    Search, ArrowUpRight, History, BookOpen,
+    LayoutGrid, List, Award, AlertCircle,
+    ChevronRight, Download, BarChart3, TrendingUp
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useConnectivity } from '../../context/ConnectivityContext';
 import { Link } from 'react-router-dom';
+import AssignmentDetailModal from '../../components/AssignmentDetailModal';
+
+const StatCard = ({ label, value, icon: Icon, color, trend }) => (
+    <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-xl hover:shadow-black/5 transition-all duration-500">
+        <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 block">{label}</span>
+            <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black italic tracking-tighter text-gray-900">{value}</span>
+                {trend && <span className="text-[10px] font-black text-green-500 flex items-center gap-0.5"><TrendingUp size={10} /> {trend}</span>}
+            </div>
+        </div>
+        <div className={`w-12 h-12 rounded-2xl ${color} flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
+            <Icon size={20} className="text-white" />
+        </div>
+    </div>
+);
+
+const AssignmentCard = ({ assignment, onClick }) => {
+    const isGraded = assignment.reviewed_status === 'reviewed';
+    const isSubmitted = assignment.is_submitted;
+
+    return (
+        <motion.div
+            layout
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="group relative bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 overflow-hidden flex flex-col"
+        >
+            {/* Status Indicator */}
+            <div className="absolute top-6 right-6 z-10">
+                <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${isGraded ? 'bg-green-50 text-green-600 border-green-100' :
+                    isSubmitted ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
+                        'bg-gray-50 text-gray-400 border-gray-100'
+                    }`}>
+                    {isGraded ? 'Graded' : isSubmitted ? 'Pending' : 'To Do'}
+                </div>
+            </div>
+
+            <div className="p-8 space-y-6 flex-1">
+                {/* Header */}
+                <div className="space-y-2">
+                    <span className="text-[9px] font-black text-primary uppercase tracking-[0.3em] block">
+                        {assignment.module?.course?.title || assignment.lesson?.module?.course?.title || 'General Curriculum'}
+                    </span>
+                    <h3 className="text-xl font-black text-gray-900 leading-tight uppercase tracking-tight line-clamp-2 min-h-[3.5rem]">
+                        {assignment.title}
+                    </h3>
+                </div>
+
+                {/* Meta */}
+                <div className="flex items-center gap-4 text-xs font-medium text-gray-500 border-t border-gray-50 pt-6">
+                    <div className="flex items-center gap-2">
+                        <BookOpen size={14} className="text-gray-300" />
+                        <span className="truncate max-w-[150px]">
+                            {assignment.parent_type === 'lesson' ? assignment.lesson?.title : assignment.module?.title}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Score / Status Large */}
+                <div className="py-4">
+                    {isGraded ? (
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-4xl font-black italic tracking-tighter text-gray-900">{assignment.grade_score}</span>
+                            <span className="text-lg font-black text-gray-200 italic">%</span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 text-gray-300">
+                            <Clock size={24} strokeWidth={1.5} />
+                            <span className="text-sm font-bold uppercase tracking-widest">
+                                {isSubmitted ? 'In Review' : 'Missing'}
+                            </span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Actions */}
+            <div className="p-6 bg-gray-50/50 border-t border-gray-50 mt-auto">
+                {!isSubmitted ? (
+                    <Link
+                        to={`/student/assignments/${assignment.id}`}
+                        className="w-full h-12 bg-black text-white rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary transition-all shadow-xl shadow-black/5"
+                    >
+                        Begin <ArrowUpRight size={14} />
+                    </Link>
+                ) : (
+                    <button
+                        onClick={() => onClick(assignment)}
+                        className="w-full h-12 bg-white border border-gray-100 text-gray-900 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:border-black transition-all shadow-sm"
+                    >
+                        View Critique <ChevronRight size={14} />
+                    </button>
+                )}
+            </div>
+        </motion.div>
+    );
+};
 
 const AssignmentHistory = () => {
     const { notifySyncFailure, registerRetry } = useConnectivity();
     const [filter, setFilter] = useState('all');
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedAssignment, setSelectedAssignment] = useState(null);
+    const [modalOpen, setModalOpen] = useState(false);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -43,13 +149,13 @@ const AssignmentHistory = () => {
                 return;
             }
 
-            // 2. Fetch all assignments from these courses
+            // 2. Fetch all assignments
             const { data: allAssignmentsData, error: assignError } = await supabase
                 .from('assignments')
                 .select(`
                     *,
-                    module:module_id(id, title, course_id, courses(title)),
-                    lesson:lesson_id(id, title)
+                    module:module_id(id, title, course_id, course:course_id(title)),
+                    lesson:lesson_id(id, title, module:module_id(course_id, course:course_id(title)))
                 `)
                 .abortSignal(signal);
 
@@ -57,8 +163,8 @@ const AssignmentHistory = () => {
 
             // Filter assignments that belong to the user's enrolled courses
             const filteredAll = allAssignmentsData.filter(a => {
-                if (a.parent_type === 'module') return courseIds.includes(a.module?.course_id);
-                return courseIds.includes(a.module?.course_id);
+                const courseId = a.module?.course_id || a.lesson?.module?.course_id || a.course_id;
+                return courseIds.includes(courseId);
             });
 
             // 3. Fetch user submissions
@@ -66,18 +172,25 @@ const AssignmentHistory = () => {
                 .from('assignment_submissions')
                 .select('*')
                 .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
                 .abortSignal(signal);
 
-            // 4. Merge Data
+            // 4. Merge
             const merged = (filteredAll || []).map(assign => {
                 const sub = submissionsData?.find(s => s.assignment_id === assign.id);
+
+                // Debug log to trace data flow - helpful for "grade not showing" issues
+                if (sub) {
+                    console.log(`Assignment: ${assign.title}, Status: ${sub.reviewed_status}, Score: ${sub.grade_score}`);
+                }
+
                 return {
                     ...assign,
                     submission: sub || null,
                     is_submitted: !!sub,
-                    reviewed_status: sub ? sub.reviewed_status : 'pending',
-                    grade_score: sub ? sub.grade_score : null,
-                    submitted_at: sub ? sub.created_at : null
+                    reviewed_status: sub?.reviewed_status || 'pending',
+                    grade_score: sub?.grade_score !== undefined ? sub.grade_score : null,
+                    submitted_at: sub?.created_at || null
                 };
             });
 
@@ -92,6 +205,15 @@ const AssignmentHistory = () => {
         }
     };
 
+    const stats = useMemo(() => {
+        const total = assignments.length;
+        const pending = assignments.filter(a => a.is_submitted && a.reviewed_status === 'pending').length;
+        const graded = assignments.filter(a => a.reviewed_status === 'reviewed');
+        const avg = graded.length > 0 ? Math.round(graded.reduce((acc, curr) => acc + curr.grade_score, 0) / graded.length) : 0;
+
+        return { total, pending, avg };
+    }, [assignments]);
+
     const filteredAssignments = assignments.filter(item => {
         if (filter === 'all') return true;
         if (filter === 'graded') return item.reviewed_status === 'reviewed';
@@ -100,41 +222,42 @@ const AssignmentHistory = () => {
         return true;
     });
 
+    const openDetails = (assignment) => {
+        setSelectedAssignment(assignment);
+        setModalOpen(true);
+    };
+
     if (loading) return (
-        <div className="min-h-screen w-full flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 border-4 border-gray-100 border-t-primary rounded-full animate-spin"></div>
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Loading Assignments...</p>
+        <div className="min-h-screen w-full flex flex-col items-center justify-center gap-6">
+            <div className="w-12 h-12 border-4 border-gray-100 border-t-primary rounded-full animate-spin shadow-xl shadow-primary/10"></div>
+            <div className="font-black uppercase tracking-[0.4em] text-gray-400 text-[10px] animate-pulse">Scanning Archive...</div>
         </div>
     );
 
     return (
-        <div className="max-w-[1600px] mx-auto relative min-h-screen pb-20">
-            {/* Watermark */}
-            <div className="fixed right-0 bottom-0 opacity-[0.03] pointer-events-none z-0 transform translate-y-1/4 translate-x-1/4">
-                <BookOpen size={600} />
-            </div>
-
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10 relative z-10">
+        <div className="max-w-[1600px] mx-auto space-y-12 pb-20 px-4 md:px-0">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Assignments</h1>
-                    <p className="text-gray-500 mt-1">Track your progress and submissions</p>
+                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-4 block">Performance Node</span>
+                    <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none text-gray-900">Assignments</h1>
+                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-4">Track progress, submissions, and critical instructor feedback.</p>
                 </div>
 
-                {/* Filter Tabs */}
-                <div className="flex p-1 bg-gray-100 rounded-xl overflow-x-auto no-scrollbar">
+                {/* Filters */}
+                <div className="flex p-1.5 bg-gray-100/50 backdrop-blur-md rounded-2xl border border-gray-200/50">
                     {[
-                        { id: 'all', label: 'All' },
+                        { id: 'all', label: 'Overview' },
                         { id: 'active', label: 'To Do' },
-                        { id: 'pending', label: 'Submitted' },
+                        { id: 'pending', label: 'Review' },
                         { id: 'graded', label: 'Graded' }
                     ].map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setFilter(tab.id)}
-                            className={`px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all whitespace-nowrap ${filter === tab.id
-                                    ? 'bg-white text-gray-900 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                            className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${filter === tab.id
+                                ? 'bg-black text-white shadow-xl shadow-black/10'
+                                : 'text-gray-400 hover:text-gray-900'
                                 }`}
                         >
                             {tab.label}
@@ -143,109 +266,70 @@ const AssignmentHistory = () => {
                 </div>
             </div>
 
-            {/* Assignments List */}
-            <div className="bg-white border border-gray-100 shadow-sm rounded-3xl overflow-hidden relative z-10">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="border-b border-gray-100 bg-gray-50/50">
-                                <th className="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Assignment</th>
-                                <th className="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Course Context</th>
-                                <th className="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
-                                <th className="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {filteredAssignments.length === 0 ? (
-                                <tr>
-                                    <td colSpan="4" className="p-16 text-center">
-                                        <div className="flex flex-col items-center gap-4">
-                                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
-                                                <FileText size={24} />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-gray-900">No assignments found</p>
-                                                <p className="text-xs text-gray-500 mt-1">Try changing the filter or check back later.</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredAssignments.map((assignment) => (
-                                    <tr key={assignment.id} className="hover:bg-gray-50/50 transition-colors group">
-                                        <td className="p-6">
-                                            <div className="font-bold text-sm text-gray-900 flex items-center gap-3">
-                                                <div className={`w-2 h-2 rounded-full ${assignment.is_submitted ? 'bg-gray-200' : 'bg-primary'}`}></div>
-                                                {assignment.title}
-                                            </div>
-                                            <div className="pl-5 text-xs text-gray-400 mt-1">
-                                                {assignment.parent_type === 'lesson'
-                                                    ? `Unit: ${assignment.lesson?.title}`
-                                                    : `Module: ${assignment.module?.title}`
-                                                }
-                                            </div>
-                                        </td>
-                                        <td className="p-6">
-                                            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                                {assignment.module?.courses?.title || 'General Course'}
-                                            </span>
-                                        </td>
-                                        <td className="p-6">
-                                            <div className="flex items-center gap-2">
-                                                {assignment.reviewed_status === 'reviewed' ? (
-                                                    <span className="inline-flex items-center gap-1.5 text-green-600 text-xs font-bold bg-green-50 px-2.5 py-1 rounded-full">
-                                                        <CheckCircle2 size={12} /> {assignment.grade_score}% Graded
-                                                    </span>
-                                                ) : assignment.is_submitted ? (
-                                                    <span className="inline-flex items-center gap-1.5 text-yellow-600 text-xs font-bold bg-yellow-50 px-2.5 py-1 rounded-full">
-                                                        <Clock size={12} /> Under Review
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 text-gray-500 text-xs font-medium">
-                                                        <div className="w-1.5 h-1.5 bg-gray-300 rounded-full"></div> Pending
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {assignment.is_submitted && (
-                                                <div className="text-[10px] text-gray-400 mt-1 pl-1">
-                                                    Submitted: {new Date(assignment.submitted_at).toLocaleDateString()}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="p-6 text-right">
-                                            {!assignment.is_submitted && (
-                                                <Link
-                                                    to={`/student/assignments/${assignment.id}`}
-                                                    className="inline-flex items-center gap-2 px-5 py-2 bg-gray-900 text-white text-xs font-bold hover:bg-primary transition-all rounded-xl shadow-sm hover:shadow-md"
-                                                >
-                                                    Start Assignment <ArrowUpRight size={14} />
-                                                </Link>
-                                            )}
-                                            {assignment.is_submitted && (
-                                                <button disabled className="text-xs font-bold text-gray-400 cursor-not-allowed">
-                                                    View Submission
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+            {/* Stats Ribbon */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard label="Total Artifacts" value={stats.total} icon={FileText} color="bg-gray-900" />
+                <StatCard label="In Pipeline" value={stats.pending} icon={Clock} color="bg-primary" />
+                <StatCard label="Aggregate Mastery" value={`${stats.avg}%`} icon={Award} color="bg-green-500" trend="+12% vs last week" />
+            </div>
+
+            {/* Content Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                <AnimatePresence mode="popLayout">
+                    {filteredAssignments.length === 0 ? (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="col-span-full py-20 bg-white border border-dashed border-gray-200 rounded-[3rem] flex flex-col items-center justify-center text-center space-y-6"
+                        >
+                            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-200">
+                                <FileText size={40} strokeWidth={1} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight text-gray-900 italic">No Registry Found</h3>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2 px-10">No assignments currently match your lifecycle filter.</p>
+                            </div>
+                        </motion.div>
+                    ) : (
+                        filteredAssignments.map((assignment) => (
+                            <AssignmentCard
+                                key={assignment.id}
+                                assignment={assignment}
+                                onClick={openDetails}
+                            />
+                        ))
+                    )}
+                </AnimatePresence>
+            </div>
+
+            {/* Footer Insights */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-8">
+                <div className="bg-gray-900 p-10 rounded-[2.5rem] relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform duration-700">
+                        <AlertCircle size={120} className="text-white" />
+                    </div>
+                    <div className="relative z-10 space-y-4">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Academic Integrity</h4>
+                        <p className="text-lg font-bold text-white italic leading-tight max-w-sm">All submissions are archived and reviewed for protocol standards. Late submissions require cohort lead approval.</p>
+                    </div>
+                </div>
+
+                <div className="bg-primary p-10 rounded-[2.5rem] relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:-rotate-12 transition-transform duration-700">
+                        <TrendingUp size={120} className="text-white" />
+                    </div>
+                    <div className="relative z-10 space-y-4">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Level Up</h4>
+                        <p className="text-lg font-bold text-white italic leading-tight max-w-sm">Consistent high scores in practical assignments unlock fast-track professional opportunities.</p>
+                    </div>
                 </div>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
-                    <h4 className="font-bold text-blue-900 mb-2">Grading Policy</h4>
-                    <p className="text-sm text-blue-800/70">Assignments are usually graded within 72 hours. You'll receive a notification once your grade is ready.</p>
-                </div>
-                <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
-                    <h4 className="font-bold text-gray-900 mb-2">Need Help?</h4>
-                    <p className="text-sm text-gray-500">If you're stuck on an assignment, check the AI Assistant or reach out to your instructor.</p>
-                </div>
-            </div>
-
+            <AssignmentDetailModal
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
+                assignment={selectedAssignment}
+            />
         </div>
     );
 };

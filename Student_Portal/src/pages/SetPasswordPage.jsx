@@ -96,6 +96,22 @@ const SetPasswordPage = () => {
 
             if (updateError) throw updateError;
 
+            // Log password_set event to trigger admin notification
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.from('audit_logs').insert({
+                    actor_id: user.id,
+                    actor_role: 'student',
+                    action: 'password_set',
+                    entity_type: 'user',
+                    entity_id: user.id,
+                    metadata: {
+                        username: user.user_metadata?.username || user.email,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+            }
+
             setSuccess(true);
             setTimeout(() => {
                 navigate('/login');

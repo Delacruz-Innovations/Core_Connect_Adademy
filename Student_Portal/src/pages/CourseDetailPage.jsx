@@ -49,6 +49,7 @@ const CourseDetailPage = () => {
                 .from('modules')
                 .select('*')
                 .eq('course_id', courseData.id)
+                .eq('is_published', true)
                 .order('order_index', { ascending: true });
 
             if (moduleError) throw moduleError;
