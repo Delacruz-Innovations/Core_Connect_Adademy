@@ -5,7 +5,6 @@ const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -13,27 +12,17 @@ export const AuthProvider = ({ children }) => {
 
         const initializeAuth = async () => {
             try {
-                // 1. Check Local Storage Cache first for faster UI recovery
-                const cachedProfile = localStorage.getItem('admin_profile_cache');
-                if (cachedProfile && mounted) {
-                    setProfile(JSON.parse(cachedProfile));
-                }
-
-                // 2. Get initial session
+                // Get initial session
                 const { data: { session } } = await supabase.auth.getSession();
 
                 if (mounted) {
                     if (session?.user) {
                         setUser(session.user);
-                        await fetchProfile(session.user.id);
                     } else {
                         setUser(null);
-                        setProfile(null);
-                        localStorage.removeItem('admin_profile_cache');
                     }
                 }
             } catch (err) {
-                // Ignore AbortError - it's noise from fast refreshes or navigation
                 if (err.name === 'AbortError' || err.code === 20 || err.message?.includes('aborted')) {
                     return;
                 }
@@ -45,7 +34,7 @@ export const AuthProvider = ({ children }) => {
 
         initializeAuth();
 
-        // 3. Listen for auth changes
+        // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
 
@@ -53,18 +42,10 @@ export const AuthProvider = ({ children }) => {
 
             if (session?.user) {
                 setUser(session.user);
-                // Only trigger profile fetch on actual sign-in or refresh
-                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-                    await fetchProfile(session.user.id);
-                }
             } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
                 setUser(null);
-                setProfile(null);
-                localStorage.removeItem('admin_profile_cache');
             }
 
-            // ONLY set loading to false if we've already done the mount-time 'initializeAuth'
-            // or if it's a definitive event.
             if (event !== 'INITIAL_SESSION') {
                 setLoading(false);
             }
@@ -82,30 +63,6 @@ export const AuthProvider = ({ children }) => {
         };
     }, []);
 
-    const fetchProfile = async (userId) => {
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single();
-
-            if (!error && data) {
-                setProfile(data);
-                localStorage.setItem('admin_profile_cache', JSON.stringify(data));
-            } else {
-                // Ignore abort errors
-                if (error?.message?.includes('aborted') || error?.code === '20' || error?.name === 'AbortError') {
-                    return;
-                }
-                console.warn('Profile fetch issue:', error);
-            }
-        } catch (error) {
-            if (error.name === 'AbortError' || error.message?.includes('aborted')) return;
-            console.error('Profile error:', error);
-        }
-    };
-
     const login = async (email, password) => {
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
@@ -118,12 +75,14 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         await supabase.auth.signOut();
         setUser(null);
-        setProfile(null);
-        localStorage.removeItem('admin_profile_cache');
+        localStorage.removeItem('admin_profile_cache'); // Cleanup legacy cache
     };
 
+    // Derive admin status directly from authorized email
+    const isAdmin = user?.email === 'delacruzltd.sam@gmail.com';
+
     return (
-        <AuthContext.Provider value={{ user, profile, loading, login, logout }}>
+        <AuthContext.Provider value={{ user, isAdmin, loading, login, logout }}>
             {children}
         </AuthContext.Provider>
     );

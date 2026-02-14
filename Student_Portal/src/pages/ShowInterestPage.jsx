@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
-import { Check, ArrowRight, X, Send, MapPin, Globe, BookOpen, Laptop, User, AtSign, Briefcase, Phone, Loader2 } from 'lucide-react';
+import { Check, ArrowRight, X, Send, MapPin, Globe, BookOpen, Laptop, User, AtSign, Briefcase, Phone, Loader2, AlertCircle } from 'lucide-react';
+import { Country, State, City } from 'country-state-city';
 
 const ShowInterestPage = () => {
     const [searchParams] = useSearchParams();
@@ -29,9 +30,13 @@ const ShowInterestPage = () => {
         fullName: '',
         username: '',
         email: '',
-        country: '',
-        stateCity: '',
+        countryCode: 'GB',
+        countryName: 'United Kingdom',
+        stateCode: '',
+        stateName: '',
+        city: '',
         postcode: '',
+        phoneCode: '+44',
         phone: '',
         currentRole: '',
         programType: '',
@@ -39,13 +44,19 @@ const ShowInterestPage = () => {
         reason: '',
         computerLiteracy: 5,
         referrerSource: '',
-        referrerName: ''
+        referrerName: '',
+        otherReferrer: ''
     });
 
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isChecking, setIsChecking] = useState(false);
-
+    const [usernameStatus, setUsernameStatus] = useState('idle'); // idle, checking, available, taken
     const [courses, setCourses] = useState([]);
+
+    // Data for selectors
+    const countries = Country.getAllCountries();
+    const states = formData.countryCode ? State.getStatesOfCountry(formData.countryCode) : [];
+    const cities = (formData.countryCode && formData.stateCode) ? City.getCitiesOfState(formData.countryCode, formData.stateCode) : [];
 
     useEffect(() => {
         fetchCourses();
@@ -71,19 +82,36 @@ const ShowInterestPage = () => {
         }, 100);
     };
 
-    const checkUsername = async (username) => {
-        if (!username) return false;
+    // Real-time Username Check
+    useEffect(() => {
+        if (!formData.username || formData.username.length < 3) {
+            setUsernameStatus('idle');
+            return;
+        }
 
+        const timeoutId = setTimeout(async () => {
+            setUsernameStatus('checking');
+            try {
+                const isAvailable = await checkUsernameAvailability(formData.username);
+                setUsernameStatus(isAvailable ? 'available' : 'taken');
+            } catch (err) {
+                console.error('Availability check failed:', err);
+                setUsernameStatus('idle');
+            }
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [formData.username]);
+
+    const checkUsernameAvailability = async (username) => {
         try {
-            // Check applications table
-            const { count, error: appError } = await supabase
+            const { count: appCount, error: appError } = await supabase
                 .from('applications')
                 .select('*', { count: 'exact', head: true })
                 .eq('username', username);
 
             if (appError) throw appError;
 
-            // Check profiles table (existing users)
             const { count: profileCount, error: profileError } = await supabase
                 .from('profiles')
                 .select('*', { count: 'exact', head: true })
@@ -91,48 +119,45 @@ const ShowInterestPage = () => {
 
             if (profileError) throw profileError;
 
-            return (count === 0 && profileCount === 0);
+            return (appCount === 0 && profileCount === 0);
         } catch (error) {
-            // Propagate error to handle connection issues correctly instead of saying "Username Taken"
-            throw error;
+            return false;
         }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (usernameStatus === 'taken') {
+            alert('Please choose another username. This one is already taken.');
+            return;
+        }
+
         setIsChecking(true);
 
         try {
+            const finalReferrer = formData.referrerSource === 'Other' ? formData.otherReferrer : formData.referrerName;
 
-
-            // 2. Insert Application (VISITOR -> APPLICANT)
-            // Aligned with Phase 0 Master Enrollment System
             const { error } = await supabase.from('applications').insert({
                 full_name: formData.fullName,
                 username: formData.username,
                 email: formData.email,
-                country: formData.country,
-                city: formData.stateCity,
+                country: formData.countryName,
+                city: formData.city || formData.stateName, // Fallback if city not picked
                 postcode: formData.postcode,
-                phone: formData.phone,
+                phone: `${formData.phoneCode}${formData.phone}`,
                 job_role: formData.currentRole,
                 program_interest: formData.programType === 'Mentorship' ? 'Mentorship Program' : 'Apprenticeship Program',
                 motivation_text: formData.reason,
                 computer_literacy_score: parseInt(formData.computerLiteracy),
                 discovery_source: formData.referrerSource,
-                referral_name: formData.referrerName || null,
-                requested_course_id: formData.programName, // This is the course UUID
+                referral_name: finalReferrer || null,
+                requested_course_id: formData.programName,
                 status: 'pending'
             });
 
-            if (error) {
-                if (error.message.includes('applications_username_key')) {
-                    throw new Error('This username is already reserved by another applicant. Please choose another one.');
-                }
-                throw error;
-            }
+            if (error) throw error;
 
-            // SUCCESS! 
             setIsSubmitted(true);
             setShowForm(false);
             window.scrollTo(0, 0);
@@ -144,8 +169,6 @@ const ShowInterestPage = () => {
             setIsChecking(false);
         }
     };
-
-    // programs removed - replaced by dynamic courses fetch
 
     if (isSubmitted) {
         return (
@@ -163,7 +186,7 @@ const ShowInterestPage = () => {
                         <h2 className="text-4xl lg:text-5xl font-black italic uppercase tracking-tighter">Registration Received</h2>
                         <div className="w-24 h-1 bg-primary mx-auto"></div>
                         <p className="text-lg lg:text-xl text-gray-600 font-medium leading-relaxed max-w-lg mx-auto">
-                            Thank you for registering. One of our admins will be in touch to welcome you and better understand what your goals are and advise how we can assist you to achieve them.
+                            Thank you for registering. We've received your application and an automated confirmation email has been sent to you. One of our admins will be in touch shortly to welcome you and discuss your goals.
                         </p>
                         <div className="pt-8">
                             <Link to="/" className="inline-flex items-center gap-3 text-sm font-black uppercase tracking-widest text-primary hover:text-black transition-colors border-b-2 border-primary pb-1 hover:border-black">
@@ -259,14 +282,14 @@ const ShowInterestPage = () => {
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-10">
+                            <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-14">
 
                                 {/* Personal Details */}
-                                <div className="space-y-6">
+                                <div className="space-y-8">
                                     <h4 className="text-sm font-black uppercase tracking-widest text-gray-900 border-b border-gray-100 pb-2 mb-4 flex items-center gap-2">
                                         <User size={16} /> Personal Information
                                     </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Full Names <span className="text-primary">*</span></label>
                                             <input
@@ -274,7 +297,7 @@ const ShowInterestPage = () => {
                                                 required
                                                 value={formData.fullName}
                                                 onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all"
+                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all rounded-none"
                                                 placeholder="Jane Doe"
                                             />
                                         </div>
@@ -286,11 +309,19 @@ const ShowInterestPage = () => {
                                                     type="text"
                                                     required
                                                     value={formData.username}
-                                                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                                    className="w-full pl-12 bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all"
+                                                    onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
+                                                    className={`w-full pl-12 bg-gray-50 border p-4 font-bold text-sm focus:outline-none focus:bg-white transition-all rounded-none ${usernameStatus === 'available' ? 'border-green-500' : usernameStatus === 'taken' ? 'border-red-500' : 'border-gray-200 focus:border-primary'
+                                                        }`}
                                                     placeholder="janedoe23"
                                                 />
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center">
+                                                    {usernameStatus === 'checking' && <Loader2 size={16} className="animate-spin text-gray-400" />}
+                                                    {usernameStatus === 'available' && <Check size={16} className="text-green-500" />}
+                                                    {usernameStatus === 'taken' && <X size={16} className="text-red-500" />}
+                                                </div>
                                             </div>
+                                            {usernameStatus === 'taken' && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-1">This username is already taken</p>}
+                                            {usernameStatus === 'available' && <p className="text-[9px] text-green-600 font-bold uppercase tracking-widest mt-1">Username is available</p>}
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Email Address <span className="text-primary">*</span></label>
@@ -299,57 +330,98 @@ const ShowInterestPage = () => {
                                                 required
                                                 value={formData.email}
                                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all"
+                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all rounded-none"
                                                 placeholder="jane@example.com"
                                             />
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Phone Number <span className="text-primary">*</span></label>
-                                            <div className="relative">
-                                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                                <input
-                                                    type="tel"
-                                                    required
-                                                    value={formData.phone}
-                                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                                    className="w-full pl-12 bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all"
-                                                    placeholder="+44 7123 456789"
-                                                />
+                                            <div className="flex gap-2">
+                                                <select
+                                                    value={formData.phoneCode}
+                                                    onChange={(e) => setFormData({ ...formData, phoneCode: e.target.value })}
+                                                    className="w-32 bg-gray-50 border border-gray-200 p-4 font-bold text-xs focus:outline-none focus:border-primary focus:bg-white transition-all rounded-none appearance-none"
+                                                >
+                                                    {countries.map(c => (
+                                                        <option key={c.isoCode} value={c.phonecode}>
+                                                            +{c.phonecode.replace('+', '')} {c.isoCode}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <div className="relative flex-1">
+                                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                                    <input
+                                                        type="tel"
+                                                        required
+                                                        value={formData.phone}
+                                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                                        className="w-full pl-12 bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all rounded-none"
+                                                        placeholder="7123 456789"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Location */}
-                                <div className="space-y-6">
+                                <div className="space-y-8">
                                     <h4 className="text-sm font-black uppercase tracking-widest text-gray-900 border-b border-gray-100 pb-2 mb-4 flex items-center gap-2">
                                         <MapPin size={16} /> Location Details
                                     </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Country <span className="text-primary">*</span></label>
-                                            <div className="relative">
-                                                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    value={formData.country}
-                                                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                                                    className="w-full pl-12 bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all"
-                                                    placeholder="United Kingdom"
-                                                />
-                                            </div>
+                                            <select
+                                                required
+                                                value={formData.countryCode}
+                                                onChange={(e) => {
+                                                    const c = countries.find(x => x.isoCode === e.target.value);
+                                                    setFormData({
+                                                        ...formData,
+                                                        countryCode: e.target.value,
+                                                        countryName: c?.name || '',
+                                                        stateCode: '',
+                                                        stateName: '',
+                                                        city: '',
+                                                        phoneCode: `+${c?.phonecode.replace('+', '')}`
+                                                    });
+                                                }}
+                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-xs focus:outline-none focus:border-primary focus:bg-white transition-all rounded-none"
+                                            >
+                                                <option value="">Select Country</option>
+                                                {countries.map(c => <option key={c.isoCode} value={c.isoCode}>{c.name}</option>)}
+                                            </select>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">City / State <span className="text-primary">*</span></label>
-                                            <input
-                                                type="text"
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">State / Region <span className="text-primary">*</span></label>
+                                            <select
                                                 required
-                                                value={formData.stateCity}
-                                                onChange={(e) => setFormData({ ...formData, stateCity: e.target.value })}
-                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all"
-                                                placeholder="London"
-                                            />
+                                                value={formData.stateCode}
+                                                onChange={(e) => {
+                                                    const s = states.find(x => x.isoCode === e.target.value);
+                                                    setFormData({ ...formData, stateCode: e.target.value, stateName: s?.name || '', city: '' });
+                                                }}
+                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-xs focus:outline-none focus:border-primary focus:bg-white transition-all rounded-none"
+                                                disabled={!states.length}
+                                            >
+                                                <option value="">Select State</option>
+                                                {states.map(s => <option key={s.isoCode} value={s.isoCode}>{s.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">City <span className="text-primary">*</span></label>
+                                            <select
+                                                required
+                                                value={formData.city}
+                                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-xs focus:outline-none focus:border-primary focus:bg-white transition-all rounded-none"
+                                                disabled={!cities.length}
+                                            >
+                                                <option value="">Select City</option>
+                                                {cities.map(ct => <option key={ct.name} value={ct.name}>{ct.name}</option>)}
+                                                {!cities.length && formData.stateName && <option value={formData.stateName}>{formData.stateName} (Generic)</option>}
+                                            </select>
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Postcode / Zip <span className="text-primary">*</span></label>
@@ -358,7 +430,7 @@ const ShowInterestPage = () => {
                                                 required
                                                 value={formData.postcode}
                                                 onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
-                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all"
+                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all rounded-none"
                                                 placeholder="SW1A 1AA"
                                             />
                                         </div>
@@ -366,24 +438,27 @@ const ShowInterestPage = () => {
                                 </div>
 
                                 {/* Professional & Program */}
-                                <div className="space-y-6">
+                                <div className="space-y-8">
                                     <h4 className="text-sm font-black uppercase tracking-widest text-gray-900 border-b border-gray-100 pb-2 mb-4 flex items-center gap-2">
                                         <BookOpen size={16} /> Program Selection
                                     </h4>
-                                    <div className="space-y-6">
+                                    <div className="space-y-8">
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Current Role <span className="text-primary">*</span></label>
-                                            <div className="relative">
-                                                <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    value={formData.currentRole}
-                                                    onChange={(e) => setFormData({ ...formData, currentRole: e.target.value })}
-                                                    className="w-full pl-12 bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all"
-                                                    placeholder="Student / Unemployed / Transitioning"
-                                                />
-                                            </div>
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Your Current Role <span className="text-primary">*</span></label>
+                                            <select
+                                                required
+                                                value={formData.currentRole}
+                                                onChange={(e) => setFormData({ ...formData, currentRole: e.target.value })}
+                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all rounded-none appearance-none"
+                                            >
+                                                <option value="">Select your status...</option>
+                                                <option value="Student">Undergraduate Student</option>
+                                                <option value="Unemployed">Job Seeker / Unemployed</option>
+                                                <option value="Professional">Working Professional</option>
+                                                <option value="Freelancer">Freelancer / Self-Employed</option>
+                                                <option value="Transitioning">Switching Careers</option>
+                                                <option value="Other">Other</option>
+                                            </select>
                                         </div>
 
                                         <div className="space-y-4">
@@ -420,7 +495,7 @@ const ShowInterestPage = () => {
                                                         required
                                                         value={formData.programName}
                                                         onChange={(e) => setFormData({ ...formData, programName: e.target.value })}
-                                                        className="w-full bg-white border-2 border-primary/10 p-4 font-bold text-sm focus:outline-none focus:border-primary transition-all appearance-none"
+                                                        className="w-full bg-white border-2 border-primary/10 p-4 font-bold text-sm focus:outline-none focus:border-primary transition-all appearance-none rounded-none"
                                                     >
                                                         <option value="">Select a track...</option>
                                                         {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
@@ -436,7 +511,7 @@ const ShowInterestPage = () => {
                                                 rows="4"
                                                 value={formData.reason}
                                                 onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all"
+                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all rounded-none"
                                                 placeholder="Tell us about your goals and motivation..."
                                             ></textarea>
                                         </div>
@@ -444,7 +519,7 @@ const ShowInterestPage = () => {
                                 </div>
 
                                 {/* Skills & Source */}
-                                <div className="space-y-6">
+                                <div className="space-y-8">
                                     <h4 className="text-sm font-black uppercase tracking-widest text-gray-900 border-b border-gray-100 pb-2 mb-4 flex items-center gap-2">
                                         <Laptop size={16} /> Additional Info
                                     </h4>
@@ -475,7 +550,7 @@ const ShowInterestPage = () => {
                                                 required
                                                 value={formData.referrerSource}
                                                 onChange={(e) => setFormData({ ...formData, referrerSource: e.target.value })}
-                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all appearance-none"
+                                                className="w-full bg-gray-50 border border-gray-200 p-4 font-bold text-sm focus:outline-none focus:border-primary focus:bg-white transition-all appearance-none rounded-none"
                                             >
                                                 <option value="">Select Source...</option>
                                                 <option value="Instagram">Instagram</option>
@@ -486,16 +561,24 @@ const ShowInterestPage = () => {
                                             </select>
                                         </div>
 
-                                        {formData.referrerSource === 'Referral' && (
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-primary animate-pulse">Who referred you? <span className="text-primary">*</span></label>
+                                        {(formData.referrerSource === 'Referral' || formData.referrerSource === 'Other') && (
+                                            <div className="space-y-2 animate-in fade-in slide-in-from-left-4 duration-300">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-primary">
+                                                    {formData.referrerSource === 'Referral' ? 'Who referred you?' : 'Please specify source'} <span className="text-primary">*</span>
+                                                </label>
                                                 <input
                                                     type="text"
                                                     required
-                                                    value={formData.referrerName}
-                                                    onChange={(e) => setFormData({ ...formData, referrerName: e.target.value })}
-                                                    className="w-full bg-white border-2 border-primary/20 p-4 font-bold text-sm focus:outline-none focus:border-primary transition-all"
-                                                    placeholder="Enter their full name"
+                                                    value={formData.referrerSource === 'Referral' ? formData.referrerName : formData.otherReferrer}
+                                                    onChange={(e) => {
+                                                        if (formData.referrerSource === 'Referral') {
+                                                            setFormData({ ...formData, referrerName: e.target.value });
+                                                        } else {
+                                                            setFormData({ ...formData, otherReferrer: e.target.value });
+                                                        }
+                                                    }}
+                                                    className="w-full bg-white border-2 border-primary/20 p-4 font-bold text-sm focus:outline-none focus:border-primary transition-all rounded-none"
+                                                    placeholder={formData.referrerSource === 'Referral' ? "Enter their full name" : "Where did you hear about us?"}
                                                 />
                                             </div>
                                         )}
@@ -505,7 +588,7 @@ const ShowInterestPage = () => {
                                 <div className="pt-8">
                                     <button
                                         type="submit"
-                                        disabled={isChecking}
+                                        disabled={isChecking || usernameStatus === 'taken'}
                                         className="w-full bg-black text-white py-6 font-black text-sm uppercase tracking-widest hover:bg-primary transition-colors flex items-center justify-center gap-3 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black"
                                     >
                                         {isChecking ? (

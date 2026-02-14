@@ -5,7 +5,7 @@ import {
     Users, UserCheck, BookOpen, GraduationCap,
     ClipboardList, Database, TrendingUp, ArrowRight,
     UserPlus, PlusCircle, CheckSquare, BrainCircuit,
-    AlertCircle, RefreshCw
+    AlertCircle, RefreshCw, Bell
 } from 'lucide-react';
 import BrandedLoader from '../components/BrandedLoader';
 
@@ -48,21 +48,34 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         fetchDashboardData();
+
+        // Safety timeout - force loading to stop after 10 seconds
+        const safetyTimeout = setTimeout(() => {
+            console.warn('⚠️ Dashboard loading timeout - forcing display');
+            setLoading(false);
+        }, 10000);
+
+        return () => clearTimeout(safetyTimeout);
     }, []);
 
     const fetchDashboardData = async () => {
         setLoading(true);
         try {
-            // Fetch Counts in parallel
-            const responses = await Promise.all([
-                supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-                supabase.from('profiles').select('*', { count: 'exact', head: true }),
-                supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
-                supabase.from('courses').select('*', { count: 'exact', head: true }),
-                supabase.from('courses').select('*', { count: 'exact', head: true }).eq('is_published', true),
-                supabase.from('enrollments').select('*', { count: 'exact', head: true }),
-                supabase.from('assignment_submissions').select('*', { count: 'exact', head: true }).eq('reviewed_status', 'pending')
+            // Fetch Counts in parallel with timeout
+            const fetchWithTimeout = Promise.race([
+                Promise.all([
+                    supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+                    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+                    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
+                    supabase.from('courses').select('*', { count: 'exact', head: true }),
+                    supabase.from('courses').select('*', { count: 'exact', head: true }).eq('is_published', true),
+                    supabase.from('enrollments').select('*', { count: 'exact', head: true }),
+                    supabase.from('assignment_submissions').select('*', { count: 'exact', head: true }).eq('reviewed_status', 'pending')
+                ]),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
             ]);
+
+            const responses = await fetchWithTimeout;
 
             // Check for errors in any response
             const errors = responses.filter(r => r.error);
@@ -112,6 +125,17 @@ const AdminDashboard = () => {
 
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
+            // Even on error, show dashboard with zero stats
+            setStats({
+                leads: 0,
+                registered: 0,
+                students: 0,
+                courses: 0,
+                published_courses: 0,
+                draft_courses: 0,
+                enrollments: 0,
+                pending: 0
+            });
         } finally {
             setLoading(false);
         }
@@ -174,8 +198,8 @@ const AdminDashboard = () => {
             {/* Header */}
             <div className="flex justify-between items-end">
                 <div>
-                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-4 block">System Overview</span>
-                    <h1 className="text-5xl font-black italic tracking-tighter">Dashboard</h1>
+                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-4 block">Official System Overview</span>
+                    <h1 className="text-5xl font-black italic tracking-tighter">Root Console</h1>
                 </div>
                 <div className="text-right flex flex-col items-end gap-2">
                     <button
@@ -226,7 +250,7 @@ const AdminDashboard = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <QuickAction icon={UserPlus} label="Enrollments" to="/admin/enrolments" />
                         <QuickAction icon={PlusCircle} label="New Course" to="/admin/courses/new" />
-                        <QuickAction icon={CheckSquare} label="Audit Logs" color="bg-secondary" to="/admin/audit-logs" />
+                        <QuickAction icon={Bell} label="Notifications" color="bg-secondary" to="/admin/notifications" />
                         <QuickAction icon={TrendingUp} label="Analytics" to="/admin/analytics" />
                         <QuickAction icon={BrainCircuit} label="AI Settings" color="bg-black" to="/admin/ai-knowledge" />
                     </div>
@@ -255,8 +279,8 @@ const AdminDashboard = () => {
                 <div className="lg:col-span-8 bg-white border border-gray-100 shadow-sm p-10">
                     <div className="flex justify-between items-center mb-8">
                         <h2 className="text-xl font-black italic uppercase tracking-tight">Recent Activity</h2>
-                        <Link to="/admin/audit-logs" className="text-[10px] font-black text-primary uppercase tracking-widest hover:text-black flex items-center gap-2 transition-colors">
-                            View Audit Logs <ArrowRight size={14} />
+                        <Link to="/admin/notifications" className="text-[10px] font-black text-primary uppercase tracking-widest hover:text-black flex items-center gap-2 transition-colors">
+                            View All Notifications <ArrowRight size={14} />
                         </Link>
                     </div>
                     <div className="overflow-x-auto">

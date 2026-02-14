@@ -32,7 +32,7 @@ import AssignmentReviewBoard from './pages/AssignmentReviewBoard';
 import AssignmentGradePage from './pages/AssignmentGradePage';
 import EnrolmentManagement from './pages/EnrolmentManagement';
 import AIKnowledgeManagement from './pages/AIKnowledgeManagement';
-import AuditLogs from './pages/AuditLogs';
+import Notifications from './pages/Notifications';
 import AdminProfile from './pages/AdminProfile';
 import QuestionManagement from './pages/QuestionManagement';
 
@@ -83,7 +83,7 @@ function App() {
                 <Route path="/admin/leads-pipeline" element={<LeadPipelinePage />} />
                 <Route path="/admin/ai-knowledge" element={<AIKnowledgeManagement />} />
                 <Route path="/admin/qa" element={<QuestionManagement />} />
-                <Route path="/admin/audit-logs" element={<AuditLogs />} />
+                <Route path="/admin/notifications" element={<Notifications />} />
                 <Route path="/admin/profile" element={<AdminProfile />} />
               </Route>
             </Route>

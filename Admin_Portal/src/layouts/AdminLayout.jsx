@@ -25,7 +25,7 @@ const SidebarItem = ({ icon: Icon, label, href, active, onClick }) => (
 );
 
 const AdminLayout = () => {
-    const { profile, logout } = useAuth();
+    const { user, logout } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -45,7 +45,7 @@ const AdminLayout = () => {
         { label: 'Student Q&A Desk', icon: MessageSquare, href: '/admin/qa' },
         { label: 'AI Knowledge Base', icon: Database, href: '/admin/ai-knowledge' },
         { label: 'Advanced Analytics', icon: TrendingUp, href: '/admin/analytics' },
-        { label: 'System Audit Logs', icon: History, href: '/admin/audit-logs' },
+        { label: 'Notifications', icon: Bell, href: '/admin/notifications' },
     ];
 
     const secondaryNav = [
@@ -128,10 +128,10 @@ const AdminLayout = () => {
                 <div className="p-4 bg-gray-50 border-t border-gray-200">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded bg-primary text-white flex items-center justify-center font-black text-xs">
-                            {profile?.full_name ? profile.full_name.substring(0, 1).toUpperCase() : 'A'}
+                            {user?.email ? user.email.substring(0, 1).toUpperCase() : 'A'}
                         </div>
                         <div className="overflow-hidden">
-                            <p className="text-xs font-bold text-gray-900 truncate">{profile?.full_name || 'Admin'}</p>
+                            <p className="text-xs font-bold text-gray-900 truncate">{user?.email?.split('@')[0] || 'Admin'}</p>
                             <p className="text-[9px] text-gray-500 uppercase tracking-wider">Super Admin</p>
                         </div>
                         <Link to="/admin/profile" className="ml-auto p-1.5 hover:bg-white rounded text-gray-400 hover:text-primary transition-colors">

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 const AdminProfile = () => {
-    const { profile, logout } = useAuth();
+    const { user, logout } = useAuth();
     const [activeTab, setActiveTab] = useState('general');
 
     return (
@@ -55,64 +55,47 @@ const AdminProfile = () => {
                         <div className="space-y-12">
                             <div className="flex items-center gap-10 border-b border-gray-50 pb-12">
                                 <div className="relative group">
-                                    <div className="w-32 h-32 bg-primary/5 flex items-center justify-center text-primary font-black text-3xl border border-primary/10 transition-transform group-hover:scale-105">
-                                        {profile?.full_name ? profile.full_name.split(' ').map(n => n[0]).join('') : 'A'}
+                                    <div className="w-32 h-32 bg-primary/5 flex items-center justify-center text-primary font-black text-3xl border border-primary/10 transition-transform group-hover:scale-105 uppercase">
+                                        {user?.email ? user.email.substring(0, 1) : 'A'}
                                     </div>
-                                    <button className="absolute -bottom-4 -right-4 w-10 h-10 bg-black text-white flex items-center justify-center hover:bg-primary transition-all shadow-xl">
-                                        <Camera size={16} />
-                                    </button>
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black italic tracking-tight">{profile?.full_name || 'Admin User'}</h3>
+                                    <h3 className="text-2xl font-black italic tracking-tight">{user?.email?.split('@')[0] || 'Admin User'}</h3>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-primary mt-1">Authorized Administrator</p>
                                 </div>
                             </div>
 
-                            <form className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="md:col-span-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Full Name</label>
-                                    <input type="text" defaultValue={profile?.full_name} className="w-full bg-gray-50 border-0 p-4 font-bold text-sm outline-none focus:ring-1 focus:ring-primary h-14" />
-                                </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div className="md:col-span-2">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Official Email Address</label>
-                                    <input type="email" value={profile?.email} readOnly disabled className="w-full bg-gray-100 border-0 p-4 font-bold text-sm text-gray-400 cursor-not-allowed h-14" />
+                                    <input type="email" value={user?.email} readOnly disabled className="w-full bg-gray-100 border-0 p-4 font-bold text-sm text-gray-400 cursor-not-allowed h-14" />
                                 </div>
                                 <div className="md:col-span-2 pt-4">
-                                    <button className="bg-primary text-white px-10 py-5 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-primary/20 flex items-center gap-3">
-                                        <Save size={18} /> Update Principal Data
-                                    </button>
+                                    <div className="bg-primary/5 p-6 border border-primary/10">
+                                        <p className="text-[10px] font-bold text-primary uppercase tracking-widest leading-relaxed">
+                                            This is a fresh authentication account. Profile data is not stored in the database for administrators to ensure maximum privacy and security.
+                                        </p>
+                                    </div>
                                 </div>
-                            </form>
+                            </div>
                         </div>
                     )}
 
                     {activeTab === 'security' && (
                         <div className="space-y-12">
-                            <h3 className="text-xl font-black italic uppercase tracking-tight border-b border-gray-50 pb-6">Change Cryptographic Key</h3>
-                            <form className="space-y-6">
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Current Password</label>
-                                    <input type="password" placeholder="••••••••" className="w-full bg-gray-50 border-0 p-4 font-bold text-sm outline-none focus:ring-1 focus:ring-primary h-14" />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">New Secure Password</label>
-                                    <input type="password" placeholder="••••••••" className="w-full bg-gray-50 border-0 p-4 font-bold text-sm outline-none focus:ring-1 focus:ring-primary h-14" />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Confirm New Password</label>
-                                    <input type="password" placeholder="••••••••" className="w-full bg-gray-50 border-0 p-4 font-bold text-sm outline-none focus:ring-1 focus:ring-primary h-14" />
-                                </div>
-                                <button className="bg-black text-white px-10 py-5 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-primary transition-all shadow-xl flex items-center gap-3">
-                                    <Shield size={18} /> Rotate Authentication Key
-                                </button>
-                            </form>
+                            <h3 className="text-xl font-black italic uppercase tracking-tight border-b border-gray-50 pb-6">Change Password</h3>
+                            <div className="bg-gray-50 p-8 border border-gray-100">
+                                <p className="text-xs font-medium text-gray-500 leading-relaxed italic">
+                                    To rotate your authentication key, please use the Supabase Auth system or contact the lead systems engineer. Password changes are disabled via the portal for security.
+                                </p>
+                            </div>
                         </div>
                     )}
 
                     {activeTab === 'notifications' && (
                         <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
                             <Bell size={48} className="mb-6" />
-                            <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">System notifications are currently handled by the <br />global mail engine (internal preference coming soon).</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">System notifications are currently handled by the <br />global mail engine.</p>
                         </div>
                     )}
 
@@ -121,8 +104,8 @@ const AdminProfile = () => {
                             <div className="bg-red-50 p-10 border border-red-100 flex items-center gap-8">
                                 <ShieldAlert size={48} className="text-red-600" />
                                 <div>
-                                    <h4 className="text-lg font-black italic text-red-600 uppercase tracking-tight">Root Authority Granted</h4>
-                                    <p className="text-[10px] font-black text-red-400 uppercase tracking-widest leading-relaxed mt-2">Your account has full write access to courses, student enrolments, and system identity logs. Exercise extreme caution.</p>
+                                    <h4 className="text-lg font-black italic text-red-600 uppercase tracking-tight">Email-Based Authority Active</h4>
+                                    <p className="text-[10px] font-black text-red-400 uppercase tracking-widest leading-relaxed mt-2">Your authority is verified directly via email. You have full root access to all system data.</p>
                                 </div>
                             </div>
 
