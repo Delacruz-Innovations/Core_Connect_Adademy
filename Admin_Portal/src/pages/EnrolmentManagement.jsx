@@ -107,7 +107,36 @@ const EnrolmentManagement = () => {
 
             if (appError) throw appError;
 
-            // 4. Call the multi-course RPC 'approve_application'
+            // 4. Invite user via Auth to trigger verification/password setup
+            console.log('Inviting student via Auth...');
+            const { createClient } = await import('@supabase/supabase-js');
+            const tempClient = createClient(
+                import.meta.env.VITE_SUPABASE_URL,
+                import.meta.env.VITE_SUPABASE_ANON_KEY,
+                { auth: { persistSession: false } }
+            );
+
+            const tempPassword = Math.random().toString(36).slice(-12) + "Tt1!";
+            const siteUrl = import.meta.env.VITE_STUDENT_PORTAL_URL || 'https://coreconnectacademy.com';
+            const studentPortalUrl = `${siteUrl}/set-password`;
+
+            const { error: signUpError } = await tempClient.auth.signUp({
+                email: manualForm.email,
+                password: tempPassword,
+                options: {
+                    emailRedirectTo: studentPortalUrl,
+                    data: {
+                        full_name: manualForm.fullName,
+                        role: 'student'
+                    }
+                }
+            });
+
+            if (signUpError && !signUpError.message.includes('already registered')) {
+                throw signUpError;
+            }
+
+            // 5. Call the multi-course RPC 'approve_application'
             const { error: rpcError } = await supabase.rpc('approve_application', {
                 target_application_id: newApp.id,
                 final_course_ids: selectedCourseIds // Send the array!
