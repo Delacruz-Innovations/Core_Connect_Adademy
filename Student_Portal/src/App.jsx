@@ -21,6 +21,9 @@ import LoginPage from './pages/LoginPage';
 import SetPasswordPage from './pages/SetPasswordPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import FAQPage from './pages/FAQPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import SupportPage from './pages/SupportPage';
 
 // Student Portal Layout & Pages
 import StudentLayout from './layouts/StudentLayout';
@@ -81,6 +84,9 @@ function AppContent() {
         </Route>
 
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/faq" element={<FAQPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/support" element={<SupportPage />} />
         <Route path="/courses/:id" element={<CourseDetailPage />} />
 
         {/* Protected Student Routes */}

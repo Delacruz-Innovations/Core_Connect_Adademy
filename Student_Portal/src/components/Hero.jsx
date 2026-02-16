@@ -8,93 +8,83 @@ const Hero = () => {
     const { user } = useAuth();
 
     const badges = [
-        { icon: <Award className="text-secondary" />, text: "Quality Training Provider", label: "UK Accredited" },
-        { icon: <Briefcase className="text-secondary" />, text: "Practical Projects", label: "Work Experience" },
+        { icon: <Award className="text-secondary" />, text: "Quality Training", label: "UK Accredited" },
+        { icon: <Briefcase className="text-secondary" />, text: "Real Projects", label: "Work Experience" },
         { icon: <Users className="text-secondary" />, text: "Expert Mentors", label: "Industry Leaders" },
         { icon: <Star className="text-secondary" />, text: "Career Success", label: "Graduate Support" }
     ];
 
     return (
-        <div className="flex flex-col">
+        <div className="flex flex-col bg-slate-50">
             {/* Hero Content */}
-            <section className="relative bg-primary text-white overflow-hidden min-h-screen flex items-center pt-20 lg:pt-0">
+            <section className="relative overflow-hidden pt-24 pb-16 lg:pt-32 lg:pb-24 bg-primary text-white">
                 {/* Background Decor */}
                 <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
                     <div className="absolute top-0 left-1/4 w-96 h-96 bg-white/5 blur-3xl -translate-y-1/2"></div>
                     <div className="absolute bottom-0 right-1/2 w-64 h-64 bg-secondary/10 blur-3xl translate-y-1/2"></div>
                 </div>
 
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full h-full flex flex-col lg:flex-row items-center">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
 
                     {/* Left Content */}
                     <motion.div
-                        initial={{ opacity: 0, x: -30 }}
-                        whileInView={{ opacity: 1, x: 0 }}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        transition={{ duration: 0.8 }}
-                        className="w-full lg:w-1/2 py-20 lg:py-32 lg:pr-12"
+                        transition={{ duration: 0.6 }}
+                        className="w-full lg:w-1/2 text-center lg:text-left"
                     >
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 border border-white/20 text-xs font-medium text-white mb-8 backdrop-blur-sm">
-                            <span className="w-2 h-2 bg-green-400 animate-pulse"></span>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 border border-white/20 rounded-full text-xs font-semibold text-white mb-6 mx-auto lg:mx-0 backdrop-blur-sm">
+                            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
                             New Cohort Enrolling Now
                         </div>
 
-                        <h1 className="text-4xl md:text-6xl lg:text-8xl font-black mb-8 leading-[0.9] tracking-tighter uppercase italic">
-                            Learn <span className="text-white">properly</span>. <br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-secondary to-white">
-                                Transition
-                            </span>
-                            <br />
-                            confidently.
+                        <h1 className="text-4xl md:text-6xl font-extrabold text-white mb-6 leading-tight tracking-tight">
+                            Learn <span className="text-white/80">Properly</span>. <br />
+                            Transition <span className="text-secondary">Confidently</span>.
                         </h1>
 
-                        <p className="text-xl text-white/80 mb-12 leading-relaxed font-medium max-w-xl border-l-2 border-secondary pl-8 py-2">
-                            A structured, mentor-led academy for anyone ready to move into tech-adjacent careers — even if you're starting from zero.
+                        <p className="text-lg text-white/80 mb-8 leading-relaxed font-medium max-w-xl mx-auto lg:mx-0 border-l-2 border-secondary pl-6">
+                            A structured, mentor-led academy for anyone ready to move into tech-adjacent careers—even if you're starting from zero.
                         </p>
 
-                        <div className="flex flex-col sm:flex-row items-center gap-8">
-                            <Link to={user ? "/student/dashboard" : "/show-interest"}>
-                                <button className="bg-white text-primary px-12 py-5 rounded-full font-black text-xs tracking-[0.2em] uppercase shadow-2xl shadow-primary/40 hover:shadow-primary/60 transition-all hover:-translate-y-1 w-full sm:w-auto flex items-center justify-center gap-3 group active:translate-y-0">
-                                    {user ? "Access My Dashboard" : "Register Interest"}
-                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                        <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+                            <Link to={user ? "/student/dashboard" : "/show-interest"} className="w-full sm:w-auto">
+                                <button className="w-full bg-white text-primary hover:bg-gray-100 px-8 py-4 rounded-md font-bold text-sm tracking-wide uppercase transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                                    {user ? "Go to Dashboard" : "Start Your Journey"}
+                                    <ArrowRight size={18} />
                                 </button>
                             </Link>
-                            <div className="flex flex-col justify-center h-full">
-                                <p className="text-xs text-secondary font-black uppercase tracking-widest opacity-80">
-                                    {user ? "Welcome back to the Academy" : "No pressure. Just clarity."}
-                                </p>
+                            <div className="hidden sm:block text-sm text-white/60 font-medium">
+                                {user ? "Welcome back!" : "No experience needed."}
                             </div>
                         </div>
                     </motion.div>
 
-                    {/* Right Video Section (Desktop & Mobile) */}
-                    <div className="w-full lg:w-1/2 relative mt-12 lg:mt-0">
-                        {/* Decorative Glow */}
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-white/5 blur-3xl rounded-full pointer-events-none"></div>
-
-                        {/* Browser Mockup Container */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            whileInView={{ opacity: 1, scale: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.8, delay: 0.2 }}
-                            className="relative z-10 rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-gray-900/50 backdrop-blur-sm"
-                        >
+                    {/* Right Visual Section */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                        className="w-full lg:w-1/2 relative"
+                    >
+                        <div className="relative rounded-lg overflow-hidden shadow-2xl border border-white/10 bg-gray-900/50 backdrop-blur-sm">
                             {/* Browser Header */}
-                            <div className="h-10 bg-gray-800/80 border-b border-white/5 flex items-center px-4 gap-2">
-                                <div className="flex gap-2">
+                            <div className="bg-gray-800/80 border-b border-white/5 px-4 py-3 flex items-center gap-2">
+                                <div className="flex gap-1.5">
                                     <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
                                     <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
                                     <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
                                 </div>
-                                <div className="mx-auto bg-black/20 px-4 py-1 rounded-full text-[10px] text-gray-400 font-mono flex items-center gap-2">
-                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                    app.coreconnect.academy
+                                <div className="mx-auto bg-black/20 px-3 py-0.5 rounded text-[10px] text-gray-400 font-mono flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                                    coreconnect.academy
                                 </div>
                             </div>
 
-                            {/* Video Player */}
-                            <div className="relative aspect-video bg-black rounded-b-xl overflow-hidden group">
+                            {/* Video/Image Placeholder */}
+                            <div className="aspect-video bg-black relative group">
                                 <video
                                     autoPlay
                                     loop
@@ -104,32 +94,25 @@ const Hero = () => {
                                 >
                                     <source src="/assets/videos/hero-background.mp4" type="video/mp4" />
                                 </video>
-
-                                {/* Overlay Gradient */}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none"></div>
                             </div>
-                        </motion.div>
+                        </div>
 
-                        {/* Floating Experience Badge - Repositioned */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            whileInView={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.6 }}
-                            className="absolute -bottom-6 -right-6 z-20 hidden lg:block"
-                        >
-                            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-xl shadow-2xl flex items-center gap-4">
-                                <div className="flex -space-x-3">
-                                    <img className="w-10 h-10 border-2 border-white rounded-full object-cover" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="Student" />
-                                    <img className="w-10 h-10 border-2 border-white rounded-full object-cover" src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&q=80" alt="Student" />
-                                    <div className="w-10 h-10 border-2 border-white bg-secondary text-white flex items-center justify-center text-xs font-bold rounded-full">+200</div>
-                                </div>
-                                <div>
-                                    <p className="text-white font-bold text-sm">Join the Academy</p>
-                                    <p className="text-white/60 text-xs">New cohort starting soon</p>
+                        {/* Floating Badge */}
+                        <div className="absolute -bottom-6 -right-6 hidden md:flex items-center gap-3 bg-white/10 backdrop-blur-md p-4 rounded-lg shadow-xl border border-white/20 z-20">
+                            <div className="flex -space-x-2">
+                                <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white"></div>
+                                <div className="w-8 h-8 rounded-full bg-gray-300 border-2 border-white"></div>
+                                <div className="w-8 h-8 rounded-full bg-secondary text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
+                                    +200
                                 </div>
                             </div>
-                        </motion.div>
-                    </div>
+                            <div>
+                                <p className="text-xs font-bold text-white">Join the Community</p>
+                                <p className="text-[10px] text-white/60">New cohort starting soon</p>
+                            </div>
+                        </div>
+                    </motion.div>
                 </div>
             </section>
 

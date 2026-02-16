@@ -10,7 +10,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useModal } from '../context/ModalContext';
 import BrandedLoader from '../components/BrandedLoader';
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom';
+import { sendEmail } from '@shared/lib/emailService';
 
 const EnrolmentManagement = () => {
     const [activeTab, setActiveTab] = useState('leads');
@@ -113,6 +114,18 @@ const EnrolmentManagement = () => {
             });
 
             if (rpcError) throw rpcError;
+
+            // Trigger Welcome Email
+            sendEmail(
+                import.meta.env.VITE_EMAILJS_SERVICE_ID,
+                import.meta.env.VITE_EMAILJS_TEMPLATE_STUDENT_WELCOME,
+                {
+                    student_name: manualForm.fullName,
+                    course_name: courses.find(c => c.id === selectedCourseIds[0])?.title || 'your chosen track',
+                    module_one_name: 'Introduction to the Course',
+                    student_email: manualForm.email
+                }
+            ).catch(err => console.error('Welcome email failed:', err));
 
             await showAlert(`Successfully enrolled ${manualForm.fullName} in ${selectedCourseIds.length} courses!`, "Enrollment Success", "success"); // Replaced alert
 

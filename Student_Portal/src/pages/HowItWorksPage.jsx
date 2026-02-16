@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Lock, Upload, MessageSquare, ArrowRight, Zap } from 'lucide-react';
-
+import { Link } from 'react-router-dom'
 const HowItWorksPage = () => {
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -109,9 +109,9 @@ const HowItWorksPage = () => {
                                 If you're ready to follow the process, we're ready to guide you. No shortcuts, just growth.
                             </p>
                         </div>
-                        <button className="relative z-10 w-full bg-primary text-white py-5 font-black text-xs uppercase tracking-[0.2em] hover:bg-white hover:text-black transition-all flex items-center justify-center gap-3">
+                        <Link to="/show-interest" >  <button className="relative z-10 w-full bg-primary text-white py-5 font-black text-xs uppercase tracking-[0.2em] hover:bg-white hover:text-black transition-all flex items-center justify-center gap-3">
                             Start Journey <ArrowRight size={18} />
-                        </button>
+                        </button> </Link>
                     </div>
                 </div>
             </section>

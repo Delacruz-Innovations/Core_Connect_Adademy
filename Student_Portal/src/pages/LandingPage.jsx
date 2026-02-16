@@ -30,7 +30,7 @@ const LandingPage = () => {
             <HowWeTeach />
             {/* <Partners /> */}
 
-            <SuccessStories />
+            {/* <SuccessStories /> */}
             {/* <AboutFeatures /> */}
             {/* <Podcast /> */}
             {/* <FAQ /> */}

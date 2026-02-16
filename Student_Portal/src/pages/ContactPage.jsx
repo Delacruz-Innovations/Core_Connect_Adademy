@@ -107,14 +107,15 @@ const ContactPage = () => {
                                     <Mail className="text-primary mt-1" />
                                     <div>
                                         <h4 className="font-bold text-sm uppercase tracking-wide mb-1">Email Us</h4>
-                                        <p className="text-gray-400">hello@coreconnect.academy</p>
+                                        <p className="text-gray-400">info@coreconnectacademy.com</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-6 items-start">
                                     <Phone className="text-primary mt-1" />
                                     <div>
                                         <h4 className="font-bold text-sm uppercase tracking-wide mb-1">Call Us</h4>
-                                        <p className="text-gray-400">+44 (0) 203 123 4567</p>
+                                        <p className="text-gray-400">+97155 369 1864</p>
+                                        <p className="text-gray-400">+971 55 983 6354</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-6 items-start">

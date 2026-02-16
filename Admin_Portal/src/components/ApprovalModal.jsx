@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, DollarSign, CreditCard, BookOpen, FileText } from 'lucide-react';
-import { DEMO_COURSES, PAYMENT_METHODS, calculateTotalPrice } from '../../../shared/constants/courses';
+import { DEMO_COURSES, PAYMENT_METHODS, calculateTotalPrice } from '@shared/constants/courses';
 import { useModal } from '../context/ModalContext'; // Import useModal
 
 const ApprovalModal = ({ application, onClose, onApprove }) => {
@@ -49,8 +49,11 @@ const ApprovalModal = ({ application, onClose, onApprove }) => {
         setIsSubmitting(true);
 
         try {
+            const selectedCourseName = DEMO_COURSES.find(c => c.id === formData.courses[0])?.name || 'Academic track';
+
             await onApprove({
                 ...formData,
+                course_name: selectedCourseName,
                 paymentAmount: parseFloat(formData.paymentAmount)
             });
             onClose();

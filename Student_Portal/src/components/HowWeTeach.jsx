@@ -1,217 +1,204 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Check, Users, Clock, Video, BookOpen, UserCheck, PlayCircle, MessageCircle, Laptop } from 'lucide-react';
-import { Link } from 'react-router-dom';
-
-// Import Branded Images
-import liveSessionsImg from '../assets/images/live_sessions.png';
-import practicalExercisesImg from '../assets/images/practical_exercises.png';
-import mentorshipImg from '../assets/images/mentorship.png';
-import studyGroupImg from '../assets/images/study_group.png';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Video, Laptop, Users, Calendar, Award, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const HowWeTeach = () => {
+    const [activeIndex, setActiveIndex] = useState(2);
+    const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+
+    const methods = [
+        {
+            id: 1,
+            title: "Live Sessions",
+            description: "Direct interaction with experts who guide you through every concept in real-time.",
+            image: "https://images.unsplash.com/photo-1531482615713-2afd69097998?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+            icon: <Video />
+        },
+        {
+            id: 2,
+            title: "Practical Exercises",
+            description: "We don't just watch videos. We build. Every concept is backed by code and real dashboards.",
+            image: "https://images.unsplash.com/photo-1555099962-4199c345e5dd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+            icon: <Laptop />
+        },
+        {
+            id: 3,
+            title: "1-on-1 Mentorship",
+            description: "You're never stuck. Schedule private time with mentors to debug or discuss career moves.",
+            image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+            icon: <Calendar />
+        },
+        {
+            id: 4,
+            title: "Community & Peers",
+            description: "You learn faster when you learn together. Our community is active, helpful, and hungry.",
+            image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+            icon: <Users />
+        },
+        {
+            id: 5,
+            title: "Real World Projects",
+            description: "You won't just learn syntax. You'll build a production-ready portfolio that gets you hired.",
+            image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", // Kanban/Dashboard
+            icon: <Award />
+        }
+    ];
+
+    useEffect(() => {
+        let interval;
+        if (isAutoPlaying) {
+            interval = setInterval(() => {
+                setActiveIndex((prev) => (prev + 1) % methods.length);
+            }, 5000);
+        }
+        return () => clearInterval(interval);
+    }, [isAutoPlaying, methods.length]);
+
+    const handlePrev = () => {
+        setIsAutoPlaying(false);
+        setActiveIndex((prev) => (prev - 1 + methods.length) % methods.length);
+    };
+
+    const handleNext = () => {
+        setIsAutoPlaying(false);
+        setActiveIndex((prev) => (prev + 1) % methods.length);
+    };
+
+    // Calculate ordered items to always keep active in middle for the view logic
+    // Actually, simpler is to just render them all absolutely positioned or using a track
+    // Let's use a centered track approach
+
     return (
-        <section className="py-16 bg-gray-50 border-t border-gray-100">
+        <section className="py-4 bg-gray-50 border-b border-gray-100 overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-12">
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        className="inline-block px-4 py-1.5 mb-4 border border-primary/20 rounded-full bg-primary/5 text-primary text-sm font-bold tracking-wide uppercase"
-                    >
-                        Our Methodology
-                    </motion.div>
-                    <motion.h2
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.1 }}
-                        className="text-4xl lg:text-5xl font-extrabold mb-6 text-gray-900 tracking-tight"
-                    >
-                        How learning works <span className="text-primary italic">here</span>
-                    </motion.h2>
-                    <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                    <span className="text-primary font-bold tracking-wider uppercase text-xs mb-3 block">Our Methodology</span>
+                    <h2 className="text-3xl md:text-5xl font-black text-gray-900 mb-6 uppercase tracking-tight italic">
+                        How We <span className="text-primary">Teach</span>
+                    </h2>
+                    <p className="text-lg text-gray-600 max-w-2xl mx-auto">
                         We move at a serious pace, but we don't rush understanding.
-                        <br className="hidden md:block" /> Every element is designed for retention.
                     </p>
                 </div>
 
-                {/* Mobile Slider / Desktop Grid Container */}
-                <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-8 -mx-4 px-4 md:grid md:grid-cols-3 lg:grid-cols-4 md:gap-6 md:auto-rows-[280px] md:pb-0 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+                <div className="relative h-[450px] md:h-[500px] flex items-center justify-center">
 
-                    {/* 1. Live Sessions */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        className="min-w-[85vw] snap-center md:min-w-0 md:col-span-2 lg:col-span-2 row-span-2 overflow-hidden relative group rounded-2xl shadow-sm bg-black"
+                    {/* Navigation Buttons - Visible on large screens */}
+                    <button
+                        onClick={handlePrev}
+                        className="absolute left-4 md:left-12 z-30 p-3 bg-white/80  shadow-lg backdrop-blur-sm text-gray-800 hover:bg-white hover:text-primary transition-all"
                     >
-                        <img
-                            src={liveSessionsImg}
-                            alt="Live Class"
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-60 group-hover:opacity-40"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-8 flex flex-col justify-end">
-                            <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center mb-4 shadow-lg text-white shadow-red-900/20">
-                                <Video size={24} fill="currentColor" />
-                            </div>
-                            <h3 className="text-2xl font-bold text-white mb-2">Live, instructor-led sessions</h3>
-                            <p className="text-gray-200">Direct interaction with experts who guide you through every concept in real-time.</p>
-                        </div>
-                    </motion.div>
-
-                    {/* 2. Practical Exercises */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.1 }}
-                        className="min-w-[85vw] snap-center md:min-w-0 md:col-span-1 lg:col-span-1 row-span-2 bg-black rounded-2xl p-8 border border-gray-800 shadow-sm hover:shadow-md transition-all group flex flex-col relative overflow-hidden"
+                        <ChevronLeft size={24} />
+                    </button>
+                    <button
+                        onClick={handleNext}
+                        className="absolute right-4 md:right-12 z-30 p-3 bg-white/80  shadow-lg backdrop-blur-sm text-gray-800 hover:bg-white hover:text-primary transition-all"
                     >
-                        <img
-                            src={practicalExercisesImg}
-                            alt="Practical"
-                            className="absolute inset-0 w-full h-full object-cover opacity-50 transition-transform duration-700 group-hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
+                        <ChevronRight size={24} />
+                    </button>
 
-                        <div className="w-12 h-12 bg-blue-600 text-white rounded-xl flex items-center justify-center mb-6 relative z-10 shadow-lg shadow-blue-900/20">
-                            <Laptop size={24} />
-                        </div>
-                        <h3 className="text-xl font-bold text-white mb-4 relative z-10">Practical Exercises</h3>
-                        <p className="text-gray-300 leading-relaxed mb-6 flex-grow relative z-10">
-                            Apply what you learn immediately. We build real dashboards and solve actual business problems.
-                        </p>
-                        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mt-auto border border-white/10 relative z-10">
-                            <div className="flex items-center gap-1.5 mb-3">
-                                <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
-                                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
-                                <div className="w-2.5 h-2.5 rounded-full bg-green-400"></div>
-                            </div>
-                            <div className="space-y-2">
-                                <div className="h-2 bg-white/20 rounded w-3/4"></div>
-                                <div className="h-2 bg-white/20 rounded w-1/2"></div>
-                            </div>
-                        </div>
-                    </motion.div>
+                    {/* Cards Container */}
+                    <div className="relative w-full max-w-5xl h-full flex items-center justify-center perspective-1000">
+                        {methods.map((method, index) => {
+                            // Calculate relative position based on active index for cyclic behavior
+                            let position = (index - activeIndex);
+                            // Normalize position to be within [-length/2, length/2] for shortest path
+                            if (position > methods.length / 2) position -= methods.length;
+                            if (position < -methods.length / 2) position += methods.length;
 
-                    {/* 3. Mentorship */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.2 }}
-                        className="min-w-[85vw] snap-center md:min-w-0 bg-black rounded-2xl p-8 border border-gray-800 flex flex-col justify-between group hover:border-primary/40 transition-colors relative overflow-hidden"
-                    >
-                        <img
-                            src={mentorshipImg}
-                            alt="Mentorship"
-                            className="absolute inset-0 w-full h-full object-cover opacity-50 transition-transform duration-700 group-hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black"></div>
+                            const isActive = index === activeIndex;
+                            const isPrev = position === -1; // Immediately left
+                            const isNext = position === 1;  // Immediately right
 
-                        <div className="flex -space-x-3 mb-4 relative z-10">
-                            {[1, 2, 3].map(i => (
-                                <div key={i} className="w-10 h-10 rounded-full border-2 border-black bg-gray-800 overflow-hidden shadow-sm">
-                                    <img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="Mentor" className="w-full h-full object-cover" />
-                                </div>
-                            ))}
-                            <div className="w-10 h-10 rounded-full border-2 border-black bg-primary flex items-center justify-center text-xs font-bold text-white shadow-sm">
-                                +5
-                            </div>
-                        </div>
-                        <div className="relative z-10">
-                            <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                                Mentorship <Check size={16} className="text-primary" />
-                            </h3>
-                            <p className="text-sm text-gray-300 leading-relaxed">Detailed feedback & accountability. You are never stuck for long.</p>
-                        </div>
-                    </motion.div>
+                            // Determine visibility and styles
+                            let xPercent = position * 100; // Default spacing
 
-                    {/* 4. Recorded Sessions */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.3 }}
-                        className="min-w-[85vw] snap-center md:min-w-0 bg-gray-900 rounded-2xl p-8 text-white relative overflow-hidden group"
-                    >
-                        <img
-                            src="https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                            className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-10 transition-opacity bg-center"
-                            alt="Recording"
-                        />
-                        <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-40 transition-opacity">
-                            <PlayCircle size={64} strokeWidth={1} />
-                        </div>
-                        <div className="relative z-10 h-full flex flex-col justify-end">
-                            <Clock className="w-6 h-6 text-orange-400 mb-3" />
-                            <h3 className="text-lg font-bold mb-1">Recorded Sessions</h3>
-                            <p className="text-sm text-gray-400">Missed a class? Watch it anytime, anywhere.</p>
-                        </div>
-                    </motion.div>
+                            // Fine tune spacing for "Stacking" effect
+                            if (isActive) xPercent = 0;
+                            else if (isPrev) xPercent = -60; // 60% to left
+                            else if (isNext) xPercent = 60;  // 60% to right
+                            else xPercent = position * 40; // Clustered for others
 
-                    {/* 5. Study Partners */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.4 }}
-                        className="min-w-[85vw] snap-center md:min-w-0 md:col-span-2 lg:col-span-2 bg-white rounded-2xl p-8 border border-gray-100 shadow-sm flex items-center gap-8 relative overflow-hidden group"
-                    >
-                        <div className="absolute right-0 top-0 w-1/3 h-full bg-gradient-to-l from-purple-50 to-transparent opacity-50"></div>
-                        <div className="flex-1 relative z-10">
-                            <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mb-4">
-                                <Users size={24} />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">Study Partners</h3>
-                            <p className="text-gray-600 mb-4 max-w-md">You don't do this alone. Collaborate, troubleshoot, and grow with peers in your cohort.</p>
-                            <div className="flex items-center gap-3 text-sm font-bold text-purple-600 bg-purple-50 w-fit px-3 py-1.5 rounded-lg">
-                                <MessageCircle size={16} />
-                                <span>Private Community Access</span>
-                            </div>
-                        </div>
-                        <div className="hidden sm:block w-48 h-32 rounded-lg overflow-hidden shrink-0 shadow-md rotate-3 group-hover:rotate-0 transition-transform duration-500">
-                            <img
-                                src={studyGroupImg}
-                                alt="Study Group"
-                                className="w-full h-full object-cover"
+                            // Determine scale and z-index
+                            let scale = isActive ? 1 : 0.85;
+                            let zIndex = isActive ? 20 : 10;
+                            let opacity = isActive ? 1 : 0.5;
+                            let blur = isActive ? 0 : 2;
+
+                            // Hide far away items visually to avoid clutter?
+                            if (Math.abs(position) > 1) {
+                                opacity = 0;
+                                zIndex = 0;
+                            }
+
+                            return (
+                                <motion.div
+                                    key={method.id}
+                                    initial={false}
+                                    animate={{
+                                        x: `${xPercent}%`,
+                                        scale: scale,
+                                        opacity: opacity,
+                                        zIndex: zIndex,
+                                        filter: `blur(${blur}px)`
+                                    }}
+                                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                                    className="absolute w-[85%] md:w-[60%] lg:w-[45%] h-[400px] md:h-[450px]  overflow-hidden shadow-2xl bg-gray-900 "
+                                    onClick={() => {
+                                        if (isActive) return;
+                                        setIsAutoPlaying(false);
+                                        setActiveIndex(index);
+                                    }}
+                                >
+                                    {/* Background Image */}
+                                    <img
+                                        src={method.image}
+                                        alt={method.title}
+                                        className="absolute inset-0 w-full h-full object-cover opacity-80"
+                                    />
+
+                                    {/* Overlay */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent"></div>
+
+                                    {/* Content */}
+                                    <div className="absolute bottom-0 left-0 right-0 p-8 flex flex-col justify-end h-full">
+                                        <div className="transform transition-transform duration-500">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className={`w-12 h-12  flex items-center justify-center backdrop-blur-md transition-colors duration-300 ${isActive ? 'bg-primary text-white' : 'bg-white/20 text-white'
+                                                    }`}>
+                                                    {React.cloneElement(method.icon, { size: 24 })}
+                                                </div>
+                                                <h3 className="text-2xl md:text-3xl font-bold text-white uppercase tracking-wider">
+                                                    {method.title}
+                                                </h3>
+                                            </div>
+
+                                            <p className={`text-white/90 text-sm md:text-base leading-relaxed border-l-2 border-primary pl-4 transition-all duration-500 ${isActive ? 'opacity-100 max-h-40' : 'opacity-0 max-h-0 hidden'
+                                                }`}>
+                                                {method.description}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Dots Navigation */}
+                    <div className="absolute -bottom-8 flex justify-center gap-3">
+                        {methods.map((_, i) => (
+                            <button
+                                key={i}
+                                onClick={() => {
+                                    setIsAutoPlaying(false);
+                                    setActiveIndex(i);
+                                }}
+                                className={`h-1.5  transition-all duration-300 ${i === activeIndex ? 'w-8 bg-primary' : 'w-2 bg-gray-300 hover:bg-gray-400'
+                                    }`}
                             />
-                        </div>
-                    </motion.div>
-
-                    {/* 6. Learning Materials */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.5 }}
-                        className="min-w-[85vw] snap-center md:min-w-0 md:col-span-1 lg:col-span-2 bg-gradient-to-br from-indigo-50 to-white rounded-2xl p-8 border border-indigo-50 flex items-center justify-between group hover:shadow-md transition-all"
-                    >
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-1">Clear Explanations</h3>
-                            <p className="text-sm text-gray-500">We break down complex topics.</p>
-                        </div>
-                        <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm text-indigo-500 group-hover:scale-110 transition-transform">
-                            <BookOpen size={24} />
-                        </div>
-                    </motion.div>
-
+                        ))}
+                    </div>
                 </div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="text-center mt-12"
-                >
-                    <Link to="/courses">
-                        <button className="bg-primary text-white px-10 py-4 rounded-xl font-bold text-sm tracking-wide uppercase shadow-xl shadow-primary/20 transition-all hover:-translate-y-1 hover:shadow-primary/30">
-                            Explore Our Courses
-                        </button>
-                    </Link>
-                </motion.div>
             </div>
         </section>
     );

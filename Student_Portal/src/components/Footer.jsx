@@ -4,11 +4,11 @@ import { Link } from 'react-router-dom';
 
 const Footer = ({ className = "", hideScroll = false }) => {
     return (
-        <footer className={`bg-white pt-32 pb-12 border-t border-gray-100 italic relative z-10 ${className}`}>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <footer className={`bg-white pt-4 pb-4 border-t border-gray-100 italic relative z-10 ${className}`}>
+            <div className=" mx-auto px-2">
 
                 {/* Main Footer Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8 mb-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8 mb-4">
 
                     {/* Brand Info */}
                     <div className="lg:col-span-4 not-italic space-y-8">
@@ -46,11 +46,11 @@ const Footer = ({ className = "", hideScroll = false }) => {
                     <div className="lg:col-span-2 not-italic">
                         <h4 className="font-bold text-black mb-8 uppercase tracking-[0.2em] text-[11px]">Useful Links</h4>
                         <ul className="space-y-4 text-gray-500 text-sm font-semibold uppercase tracking-wider">
-                            <li><Link to="/about#privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
-                            <li><Link to="/about#support" className="hover:text-primary transition-colors">Support Center</Link></li>
+                            <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+                            <li><Link to="/support" className="hover:text-primary transition-colors">Support Center</Link></li>
                             <li><Link to="/about" className="hover:text-primary transition-colors">About Us</Link></li>
                             <li><Link to="/about#careers" className="hover:text-primary transition-colors">Careers</Link></li>
-                            <li><Link to="/about#faqs" className="hover:text-primary transition-colors">FAQs</Link></li>
+                            <li><Link to="/faq" className="hover:text-primary transition-colors">FAQs</Link></li>
                         </ul>
                     </div>
 
@@ -64,7 +64,7 @@ const Footer = ({ className = "", hideScroll = false }) => {
                                 </div>
                                 <div>
                                     <p className="text-[11px] text-gray-400 uppercase tracking-widest mb-1">Call Anywhere</p>
-                                    <p className="text-sm font-bold">+44 7401 282068</p>
+                                    <p className="text-sm font-bold">+97155 369 1864</p>
                                 </div>
                             </li>
                             <li className="flex gap-4 items-start">
@@ -73,7 +73,7 @@ const Footer = ({ className = "", hideScroll = false }) => {
                                 </div>
                                 <div>
                                     <p className="text-[11px] text-gray-400 uppercase tracking-widest mb-1">Email Support</p>
-                                    <p className="text-sm font-bold">info@coreconnectacademy.co.uk</p>
+                                    <p className="text-sm font-bold">info@coreconnectacademy.com</p>
                                 </div>
                             </li>
                         </ul>
@@ -98,11 +98,9 @@ const Footer = ({ className = "", hideScroll = false }) => {
                         <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">© 2024 - 2026 CORE CONNECT ACADEMY. All rights reserved.</p>
                     </div>
                     <div className="flex gap-8">
-                        {['Privacy', 'Terms', 'Sitemap'].map((item) => (
-                            <a key={item} href="#" className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] hover:text-primary transition-colors">
-                                {item}
-                            </a>
-                        ))}
+                        <Link to="/privacy" className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] hover:text-primary transition-colors">Privacy</Link>
+                        <Link to="/terms" className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] hover:text-primary transition-colors">Terms</Link>
+                        <Link to="/sitemap" className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] hover:text-primary transition-colors">Sitemap</Link>
                     </div>
                 </div>
             </div>

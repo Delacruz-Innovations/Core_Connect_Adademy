@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Upload, FileText, ArrowLeft, CheckCircle2, Clock, AlertCircle, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
+import { sendEmail } from '@shared/lib/emailService';
 import { useConnectivity } from '../../context/ConnectivityContext';
 
 const AssignmentUpload = () => {
@@ -117,6 +118,34 @@ const AssignmentUpload = () => {
                 }, { onConflict: 'user_id, assignment_id' });
 
             if (dbError) throw dbError;
+
+            // Trigger Email Notifications
+            const studentProfile = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
+            const emailParams = {
+                student_name: studentProfile.data?.full_name || 'Student',
+                student_email: studentProfile.data?.email || user.email,
+                course_name: assignment.module?.course?.title || 'Course',
+                module_name: assignment.parent_type === 'lesson' ? assignment.lesson?.title : assignment.module?.title,
+                timestamp: new Date().toLocaleString(),
+                submission_link: `${window.location.origin}/admin/submissions`, // Generic link to admin portal
+            };
+
+            // 1. Receipt to Student
+            sendEmail(
+                import.meta.env.VITE_EMAILJS_SERVICE_ID,
+                import.meta.env.VITE_EMAILJS_TEMPLATE_STUDENT_RECEIPT,
+                emailParams
+            ).catch(err => console.error('Student assignment email failed:', err));
+
+            // 2. Alert to Admin
+            sendEmail(
+                import.meta.env.VITE_EMAILJS_SERVICE_ID,
+                import.meta.env.VITE_EMAILJS_TEMPLATE_ADMIN_ASSIGNMENT,
+                {
+                    ...emailParams,
+                    admin_email: import.meta.env.VITE_ADMIN_EMAIL || 'admin@coreconnect.academy'
+                }
+            ).catch(err => console.error('Admin assignment email failed:', err));
 
             setIsUploaded(true);
             setSubmission({ file_path: filePath, updated_at: new Date().toISOString() });

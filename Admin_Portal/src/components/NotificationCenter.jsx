@@ -12,27 +12,35 @@ const NotificationCenter = () => {
     const dropdownRef = useRef(null);
 
     useEffect(() => {
-        fetchNotifications();
+        let channel;
 
-        // Subscribe to real-time notifications
-        const channel = supabase
-            .channel('notifications')
-            .on('postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'notifications',
-                    filter: `recipient_id=eq.${supabase.auth.getUser().then(u => u.data.user?.id)}`
-                },
-                (payload) => {
-                    setNotifications(prev => [payload.new, ...prev]);
-                    setUnreadCount(prev => prev + 1);
-                }
-            )
-            .subscribe();
+        const setupSubscription = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            fetchNotifications();
+
+            channel = supabase
+                .channel(`admin-notifications-${user.id}`)
+                .on('postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'notifications',
+                        filter: `recipient_id=eq.${user.id}`
+                    },
+                    (payload) => {
+                        setNotifications(prev => [payload.new, ...prev]);
+                        setUnreadCount(prev => prev + 1);
+                    }
+                )
+                .subscribe();
+        };
+
+        setupSubscription();
 
         return () => {
-            supabase.removeChannel(channel);
+            if (channel) supabase.removeChannel(channel);
         };
     }, []);
 

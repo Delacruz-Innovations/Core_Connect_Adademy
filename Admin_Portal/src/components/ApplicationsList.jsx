@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, User } from 'lucide-react';
 import ApprovalModal from './ApprovalModal';
+import { sendEmail } from '@shared/lib/emailService';
 
 import { useModal } from '../context/ModalContext';
 
@@ -106,6 +107,18 @@ const ApplicationsList = () => {
             });
 
             if (rpcError) throw rpcError;
+
+            // Trigger Welcome Email
+            sendEmail(
+                import.meta.env.VITE_EMAILJS_SERVICE_ID,
+                import.meta.env.VITE_EMAILJS_TEMPLATE_STUDENT_WELCOME,
+                {
+                    student_name: selectedApplication.full_name,
+                    course_name: enrollmentData.course_name || 'your chosen track', // Pass course name from modal if available
+                    module_one_name: 'Introduction to the Course',
+                    student_email: selectedApplication.email
+                }
+            ).catch(err => console.error('Welcome email failed:', err));
 
             await showAlert(`Success! Application for ${selectedApplication.full_name} has been approved and enrolled. The student has been invited to set their password.`, 'Application Approved', 'success');
 

@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
+import { sendEmail } from '@shared/lib/emailService';
 import { Check, ArrowRight, X, Send, MapPin, Globe, BookOpen, Laptop, User, AtSign, Briefcase, Phone, Loader2, AlertCircle } from 'lucide-react';
 import { Country, State, City } from 'country-state-city';
 
@@ -25,7 +26,6 @@ const ShowInterestPage = () => {
         }
     }, [searchParams]);
 
-    const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
         fullName: '',
         username: '',
@@ -64,7 +64,10 @@ const ShowInterestPage = () => {
 
     const fetchCourses = async () => {
         try {
-            const { data, error } = await supabase.from('courses').select('id, title');
+            const { data, error } = await supabase
+                .from('courses')
+                .select('id, title')
+                .eq('is_published', true);
             if (error) throw error;
             setCourses(data || []);
         } catch (err) {
@@ -72,15 +75,7 @@ const ShowInterestPage = () => {
         }
     };
 
-    const handleInterestClick = () => {
-        setShowForm(true);
-        setTimeout(() => {
-            const element = document.getElementById('interest-form');
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth' });
-            }
-        }, 100);
-    };
+
 
     // Real-time Username Check
     useEffect(() => {
@@ -158,6 +153,34 @@ const ShowInterestPage = () => {
 
             if (error) throw error;
 
+            // Trigger Email Notifications
+            const emailParams = {
+                full_name: formData.fullName,
+                email: formData.email,
+                phone: `${formData.phoneCode}${formData.phone}`,
+                location: `${formData.city}, ${formData.countryName}`,
+                program_interest: formData.programType === 'Mentorship' ? 'Mentorship Program' : 'Apprenticeship Program',
+                program_track: courses.find(c => c.id === formData.programName)?.title || 'Selected Track',
+                motivation_text: formData.reason,
+            };
+
+            // 1. Confirmation to Visitor
+            sendEmail(
+                import.meta.env.VITE_EMAILJS_SERVICE_ID,
+                import.meta.env.VITE_EMAILJS_TEMPLATE_VISITOR_INTEREST,
+                emailParams
+            ).catch(err => console.error('Visitor email failed:', err));
+
+            // 2. Alert to Admin
+            sendEmail(
+                import.meta.env.VITE_EMAILJS_SERVICE_ID,
+                import.meta.env.VITE_EMAILJS_TEMPLATE_ADMIN_LEAD,
+                {
+                    ...emailParams,
+                    admin_email: import.meta.env.VITE_ADMIN_EMAIL || 'admin@coreconnect.academy'
+                }
+            ).catch(err => console.error('Admin email failed:', err));
+
             setIsSubmitted(true);
             setShowForm(false);
             window.scrollTo(0, 0);
@@ -183,7 +206,7 @@ const ShowInterestPage = () => {
                         <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto text-green-500 mb-6">
                             <Check size={48} strokeWidth={3} />
                         </div>
-                        <h2 className="text-4xl lg:text-5xl font-black italic uppercase tracking-tighter">Registration Received</h2>
+                        <h2 className="text-4xl lg:text-5xl font-black  uppercase tracking-tighter">Registration Received</h2>
                         <div className="w-24 h-1 bg-primary mx-auto"></div>
                         <p className="text-lg lg:text-xl text-gray-600 font-medium leading-relaxed max-w-lg mx-auto">
                             Thank you for registering. We've received your application and an automated confirmation email has been sent to you. One of our admins will be in touch shortly to welcome you and discuss your goals.
@@ -217,52 +240,24 @@ const ShowInterestPage = () => {
                         transition={{ duration: 1 }}
                     >
                         <span className="text-secondary font-black uppercase tracking-[0.4em] text-xs mb-6 block">Join the Cohort</span>
-                        <h1 className="text-5xl md:text-7xl lg:text-[10rem] font-black mb-10 italic uppercase tracking-tighter leading-[0.8]">
-                            Apply <br /><span className="text-primary italic">Now</span>
+                        <h1 className="text-5xl md:text-7xl lg:text-[10rem] font-black mb-10  uppercase tracking-tighter leading-[0.8]">
+                            Apply <br /><span className="text-primary ">Now</span>
                         </h1>
                     </motion.div>
                 </div>
             </section>
 
             {/* Main Content */}
-            <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <section className="py-4 max-w-7xl mx-auto px-1 sm:px-6 lg:px-8">
                 <div className="max-w-5xl mx-auto">
 
-                    {!showForm ? (
-                        <div className="space-y-16">
-                            <div className="space-y-10">
-                                <h2 className="text-3xl md:text-5xl lg:text-7xl font-black leading-[0.85] text-gray-900 uppercase italic tracking-tighter text-center">
-                                    Registration is <br /><span className="text-primary">by application only</span>.
-                                </h2>
-
-                                <div className="bg-white border border-gray-100 p-12 lg:p-20 text-left shadow-2xl max-w-4xl mx-auto relative overflow-hidden group">
-                                    <div className="absolute top-0 left-0 w-2 h-full bg-secondary"></div>
-                                    <h3 className="text-xs font-black uppercase tracking-[0.3em] text-gray-400 mb-10">Requirements Checklist</h3>
-                                    <ul className="space-y-10">
-                                        {[
-                                            "Ready to commit to a structured 12-week program.",
-                                            "Basic computer literacy (Laptop/PC required).",
-                                            "Willingness to join group mentoring sessions."
-                                        ].map((item, i) => (
-                                            <div key={i} className="flex gap-6 items-center group/item">
-                                                <div className="w-12 h-12 border border-gray-100 flex items-center justify-center text-primary bg-gray-50 group-hover/item:bg-primary group-hover/item:text-white transition-all shrink-0 shadow-inner">
-                                                    <Check size={24} strokeWidth={3} />
-                                                </div>
-                                                <span className="text-lg md:text-2xl font-black text-gray-800 italic uppercase tracking-tighter transition-all group-hover/item:pl-2">{item}</span>
-                                            </div>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={handleInterestClick}
-                                className="bg-primary text-white px-16 py-6 rounded-full font-black text-sm tracking-[0.2em] uppercase shadow-2xl shadow-primary/40 hover:shadow-primary/60 hover:-translate-y-1 transition-all flex items-center gap-4 mx-auto group active:translate-y-0"
-                            >
-                                Start Registration <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
-                            </button>
+                    <div className="space-y-16">
+                        <div className="space-y-10">
+                            <h2 className="text-3xl md:text-5xl lg:text-7xl font-black leading-[0.85] text-gray-900 uppercase  tracking-tighter text-center">
+                                Registration is <br /><span className="text-primary">by application only</span>.
+                            </h2>
                         </div>
-                    ) : (
+
                         <motion.div
                             id="interest-form"
                             initial={{ opacity: 0, y: 20 }}
@@ -272,14 +267,8 @@ const ShowInterestPage = () => {
                             <div className="bg-black text-white p-8 md:p-12 flex justify-between items-start">
                                 <div>
                                     <span className="text-primary font-bold uppercase tracking-widest text-xs mb-2 block">Application Form</span>
-                                    <h3 className="text-3xl font-black italic uppercase tracking-tight">Student Registration</h3>
+                                    <h3 className="text-3xl font-black  uppercase tracking-tight">Student Registration</h3>
                                 </div>
-                                <button
-                                    onClick={() => setShowForm(false)}
-                                    className="text-gray-400 hover:text-white transition-colors p-2"
-                                >
-                                    <X size={24} />
-                                </button>
                             </div>
 
                             <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-14">
@@ -606,7 +595,7 @@ const ShowInterestPage = () => {
 
                             </form>
                         </motion.div>
-                    )}
+                    </div>
                 </div>
             </section >
 
