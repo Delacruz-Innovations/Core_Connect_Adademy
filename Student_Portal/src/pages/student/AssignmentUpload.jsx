@@ -180,48 +180,48 @@ const AssignmentUpload = () => {
     };
 
     if (loading) return (
-        <div className="h-screen w-screen bg-white flex flex-col items-center justify-center gap-6">
+        <div className="h-screen w-full bg-white flex flex-col items-center justify-center gap-4">
             <Loader2 className="text-primary animate-spin" size={48} />
             <div className="font-black uppercase tracking-[0.4em] text-gray-400 text-[10px] animate-pulse">Accessing Vault...</div>
         </div>
     );
 
     if (error || !assignment) return (
-        <div className="p-20 text-center uppercase font-black text-red-500 tracking-widest italic">{error || 'Assignment Identity Not Found'}</div>
+        <div className="p-8 text-center uppercase font-black text-red-500 tracking-widest italic">{error || 'Assignment Identity Not Found'}</div>
     );
 
     return (
-        <div className="space-y-8 md:space-y-12 mx-auto min-h-screen">
+        <div className="space-y-4 mx-auto min-h-screen">
             {/* Premium Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 md:gap-8 border-b border-gray-100 pb-8">
-                <div className="space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-100 pb-4">
+                <div className="space-y-2">
                     <Link to={`/student/course/${assignment.module?.course_id}`} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-primary transition-colors mb-2">
                         <ArrowLeft size={14} /> Back to Curriculum
                     </Link>
                     <div>
-                        <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-4 block">Assignment Submission</span>
+                        <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 block">Assignment Submission</span>
                         <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight text-gray-900 leading-none">
                             Upload <span className="text-primary">Work</span>
                         </h1>
                     </div>
                 </div>
                 <div className="flex items-center w-full md:w-auto">
-                    <span className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-red-50 text-red-600 border border-red-100 rounded-sm text-[10px] font-bold uppercase tracking-widest">
+                    <span className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-red-50 text-red-600 border border-red-100 text-[10px] font-bold uppercase tracking-widest">
                         <Clock size={14} /> Sequence Requirement: Mandatory
                     </span>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-12">
+            <div className="grid grid-cols-1 gap-4">
 
                 {/* Instructions */}
-                <div className="bg-white border border-gray-100 p-8 shadow-sm rounded-sm">
-                    <div className="flex items-center gap-4 mb-6 border-b border-gray-50 pb-6">
+                <div className="bg-white border border-gray-100 p-4 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4 border-b border-gray-50 pb-4">
                         <FileText size={20} className="text-primary" />
                         <h3 className="text-lg font-black uppercase tracking-tight text-gray-900">Assignment Details</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div className="space-y-1">
                             <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Course</p>
                             <p className="text-sm font-bold text-gray-900 uppercase">{assignment.module?.course?.title || 'General Curriculum'}</p>
@@ -241,7 +241,7 @@ const AssignmentUpload = () => {
                         </div>
                     </div>
 
-                    <div className="bg-gray-50 p-6 rounded-sm border border-gray-100">
+                    <div className="bg-gray-50 p-4 border border-gray-100">
                         <p className="text-sm font-medium text-gray-600 leading-relaxed italic">
                             {assignment.description || "Deploy all required artefacts for this module cycle. Instructions validated by cohort lead."}
                         </p>
@@ -256,9 +256,9 @@ const AssignmentUpload = () => {
                                 key="uploading"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="border-2 border-dashed border-primary p-20 flex flex-col items-center justify-center text-center bg-primary/5"
+                                className="border-2 border-dashed border-primary p-8 flex flex-col items-center justify-center text-center bg-primary/5"
                             >
-                                <Loader2 className="text-primary animate-spin mb-6" size={48} />
+                                <Loader2 className="text-primary animate-spin mb-4" size={48} />
                                 <h4 className="text-lg font-black uppercase tracking-tight mb-2 text-gray-900">Uploading Document...</h4>
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Encrypting assets for secure storage</p>
                             </motion.div>
@@ -269,7 +269,7 @@ const AssignmentUpload = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
                                 className={`
-                                    relative border-2 border-dashed p-12 md:p-16 flex flex-col items-center justify-center text-center transition-all bg-gray-50/50 rounded-sm
+                                    relative border-2 border-dashed p-8 flex flex-col items-center justify-center text-center transition-all bg-gray-50/50
                                     ${dragActive ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'}
                                 `}
                                 onDragEnter={handleDrag}
@@ -277,24 +277,24 @@ const AssignmentUpload = () => {
                                 onDragOver={handleDrag}
                                 onDrop={handleDrop}
                             >
-                                <div className="w-16 h-16 bg-white border border-gray-100 flex items-center justify-center text-primary mb-6 shadow-sm rounded-full">
+                                <div className="w-12 h-12 bg-white border border-gray-100 flex items-center justify-center text-primary mb-4 shadow-sm">
                                     <Upload size={24} />
                                 </div>
                                 <h4 className="text-lg font-black uppercase tracking-tight mb-2 text-gray-900">Upload Submission</h4>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-8">Drag & Drop or Click to Browse</p>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Drag & Drop or Click to Browse</p>
 
                                 {assignment.due_at && new Date(assignment.due_at) < new Date() ? (
-                                    <div className="bg-red-50 text-red-600 px-8 py-4 text-[10px] font-bold uppercase tracking-widest border border-red-100 rounded-sm">
+                                    <div className="bg-red-50 text-red-600 px-4 py-2 text-[10px] font-bold uppercase tracking-widest border border-red-100">
                                         Deadline Passed: Access Restricted
                                     </div>
                                 ) : (
-                                    <label className="bg-primary text-white px-10 py-4 text-[10px] font-bold uppercase tracking-[0.2em] cursor-pointer hover:bg-black transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 rounded-sm">
+                                    <label className="bg-primary text-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] cursor-pointer hover:bg-black transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
                                         Select File
                                         <input type="file" className="hidden" onChange={handleUpload} />
                                     </label>
                                 )}
 
-                                <div className="mt-8 flex items-center gap-2 text-[9px] font-bold text-gray-300 uppercase tracking-widest">
+                                <div className="mt-4 flex items-center gap-2 text-[9px] font-bold text-gray-300 uppercase tracking-widest">
                                     <AlertCircle size={12} /> max file size 10MB (PDF, PNG, DOCX) {assignment.due_at && `• Due: ${new Date(assignment.due_at).toLocaleDateString()}`}
                                 </div>
                             </motion.div>
@@ -303,17 +303,17 @@ const AssignmentUpload = () => {
                                 key="success"
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className="bg-green-50 border border-green-100 p-12 flex flex-col items-center justify-center text-center relative overflow-hidden rounded-sm"
+                                className="bg-green-50 border border-green-100 p-8 flex flex-col items-center justify-center text-center relative overflow-hidden"
                             >
-                                <div className="w-16 h-16 bg-green-500 text-white flex items-center justify-center shadow-lg shadow-green-500/20 mb-6 rounded-full">
+                                <div className="w-12 h-12 bg-green-500 text-white flex items-center justify-center shadow-lg shadow-green-500/20 mb-4">
                                     <CheckCircle2 size={28} />
                                 </div>
                                 <h4 className="text-xl font-black uppercase tracking-tight text-green-700 mb-2">Submission Successful</h4>
                                 <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-2 font-mono truncate max-w-xs">{submission?.file_path?.split('/').pop() || 'Archive-01.pdf'}</p>
-                                <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-8">Ref: SUB-{new Date(submission?.updated_at || Date.now()).getFullYear()}-X{submission?.id?.slice(0, 4).toUpperCase()} • Protocol Locked</p>
+                                <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-4">Ref: SUB-{new Date(submission?.updated_at || Date.now()).getFullYear()}-X{submission?.id?.slice(0, 4).toUpperCase()} • Protocol Locked</p>
 
                                 <div className="flex flex-col sm:flex-row gap-4">
-                                    <button className="bg-white text-green-700 border border-green-200 px-8 py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-green-600 hover:text-white hover:border-green-600 transition-all shadow-sm rounded-sm">
+                                    <button className="bg-white text-green-700 border border-green-200 px-6 py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-green-600 hover:text-white hover:border-green-600 transition-all shadow-sm">
                                         Download Receipt
                                     </button>
                                     {!(assignment.due_at && new Date(assignment.due_at) < new Date()) && (

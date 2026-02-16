@@ -13,12 +13,12 @@ import { useConnectivity } from '../../context/ConnectivityContext';
 import ResourceDetailModal from '../../components/ResourceDetailModal';
 
 const StatCard = ({ label, value, icon: Icon, color }) => (
-    <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-xl hover:shadow-black/5 transition-all duration-500">
+    <div className="bg-white p-4 border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-md transition-all duration-300">
         <div className="space-y-1">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 block">{label}</span>
             <span className="text-3xl font-black italic tracking-tighter text-gray-900">{value}</span>
         </div>
-        <div className={`w-12 h-12 rounded-2xl ${color} flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg shadow-black/5`}>
+        <div className={`w-12 h-12 ${color} flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg shadow-black/5`}>
             <Icon size={20} className="text-white" />
         </div>
     </div>
@@ -32,18 +32,18 @@ const ResourceCard = ({ resource, onClick, onDownload }) => {
             layout
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="group relative bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 overflow-hidden flex flex-col"
+            className="group relative bg-white border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
         >
-            <div className="p-8 space-y-6 flex-1">
+            <div className="p-4 space-y-4 flex-1">
                 {/* Header */}
                 <div className="flex justify-between items-start">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500 ${resource.type === 'PDF' ? 'bg-red-50 text-red-500' :
+                    <div className={`w-12 h-12 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500 ${resource.type === 'PDF' ? 'bg-red-50 text-red-500' :
                         ['DOC', 'DOCX'].includes(resource.type) ? 'bg-blue-50 text-blue-500' : 'bg-gray-50 text-gray-500'
                         }`}>
-                        <FileText size={24} />
+                        <FileText size={20} />
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                        <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${isLocked ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-green-50 text-green-600 border-green-100'
+                        <div className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest border ${isLocked ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-green-50 text-green-600 border-green-100'
                             }`}>
                             {isLocked ? 'Locked' : 'Available'}
                         </div>
@@ -68,20 +68,20 @@ const ResourceCard = ({ resource, onClick, onDownload }) => {
             </div>
 
             {/* Actions */}
-            <div className="p-6 bg-gray-50/50 border-t border-gray-50 mt-auto flex gap-3">
+            <div className="p-4 bg-gray-50/50 border-t border-gray-50 mt-auto flex gap-3">
                 <button
                     onClick={() => onClick(resource)}
-                    className="flex-1 h-12 bg-white border border-gray-100 text-gray-900 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:border-black transition-all shadow-sm"
+                    className="flex-1 h-10 bg-white border border-gray-100 text-gray-900 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:border-black transition-all shadow-sm"
                 >
                     Metadata <ChevronRight size={14} />
                 </button>
                 <button
                     onClick={() => onDownload(resource)}
                     disabled={isLocked}
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-xl shadow-black/5 ${isLocked ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-black text-white hover:bg-primary'
+                    className={`w-10 h-10 flex items-center justify-center transition-all shadow-md ${isLocked ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-black text-white hover:bg-primary'
                         }`}
                 >
-                    {isLocked ? <Lock size={16} /> : <Download size={16} />}
+                    {isLocked ? <Lock size={14} /> : <Download size={14} />}
                 </button>
             </div>
         </motion.div>
@@ -225,44 +225,44 @@ const ResourceLibrary = () => {
     );
 
     return (
-        <div className="max-w-[1600px] mx-auto space-y-12 pb-20 px-4 md:px-0">
+        <div className="max-w-[1600px] mx-auto space-y-4 pb-4 px-4 md:px-0">
             {/* Header Area */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
-                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-4 block">Knowledge Hub</span>
+                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 block">Knowledge Hub</span>
                     <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none text-gray-900">Archive</h1>
-                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-4">Access course artifacts, instructional protocols, and reference assets.</p>
+                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-2">Access course artifacts, instructional protocols, and reference assets.</p>
                 </div>
 
                 <div className="relative group w-full md:w-96">
-                    <Search size={18} className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-black transition-colors" />
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-black transition-colors" />
                     <input
                         type="text"
                         placeholder="SEARCH ARCHIVE..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-14 pr-6 py-5 bg-white border border-gray-100 rounded-[1.5rem] shadow-sm text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-black transition-all"
+                        className="w-full pl-10 pr-6 py-3 bg-white border border-gray-100 shadow-sm text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-black transition-all"
                     />
                 </div>
             </div>
 
             {/* Stats Ribbon */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <StatCard label="Total Artifacts" value={stats.total} icon={Archive} color="bg-gray-900" />
                 <StatCard label="Course Contexts" value={stats.courses} icon={Globe} color="bg-primary" />
                 <StatCard label="Unlocked Nodes" value={stats.unlocked} icon={Shield} color="bg-green-500" />
             </div>
 
             {/* Filters Bar */}
-            <div className="space-y-6">
+            <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-3 p-1.5 bg-gray-100/50 rounded-2xl border border-gray-200/50">
+                    <div className="flex items-center gap-3 p-1 bg-gray-100/50 border border-gray-200/50">
                         {courseFilters.map((cat) => (
                             <button
                                 key={cat}
                                 onClick={() => setFilter(cat)}
-                                className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${filter === cat
-                                    ? 'bg-black text-white shadow-xl shadow-black/10'
+                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filter === cat
+                                    ? 'bg-black text-white shadow-md'
                                     : 'text-gray-400 hover:text-gray-900'
                                     }`}
                             >
@@ -271,7 +271,7 @@ const ResourceLibrary = () => {
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-3 p-1.5 bg-gray-50/50 rounded-2xl border border-gray-100">
+                    <div className="flex items-center gap-3 p-1 bg-gray-50/50 border border-gray-100">
                         {[
                             { id: 'All', label: 'All Types' },
                             { id: 'reference', label: 'Reference' },
@@ -281,7 +281,7 @@ const ResourceLibrary = () => {
                             <button
                                 key={type.id}
                                 onClick={() => setCategoryFilter(type.id)}
-                                className={`px-5 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${categoryFilter === type.id
+                                className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest transition-all ${categoryFilter === type.id
                                     ? 'bg-primary text-white'
                                     : 'text-gray-400 hover:text-gray-900'
                                     }`}
@@ -294,15 +294,15 @@ const ResourceLibrary = () => {
             </div>
 
             {/* Featured Section (Mock New Additions) */}
-            <div className="space-y-6">
+            <div className="space-y-4">
                 <div className="flex items-center gap-3">
                     <Star size={18} className="text-primary fill-primary" />
                     <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-900">Premium Artifacts</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {filteredResources.slice(0, 4).map((res) => (
-                        <div key={`feat-${res.id}`} className="bg-gray-900 p-8 rounded-[2rem] group relative overflow-hidden flex flex-col justify-between h-48 cursor-pointer" onClick={() => openDetails(res)}>
-                            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-125 transition-transform duration-700">
+                        <div key={`feat-${res.id}`} className="bg-gray-900 p-4 group relative overflow-hidden flex flex-col justify-between h-48 cursor-pointer" onClick={() => openDetails(res)}>
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform duration-700">
                                 <FileText size={80} className="text-white" />
                             </div>
                             <div>
@@ -318,7 +318,7 @@ const ResourceLibrary = () => {
             </div>
 
             {/* Main Library Grid */}
-            <div className="space-y-8">
+            <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-4">
                     <div className="flex items-center gap-3">
                         <LayoutGrid size={18} className="text-gray-400" />
@@ -327,20 +327,20 @@ const ResourceLibrary = () => {
                     <span className="text-[10px] font-black uppercase tracking-widest text-gray-300">{filteredResources.length} Artifacts in View</span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     <AnimatePresence mode="popLayout">
                         {filteredResources.length === 0 ? (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="col-span-full py-20 bg-white border border-dashed border-gray-200 rounded-[3rem] flex flex-col items-center justify-center text-center space-y-6"
+                                className="col-span-full py-8 bg-white border border-dashed border-gray-200 flex flex-col items-center justify-center text-center space-y-4"
                             >
-                                <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-200">
-                                    <Archive size={40} strokeWidth={1} />
+                                <div className="w-16 h-16 bg-gray-50 flex items-center justify-center text-gray-200">
+                                    <Archive size={32} strokeWidth={1} />
                                 </div>
                                 <div>
                                     <h3 className="text-xl font-black uppercase tracking-tight text-gray-900 italic">Registry Empty</h3>
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2 px-10">No artifacts match your current authorization or search criteria.</p>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1 px-4">No artifacts match your current authorization or search criteria.</p>
                                 </div>
                             </motion.div>
                         ) : (

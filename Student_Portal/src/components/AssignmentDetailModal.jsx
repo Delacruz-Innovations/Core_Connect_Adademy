@@ -11,7 +11,7 @@ const AssignmentDetailModal = ({ isOpen, onClose, assignment }) => {
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -26,19 +26,19 @@ const AssignmentDetailModal = ({ isOpen, onClose, assignment }) => {
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                        className="relative w-full max-w-2xl bg-white shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
                     >
                         {/* Header Section */}
-                        <div className="relative p-8 md:p-10 border-b border-gray-100 bg-gray-50/50">
+                        <div className="relative p-4 border-b border-gray-100 bg-gray-50/50">
                             <button
                                 onClick={onClose}
-                                className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-900 transition-colors bg-white rounded-full shadow-sm"
+                                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-900 transition-colors bg-white shadow-sm border border-gray-100"
                             >
                                 <X size={20} />
                             </button>
 
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${isGraded ? 'bg-green-50 text-green-600 border-green-100' :
+                            <div className="flex items-center gap-4 mb-2">
+                                <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest border ${isGraded ? 'bg-green-50 text-green-600 border-green-100' :
                                     assignment.is_submitted ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
                                         'bg-gray-50 text-gray-500 border-gray-100'
                                     }`}>
@@ -52,28 +52,28 @@ const AssignmentDetailModal = ({ isOpen, onClose, assignment }) => {
                             <h2 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight uppercase tracking-tight">
                                 {assignment.title}
                             </h2>
-                            <p className="text-gray-500 text-sm mt-2">
+                            <p className="text-gray-500 text-sm mt-1">
                                 {assignment.parent_type === 'lesson' ? `Unit: ${assignment.lesson?.title}` : `Module: ${assignment.module?.title}`}
                             </p>
                         </div>
 
                         {/* Scrollable Body */}
-                        <div className="flex-1 overflow-y-auto p-8 md:p-10 space-y-10 custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                             {/* Grading Section (If Graded) */}
                             {isGraded && (
-                                <div className="bg-primary/5 rounded-3xl p-8 border border-primary/10 relative overflow-hidden">
+                                <div className="bg-primary/5 p-4 border border-primary/10 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
                                         <Award size={120} />
                                     </div>
                                     <div className="relative z-10">
-                                        <div className="flex items-center gap-3 mb-6">
-                                            <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-8 h-8 bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
                                                 <Award size={16} />
                                             </div>
                                             <h3 className="font-black text-xs uppercase tracking-[0.2em] text-primary">Instructor Critique</h3>
                                         </div>
 
-                                        <div className="flex items-end gap-2 mb-6">
+                                        <div className="flex items-end gap-2 mb-4">
                                             <span className="text-6xl font-black italic tracking-tighter text-gray-900 leading-none">
                                                 {assignment.grade_score}
                                             </span>
@@ -84,7 +84,7 @@ const AssignmentDetailModal = ({ isOpen, onClose, assignment }) => {
                                             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
                                                 <MessageSquare size={12} /> Detailed Feedback
                                             </div>
-                                            <p className="text-gray-700 leading-relaxed text-sm bg-white/60 p-5 rounded-2xl border border-white/40">
+                                            <p className="text-gray-700 leading-relaxed text-sm bg-white/60 p-4 border border-white/40">
                                                 {submission?.admin_feedback || "Your submission has been reviewed. Good work on meeting the core requirements of this assignment."}
                                             </p>
                                         </div>
@@ -93,11 +93,11 @@ const AssignmentDetailModal = ({ isOpen, onClose, assignment }) => {
                             )}
 
                             {/* Submission Details */}
-                            <div className="space-y-6">
+                            <div className="space-y-4">
                                 <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Archive Details</h3>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                    <div className="bg-gray-50 p-4 border border-gray-100">
                                         <div className="flex items-center gap-3 mb-3 text-gray-400">
                                             <Calendar size={16} />
                                             <span className="text-[10px] font-black uppercase tracking-widest">Submission Date</span>
@@ -109,7 +109,7 @@ const AssignmentDetailModal = ({ isOpen, onClose, assignment }) => {
                                         </p>
                                     </div>
 
-                                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                    <div className="bg-gray-50 p-4 border border-gray-100">
                                         <div className="flex items-center gap-3 mb-3 text-gray-400">
                                             <FileText size={16} />
                                             <span className="text-[10px] font-black uppercase tracking-widest">Artifact ID</span>
@@ -132,10 +132,10 @@ const AssignmentDetailModal = ({ isOpen, onClose, assignment }) => {
                                             document.body.appendChild(element);
                                             element.click();
                                         }}
-                                        className="w-full flex items-center justify-between p-6 bg-white border border-gray-100 rounded-2xl hover:border-primary transition-all group"
+                                        className="w-full flex items-center justify-between p-4 bg-white border border-gray-100 hover:border-primary transition-all group"
                                     >
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                            <div className="w-10 h-10 bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                                                 <Download size={20} />
                                             </div>
                                             <div className="text-left">
@@ -150,18 +150,18 @@ const AssignmentDetailModal = ({ isOpen, onClose, assignment }) => {
                         </div>
 
                         {/* Footer Action */}
-                        <div className="p-8 md:p-10 bg-gray-50/50 border-t border-gray-100">
+                        <div className="p-4 bg-gray-50/50 border-t border-gray-100">
                             {!assignment.is_submitted ? (
                                 <Link
                                     to={`/student/assignments/${assignment.id}`}
-                                    className="w-full bg-black text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-primary transition-all shadow-xl shadow-black/5"
+                                    className="w-full bg-black text-white py-3 font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-primary transition-all shadow-xl shadow-black/5"
                                 >
                                     Start Submission <ArrowRight size={16} />
                                 </Link>
                             ) : (
                                 <button
                                     onClick={onClose}
-                                    className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-black transition-all shadow-xl shadow-black/5"
+                                    className="w-full bg-gray-900 text-white py-3 font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-black transition-all shadow-xl shadow-black/5"
                                 >
                                     Dismiss Record
                                 </button>

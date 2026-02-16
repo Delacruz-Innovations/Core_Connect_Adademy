@@ -159,11 +159,11 @@ const NotificationCenter = () => {
             {/* Bell Icon Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="relative p-2 hover:bg-gray-100 transition-colors"
             >
                 <Bell size={20} className="text-gray-600" />
                 {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-black rounded-full flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-black flex items-center justify-center">
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
@@ -177,7 +177,7 @@ const NotificationCenter = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2 }}
-                        className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 max-h-[600px] flex flex-col"
+                        className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 shadow-2xl z-50 max-h-[600px] flex flex-col"
                     >
                         {/* Header */}
                         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
@@ -263,7 +263,7 @@ const NotificationCenter = () => {
                                                     {!notification.read && (
                                                         <button
                                                             onClick={() => markAsRead(notification.id)}
-                                                            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                                                            className="p-1.5 hover:bg-gray-200 transition-colors"
                                                             title="Mark as read"
                                                         >
                                                             <Check size={14} className="text-gray-600" />
@@ -271,7 +271,7 @@ const NotificationCenter = () => {
                                                     )}
                                                     <button
                                                         onClick={() => deleteNotification(notification.id)}
-                                                        className="p-1.5 hover:bg-red-100 rounded transition-colors"
+                                                        className="p-1.5 hover:bg-red-100 transition-colors"
                                                         title="Delete"
                                                     >
                                                         <X size={14} className="text-gray-600 hover:text-red-600" />

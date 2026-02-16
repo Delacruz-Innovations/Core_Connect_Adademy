@@ -12,12 +12,12 @@ import { Link } from 'react-router-dom'
 // --- Sub-components for Layout ---
 
 const GreetingHeader = ({ name }) => (
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-8">
         <div>
             <h1 className="text-3xl font-bold text-gray-900">Hello {name} 👋</h1>
             <p className="text-gray-500 mt-1">Ready to continue your learning journey?</p>
         </div>
-        <div className="flex items-center gap-4 w-full md:w-auto">
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
             {/* Search is purely visual for now */}
             <div className="relative flex-1 md:w-80 hidden md:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
@@ -25,7 +25,7 @@ const GreetingHeader = ({ name }) => (
                     type="text"
                     placeholder="Search courses..."
                     disabled
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-full border border-gray-100 text-sm shadow-sm cursor-not-allowed opacity-70"
+                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 text-sm shadow-sm cursor-not-allowed opacity-70 rounded-none"
                 />
             </div>
             <NotificationCenter />
@@ -43,8 +43,8 @@ const CourseCard = ({ course, color }) => {
     const isCompleted = course.progress_percent === 100;
 
     return (
-        <div className={`p-6 rounded-2xl ${color} min-w-[280px] flex-1 transition-transform hover:scale-[1.02] relative group`}>
-            <div className="w-10 h-10 bg-white/40 rounded-full flex items-center justify-center mb-4 text-gray-900 backdrop-blur-sm">
+        <div className={`p-6 ${color} min-w-[280px] flex-1 transition-transform hover:scale-[1.02] relative group border-l-4 border-gray-900`}>
+            <div className="w-10 h-10 bg-white/60 flex items-center justify-center mb-4 text-gray-900">
                 <BookOpen size={20} />
             </div>
 
@@ -55,19 +55,19 @@ const CourseCard = ({ course, color }) => {
             <p className="text-xs text-gray-600 mb-4 line-clamp-1">{course.course_code || 'Course'}</p>
 
             {/* Progress Bar */}
-            <div className="h-1.5 w-full bg-white/30 rounded-full overflow-hidden mb-6">
+            <div className="h-1.5 w-full bg-white/40 overflow-hidden mb-6">
                 <div
                     className={`h-full transition-all duration-1000 ${isCompleted ? 'bg-[#EAB308]' : 'bg-primary'}`}
                     style={{ width: `${course.progress_percent}%` }}
                 />
             </div>
 
-            <div className="flex items-center gap-4 text-xs font-medium text-gray-700">
-                <div className="flex items-center gap-1.5 bg-white/30 px-2 py-1 rounded-md">
+            <div className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                <div className="flex items-center gap-1.5 bg-white/40 px-2 py-1">
                     <BookOpen size={14} /> <span>{course.total_lessons} Lessons</span>
                 </div>
                 {course.last_accessed_at && (
-                    <div className="flex items-center gap-1.5 bg-white/30 px-2 py-1 rounded-md">
+                    <div className="flex items-center gap-1.5 bg-white/40 px-2 py-1">
                         <Clock size={14} /> <span>{new Date(course.last_accessed_at).toLocaleDateString()}</span>
                     </div>
                 )}
@@ -79,16 +79,16 @@ const CourseCard = ({ course, color }) => {
 // --- Right Sidebar Components ---
 
 const ProfileWidget = ({ user, profile }) => (
-    <div className="text-center mb-10 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+    <div className="text-center mb-10 bg-white p-6 shadow-none border border-gray-200">
         <div className="relative inline-block mb-4">
-            <div className="w-20 h-20 rounded-full border-4 border-white shadow-md overflow-hidden mx-auto bg-gray-100">
+            <div className="w-20 h-20 border-4 border-white shadow-none overflow-hidden mx-auto bg-gray-100">
                 <img
                     src={profile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${profile?.full_name || 'User'}`}
                     alt="Profile"
                     className="w-full h-full object-cover"
                 />
             </div>
-            <div className="absolute bottom-0 right-0 bg-green-500 p-1 rounded-full border-2 border-white">
+            <div className="absolute bottom-0 right-0 bg-green-500 p-1 border-2 border-white">
                 <CheckCircle2 size={10} className="text-white" />
             </div>
         </div>
@@ -113,12 +113,12 @@ const CalendarWidget = () => {
     const dates = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
     return (
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-8">
+        <div className="bg-white p-6 shadow-none border border-gray-200 mb-8">
             <div className="flex justify-between items-center mb-6">
                 <span className="font-bold text-gray-900">{currentMonth} {currentYear}</span>
             </div>
 
-            <div className="grid grid-cols-7 gap-y-3 text-center">
+            <div className="grid grid-cols-7 gap-y-2 text-center">
                 {days.map((d, i) => <span key={`${d}-${i}`} className="text-xs text-gray-400 font-medium">{d}</span>)}
 
                 {/* Offset for start of month */}
@@ -126,8 +126,8 @@ const CalendarWidget = () => {
 
                 {dates.map(d => (
                     <div key={d} className="flex justify-center items-center">
-                        <span className={`text-xs font-medium w-7 h-7 rounded-full flex items-center justify-center transition-all
-                            ${d === currentDay ? 'bg-black text-white shadow-md' : 'text-gray-700'}`}>
+                        <span className={`text-xs font-medium w-7 h-7 flex items-center justify-center transition-all
+                            ${d === currentDay ? 'bg-black text-white' : 'text-gray-700'}`}>
                             {d}
                         </span>
                     </div>
@@ -137,7 +137,7 @@ const CalendarWidget = () => {
     );
 };
 const TaskList = ({ assignments }) => (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+    <div className="bg-white p-6 shadow-none border border-gray-200">
         <h3 className="text-lg font-bold text-gray-900 mb-6 uppercase tracking-widest text-[10px]">Upcoming Artifacts</h3>
         <div className="space-y-6">
             {assignments.length === 0 && (
@@ -146,9 +146,9 @@ const TaskList = ({ assignments }) => (
                 </div>
             )}
             {assignments.map((task) => (
-                <Link key={task.id} to={`/student/assignments/${task.id}`} className="flex gap-4 items-start group">
-                    <div className={`w-5 h-5 rounded border-2 mt-0.5 flex items-center justify-center shrink-0 border-gray-200 group-hover:border-primary transition-colors`}>
-                        <div className="w-1.5 h-1.5 rounded-full bg-gray-100 group-hover:bg-primary transition-colors"></div>
+                <Link key={task.id} to={`/student/assignments/${task.id}`} className="flex gap-2 items-start group">
+                    <div className={`w-5 h-5 border-2 mt-0.5 flex items-center justify-center shrink-0 border-gray-200 group-hover:border-primary transition-colors`}>
+                        <div className="w-1.5 h-1.5 bg-gray-100 group-hover:bg-primary transition-colors"></div>
                     </div>
                     <div className="flex-1">
                         <h4 className="font-bold text-gray-900 text-sm line-clamp-1 group-hover:text-primary transition-colors">{task.title}</h4>
@@ -177,11 +177,11 @@ const TaskList = ({ assignments }) => (
 
 const CourseProgressBanner = ({ course, userName }) => {
     if (!course) return (
-        <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-3xl p-6 md:p-10 mb-8 text-white relative overflow-hidden">
+        <div className="bg-gray-900 p-6 md:p-10 mb-8 text-white relative overflow-hidden">
             <div className="relative z-10">
                 <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome, {userName}! 👋</h1>
                 <p className="text-gray-300 mb-6 max-w-lg text-sm md:text-base">You are not enrolled in any active courses yet. Browse our catalog to start your learning journey.</p>
-                <Link to="/student/courses" className="inline-block bg-white text-gray-900 px-8 py-3 rounded-full font-bold text-sm hover:bg-gray-100 transition-colors">
+                <Link to="/student/courses" className="inline-block bg-white text-gray-900 px-8 py-3 font-bold text-sm hover:bg-gray-100 transition-colors">
                     Explore Courses
                 </Link>
             </div>
@@ -196,7 +196,7 @@ const CourseProgressBanner = ({ course, userName }) => {
 
     return (
         <div className="relative mb-10 group">
-            <div className="bg-gray-900 rounded-3xl overflow-hidden shadow-xl shadow-gray-900/20 relative">
+            <div className="bg-gray-900 overflow-hidden relative">
                 {/* Background Image */}
                 <div className="absolute inset-0 z-0">
                     <img
@@ -204,13 +204,13 @@ const CourseProgressBanner = ({ course, userName }) => {
                         className="w-full h-full object-cover opacity-30 grayscale group-hover:scale-105 transition-transform duration-1000"
                         alt=""
                     />
-                    <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/80 to-primary/40"></div>
+                    <div className="absolute inset-0 bg-gray-900/90"></div>
                 </div>
 
-                <div className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row items-center gap-8">
+                <div className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row items-center gap-2">
                     <div className="flex-1 w-full text-center md:text-left space-y-4">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 backdrop-blur-sm self-center md:self-start mx-auto md:mx-0">
-                            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 border border-white/10 backdrop-blur-sm self-center md:self-start mx-auto md:mx-0">
+                            <div className="w-2 h-2 bg-green-400 animate-pulse"></div>
                             <span className="text-[10px] uppercase tracking-widest font-bold text-white">
                                 {progress === 100 ? 'Certified Expert' : progress > 0 ? 'Resume Learning' : 'Initialize Protocol'}
                             </span>
@@ -226,7 +226,7 @@ const CourseProgressBanner = ({ course, userName }) => {
                                     <span>{course.last_accessed_module_title}</span>
                                     {course.last_accessed_at && (
                                         <>
-                                            <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                                            <span className="w-1 h-1 bg-gray-600"></span>
                                             <span className="text-primary">Last Activity: {new Date(course.last_accessed_at).toLocaleDateString()}</span>
                                         </>
                                     )}
@@ -239,9 +239,9 @@ const CourseProgressBanner = ({ course, userName }) => {
                                 <span>Course Integrity</span>
                                 <span>{progress}%</span>
                             </div>
-                            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                            <div className="h-1.5 bg-gray-800 overflow-hidden">
                                 <div
-                                    className={`h-full rounded-full relative transition-all duration-1000 ${progress === 100 ? 'bg-[#EAB308]' : 'bg-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]'}`}
+                                    className={`h-full relative transition-all duration-1000 ${progress === 100 ? 'bg-[#EAB308]' : 'bg-primary'}`}
                                     style={{ width: `${progress}%` }}
                                 ></div>
                             </div>
@@ -256,9 +256,7 @@ const CourseProgressBanner = ({ course, userName }) => {
                             }
                             className="relative w-24 h-24 md:w-28 md:h-28 flex items-center justify-center group/play focus:outline-none"
                         >
-                            <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping opacity-75"></div>
-                            <div className="absolute inset-0 bg-primary/40 rounded-full animate-pulse"></div>
-                            <div className="relative w-full h-full bg-white rounded-full text-primary shadow-2xl flex items-center justify-center transform transition-transform group-hover/play:scale-110 active:scale-95">
+                            <div className="relative w-full h-full bg-white text-primary flex items-center justify-center transform transition-transform group-hover/play:scale-110 active:scale-95 border-none">
                                 <PlayCircle size={48} className="ml-1.5" fill="currentColor" strokeWidth={1.5} />
                             </div>
                         </Link>
@@ -323,7 +321,7 @@ const StudentDashboard = () => {
     return (
         <div className="max-w-[1600px] mx-auto">
             {/* Header */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
                 {/* Main Column */}
                 <div className="col-span-1 lg:col-span-8">
                     <GreetingHeader name={profile?.full_name?.split(' ')[0] || 'Student'} />
@@ -342,13 +340,13 @@ const StudentDashboard = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-white p-8 rounded-3xl border border-gray-100 text-center mb-10">
-                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <div className="bg-white p-8 border border-gray-100 text-center mb-10">
+                            <div className="w-16 h-16 bg-gray-50 flex items-center justify-center mx-auto mb-4">
                                 <BookOpen size={24} className="text-gray-400" />
                             </div>
                             <h3 className="text-lg font-bold text-gray-900">No Active Courses</h3>
                             <p className="text-gray-500 text-sm mt-1 mb-6">You haven't enrolled in any courses yet.</p>
-                            <Link to="/student/courses" className="inline-block bg-black text-white px-6 py-2.5 rounded-full text-sm font-bold hover:bg-gray-800 transition-colors">
+                            <Link to="/student/courses" className="inline-block bg-black text-white px-6 py-2.5 text-sm font-bold hover:bg-gray-800 transition-colors">
                                 Browse Courses
                             </Link>
                         </div>

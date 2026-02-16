@@ -23,7 +23,7 @@ const ResourceDetailModal = ({ isOpen, onClose, resource, onDownload }) => {
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 overflow-hidden">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden">
                     {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -38,24 +38,24 @@ const ResourceDetailModal = ({ isOpen, onClose, resource, onDownload }) => {
                         initial={{ opacity: 0, scale: 0.9, y: 30 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                        className="relative w-full max-w-3xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                        className="relative w-full max-w-3xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
                     >
                         {/* Header Section */}
-                        <div className="relative p-10 bg-gray-50/50 border-b border-gray-100">
+                        <div className="relative p-4 bg-gray-50/50 border-b border-gray-100">
                             <button
                                 onClick={onClose}
-                                className="absolute top-8 right-8 p-2 text-gray-400 hover:text-gray-900 transition-colors bg-white rounded-full shadow-sm hover:rotate-90 duration-300"
+                                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-900 transition-colors bg-white shadow-sm border border-gray-100"
                             >
                                 <X size={20} />
                             </button>
 
-                            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                                <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg ${getIconColor(resource.type)}`}>
-                                    <FileText size={40} />
+                            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                                <div className={`w-12 h-12 flex items-center justify-center shadow-lg ${getIconColor(resource.type)}`}>
+                                    <FileText size={24} />
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-3">
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isLocked ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-primary/10 text-primary border-primary/20'}`}>
+                                        <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest border ${isLocked ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-primary/10 text-primary border-primary/20'}`}>
                                             {isLocked ? 'Alumni Exclusive' : resource.resource_type || 'Instructional'}
                                         </span>
                                         <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
@@ -70,11 +70,11 @@ const ResourceDetailModal = ({ isOpen, onClose, resource, onDownload }) => {
                         </div>
 
                         {/* Scrollable Content */}
-                        <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                             {/* Summary / Description */}
                             <div className="space-y-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 bg-gray-900 rounded-xl flex items-center justify-center text-white">
+                                    <div className="w-8 h-8 bg-gray-900 flex items-center justify-center text-white">
                                         <Info size={16} />
                                     </div>
                                     <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Resource Intel</h3>
@@ -85,10 +85,10 @@ const ResourceDetailModal = ({ isOpen, onClose, resource, onDownload }) => {
                             </div>
 
                             {/* Metadata Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 flex items-center gap-5 group hover:bg-white hover:shadow-xl hover:shadow-black/5 transition-all duration-500">
-                                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
-                                        <BookOpen size={20} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-gray-50/80 p-4 border border-gray-100 flex items-center gap-4 group hover:bg-white hover:shadow-lg transition-all duration-500">
+                                    <div className="w-10 h-10 bg-white flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
+                                        <BookOpen size={18} />
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-0.5">Course Connection</p>
@@ -96,9 +96,9 @@ const ResourceDetailModal = ({ isOpen, onClose, resource, onDownload }) => {
                                     </div>
                                 </div>
 
-                                <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 flex items-center gap-5 group hover:bg-white hover:shadow-xl hover:shadow-black/5 transition-all duration-500">
-                                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
-                                        <Clock size={20} />
+                                <div className="bg-gray-50/80 p-4 border border-gray-100 flex items-center gap-4 group hover:bg-white hover:shadow-lg transition-all duration-500">
+                                    <div className="w-10 h-10 bg-white flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
+                                        <Clock size={18} />
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-0.5">Estimated Review</p>
@@ -106,9 +106,9 @@ const ResourceDetailModal = ({ isOpen, onClose, resource, onDownload }) => {
                                     </div>
                                 </div>
 
-                                <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 flex items-center gap-5 group hover:bg-white hover:shadow-xl hover:shadow-black/5 transition-all duration-500">
-                                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
-                                        <Shield size={20} />
+                                <div className="bg-gray-50/80 p-4 border border-gray-100 flex items-center gap-4 group hover:bg-white hover:shadow-lg transition-all duration-500">
+                                    <div className="w-10 h-10 bg-white flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
+                                        <Shield size={18} />
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-0.5">Access Protocol</p>
@@ -116,9 +116,9 @@ const ResourceDetailModal = ({ isOpen, onClose, resource, onDownload }) => {
                                     </div>
                                 </div>
 
-                                <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 flex items-center gap-5 group hover:bg-white hover:shadow-xl hover:shadow-black/5 transition-all duration-500">
-                                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
-                                        <FileType size={20} />
+                                <div className="bg-gray-50/80 p-4 border border-gray-100 flex items-center gap-4 group hover:bg-white hover:shadow-lg transition-all duration-500">
+                                    <div className="w-10 h-10 bg-white flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
+                                        <FileType size={18} />
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-0.5">Digital Footprint</p>
@@ -129,9 +129,9 @@ const ResourceDetailModal = ({ isOpen, onClose, resource, onDownload }) => {
 
                             {/* Locked Notice */}
                             {isLocked && (
-                                <div className="bg-orange-50/50 p-8 rounded-3xl border border-orange-100 flex flex-col md:flex-row items-center gap-6">
-                                    <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center text-orange-500 shrink-0">
-                                        <Lock size={24} />
+                                <div className="bg-orange-50/50 p-4 border border-orange-100 flex flex-col md:flex-row items-center gap-4">
+                                    <div className="w-12 h-12 bg-white shadow-sm flex items-center justify-center text-orange-500 shrink-0">
+                                        <Lock size={20} />
                                     </div>
                                     <div className="text-center md:text-left space-y-2">
                                         <p className="font-black text-orange-900 uppercase tracking-tight italic">Alumni Network Exclusive</p>
@@ -142,11 +142,11 @@ const ResourceDetailModal = ({ isOpen, onClose, resource, onDownload }) => {
                         </div>
 
                         {/* Footer Action */}
-                        <div className="p-10 bg-gray-50/50 border-t border-gray-100">
+                        <div className="p-4 bg-gray-50/50 border-t border-gray-100">
                             {isLocked ? (
                                 <button
                                     onClick={onClose}
-                                    className="w-full h-16 bg-gray-900 text-white rounded-[1.25rem] font-black text-xs uppercase tracking-[0.3em] hover:bg-black transition-all shadow-xl shadow-black/5"
+                                    className="w-full h-12 bg-gray-900 text-white font-black text-xs uppercase tracking-[0.3em] hover:bg-black transition-all shadow-xl shadow-black/5"
                                 >
                                     Dismiss Record
                                 </button>
@@ -154,13 +154,13 @@ const ResourceDetailModal = ({ isOpen, onClose, resource, onDownload }) => {
                                 <div className="flex gap-4">
                                     <button
                                         onClick={() => onDownload(resource)}
-                                        className="flex-1 h-16 bg-black text-white rounded-[1.25rem] font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-primary transition-all shadow-xl shadow-black/5"
+                                        className="flex-1 h-12 bg-black text-white font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-primary transition-all shadow-xl shadow-black/5"
                                     >
                                         Download Artifact <Download size={18} />
                                     </button>
                                     <button
                                         onClick={() => alert("Archive connection initiated...")}
-                                        className="w-16 h-16 bg-white border border-gray-100 text-gray-400 rounded-[1.25rem] flex items-center justify-center hover:text-black hover:border-black transition-all shadow-sm"
+                                        className="w-12 h-12 bg-white border border-gray-100 text-gray-400 flex items-center justify-center hover:text-black hover:border-black transition-all shadow-sm"
                                     >
                                         <Share2 size={20} />
                                     </button>

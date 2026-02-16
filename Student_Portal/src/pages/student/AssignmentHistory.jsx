@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 import AssignmentDetailModal from '../../components/AssignmentDetailModal';
 
 const StatCard = ({ label, value, icon: Icon, color, trend }) => (
-    <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-xl hover:shadow-black/5 transition-all duration-500">
+    <div className="bg-white p-4 border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-md transition-all duration-300">
         <div className="space-y-1">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 block">{label}</span>
             <div className="flex items-baseline gap-2">
@@ -20,7 +20,7 @@ const StatCard = ({ label, value, icon: Icon, color, trend }) => (
                 {trend && <span className="text-[10px] font-black text-green-500 flex items-center gap-0.5"><TrendingUp size={10} /> {trend}</span>}
             </div>
         </div>
-        <div className={`w-12 h-12 rounded-2xl ${color} flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
+        <div className={`w-12 h-12 ${color} flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
             <Icon size={20} className="text-white" />
         </div>
     </div>
@@ -35,11 +35,11 @@ const AssignmentCard = ({ assignment, onClick }) => {
             layout
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="group relative bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 overflow-hidden flex flex-col"
+            className="group relative bg-white border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
         >
             {/* Status Indicator */}
-            <div className="absolute top-6 right-6 z-10">
-                <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${isGraded ? 'bg-green-50 text-green-600 border-green-100' :
+            <div className="absolute top-4 right-4 z-10">
+                <div className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest border ${isGraded ? 'bg-green-50 text-green-600 border-green-100' :
                     isSubmitted ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
                         'bg-gray-50 text-gray-400 border-gray-100'
                     }`}>
@@ -47,7 +47,7 @@ const AssignmentCard = ({ assignment, onClick }) => {
                 </div>
             </div>
 
-            <div className="p-8 space-y-6 flex-1">
+            <div className="p-4 space-y-4 flex-1">
                 {/* Header */}
                 <div className="space-y-2">
                     <span className="text-[9px] font-black text-primary uppercase tracking-[0.3em] block">
@@ -59,7 +59,7 @@ const AssignmentCard = ({ assignment, onClick }) => {
                 </div>
 
                 {/* Meta */}
-                <div className="flex items-center gap-4 text-xs font-medium text-gray-500 border-t border-gray-50 pt-6">
+                <div className="flex items-center gap-4 text-xs font-medium text-gray-500 border-t border-gray-50 pt-4">
                     <div className="flex items-center gap-2">
                         <BookOpen size={14} className="text-gray-300" />
                         <span className="truncate max-w-[150px]">
@@ -69,7 +69,7 @@ const AssignmentCard = ({ assignment, onClick }) => {
                 </div>
 
                 {/* Score / Status Large */}
-                <div className="py-4">
+                <div className="py-2">
                     {isGraded ? (
                         <div className="flex items-baseline gap-1">
                             <span className="text-4xl font-black italic tracking-tighter text-gray-900">{assignment.grade_score}</span>
@@ -87,18 +87,18 @@ const AssignmentCard = ({ assignment, onClick }) => {
             </div>
 
             {/* Actions */}
-            <div className="p-6 bg-gray-50/50 border-t border-gray-50 mt-auto">
+            <div className="p-4 bg-gray-50/50 border-t border-gray-50 mt-auto">
                 {!isSubmitted ? (
                     <Link
                         to={`/student/assignments/${assignment.id}`}
-                        className="w-full h-12 bg-black text-white rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary transition-all shadow-xl shadow-black/5"
+                        className="w-full h-10 bg-black text-white flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary transition-all shadow-md"
                     >
                         Begin <ArrowUpRight size={14} />
                     </Link>
                 ) : (
                     <button
                         onClick={() => onClick(assignment)}
-                        className="w-full h-12 bg-white border border-gray-100 text-gray-900 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:border-black transition-all shadow-sm"
+                        className="w-full h-10 bg-white border border-gray-100 text-gray-900 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:border-black transition-all shadow-sm"
                     >
                         View Critique <ChevronRight size={14} />
                     </button>
@@ -228,24 +228,24 @@ const AssignmentHistory = () => {
     };
 
     if (loading) return (
-        <div className="min-h-screen w-full flex flex-col items-center justify-center gap-6">
-            <div className="w-12 h-12 border-4 border-gray-100 border-t-primary rounded-full animate-spin shadow-xl shadow-primary/10"></div>
+        <div className="min-h-screen w-full flex flex-col items-center justify-center gap-4">
+            <div className="w-12 h-12 border-4 border-gray-100 border-t-primary animate-spin shadow-xl shadow-primary/10"></div>
             <div className="font-black uppercase tracking-[0.4em] text-gray-400 text-[10px] animate-pulse">Scanning Archive...</div>
         </div>
     );
 
     return (
-        <div className="max-w-[1600px] mx-auto space-y-12 pb-20 px-4 md:px-0">
+        <div className="max-w-[1600px] mx-auto space-y-4 pb-4 px-4 md:px-0">
             {/* Header Area */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
-                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-4 block">Performance Node</span>
+                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 block">Performance Node</span>
                     <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none text-gray-900">Assignments</h1>
-                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-4">Track progress, submissions, and critical instructor feedback.</p>
+                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-2">Track progress, submissions, and critical instructor feedback.</p>
                 </div>
 
                 {/* Filters */}
-                <div className="flex p-1.5 bg-gray-100/50 backdrop-blur-md rounded-2xl border border-gray-200/50">
+                <div className="flex p-1 bg-gray-100/50 backdrop-blur-md border border-gray-200/50">
                     {[
                         { id: 'all', label: 'Overview' },
                         { id: 'active', label: 'To Do' },
@@ -255,8 +255,8 @@ const AssignmentHistory = () => {
                         <button
                             key={tab.id}
                             onClick={() => setFilter(tab.id)}
-                            className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${filter === tab.id
-                                ? 'bg-black text-white shadow-xl shadow-black/10'
+                            className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filter === tab.id
+                                ? 'bg-black text-white shadow-md'
                                 : 'text-gray-400 hover:text-gray-900'
                                 }`}
                         >
@@ -267,27 +267,27 @@ const AssignmentHistory = () => {
             </div>
 
             {/* Stats Ribbon */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <StatCard label="Total Artifacts" value={stats.total} icon={FileText} color="bg-gray-900" />
                 <StatCard label="In Pipeline" value={stats.pending} icon={Clock} color="bg-primary" />
                 <StatCard label="Aggregate Mastery" value={`${stats.avg}%`} icon={Award} color="bg-green-500" trend="+12% vs last week" />
             </div>
 
             {/* Content Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <AnimatePresence mode="popLayout">
                     {filteredAssignments.length === 0 ? (
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="col-span-full py-20 bg-white border border-dashed border-gray-200 rounded-[3rem] flex flex-col items-center justify-center text-center space-y-6"
+                            className="col-span-full py-8 bg-white border border-dashed border-gray-200 flex flex-col items-center justify-center text-center space-y-4"
                         >
-                            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-200">
-                                <FileText size={40} strokeWidth={1} />
+                            <div className="w-16 h-16 bg-gray-50 flex items-center justify-center text-gray-200">
+                                <FileText size={32} strokeWidth={1} />
                             </div>
                             <div>
                                 <h3 className="text-xl font-black uppercase tracking-tight text-gray-900 italic">No Registry Found</h3>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2 px-10">No assignments currently match your lifecycle filter.</p>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1 px-4">No assignments currently match your lifecycle filter.</p>
                             </div>
                         </motion.div>
                     ) : (
@@ -303,24 +303,24 @@ const AssignmentHistory = () => {
             </div>
 
             {/* Footer Insights */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-8">
-                <div className="bg-gray-900 p-10 rounded-[2.5rem] relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform duration-700">
-                        <AlertCircle size={120} className="text-white" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-4">
+                <div className="bg-gray-900 p-4 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform duration-700">
+                        <AlertCircle size={80} className="text-white" />
                     </div>
-                    <div className="relative z-10 space-y-4">
+                    <div className="relative z-10 space-y-2">
                         <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Academic Integrity</h4>
-                        <p className="text-lg font-bold text-white italic leading-tight max-w-sm">All submissions are archived and reviewed for protocol standards. Late submissions require cohort lead approval.</p>
+                        <p className="text-sm font-bold text-white italic leading-tight max-w-sm">All submissions are archived and reviewed for protocol standards. Late submissions require cohort lead approval.</p>
                     </div>
                 </div>
 
-                <div className="bg-primary p-10 rounded-[2.5rem] relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:-rotate-12 transition-transform duration-700">
-                        <TrendingUp size={120} className="text-white" />
+                <div className="bg-primary p-4 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:-rotate-12 transition-transform duration-700">
+                        <TrendingUp size={80} className="text-white" />
                     </div>
-                    <div className="relative z-10 space-y-4">
+                    <div className="relative z-10 space-y-2">
                         <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Level Up</h4>
-                        <p className="text-lg font-bold text-white italic leading-tight max-w-sm">Consistent high scores in practical assignments unlock fast-track professional opportunities.</p>
+                        <p className="text-sm font-bold text-white italic leading-tight max-w-sm">Consistent high scores in practical assignments unlock fast-track professional opportunities.</p>
                     </div>
                 </div>
             </div>
