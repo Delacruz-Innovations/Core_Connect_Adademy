@@ -79,7 +79,8 @@ const ApplicationsList = () => {
             );
 
             const tempPassword = Math.random().toString(36).slice(-12) + "Tt1!";
-            const studentPortalUrl = 'http://localhost:5174/set-password';
+            const siteUrl = import.meta.env.VITE_STUDENT_PORTAL_URL || 'http://localhost:5174';
+            const studentPortalUrl = `${siteUrl}/set-password`;
 
             console.log('Inviting student via Auth...');
             const { error: signUpError } = await tempClient.auth.signUp({

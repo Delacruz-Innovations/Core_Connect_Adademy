@@ -182,7 +182,6 @@ const ShowInterestPage = () => {
             ).catch(err => console.error('Admin email failed:', err));
 
             setIsSubmitted(true);
-            setShowForm(false);
             window.scrollTo(0, 0);
 
         } catch (error) {
