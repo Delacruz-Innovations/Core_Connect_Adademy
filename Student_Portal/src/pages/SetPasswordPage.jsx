@@ -30,40 +30,61 @@ const SetPasswordPage = () => {
 
     const [currentImage, setCurrentImage] = useState(0);
 
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentImage((prev) => (prev + 1) % images.length);
-        }, 5000);
-        return () => clearInterval(timer);
-    }, []);
+    const [isCheckingSession, setIsCheckingSession] = useState(true);
 
     useEffect(() => {
-        const checkAuth = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
+        let mounted = true;
 
-            if (session?.user?.user_metadata?.username) {
-                setUsername(session.user.user_metadata.username);
-            }
+        const validateSession = (session) => {
+            if (!mounted) return;
 
             const token = searchParams.get('token') || searchParams.get('access_token');
             const hasAuthParams = token || window.location.hash.includes('access_token');
             const errorFromUrl = searchParams.get('error') || new URLSearchParams(window.location.hash.substring(1)).get('error');
 
             if (session) {
-                // If we have a session, we are good to go, regardless of URL errors
+                // If we have a session, we are good to go
                 setError('');
+                if (session.user?.user_metadata?.username) {
+                    setUsername(session.user.user_metadata.username);
+                }
             } else if (hasAuthParams && !errorFromUrl) {
-                // We have params but no session yet, wait for session
+                // We have auth params but no session yet, wait
                 setError('');
             } else if (errorFromUrl) {
-                // If there's an error in the URL but NO session, then it's actually invalid/expired
-                setError(`Link error: ${errorFromUrl}. Please try clicking the link in your email again or contact support.`);
-            } else {
+                // If there's an error in URL and NO session was found
+                setError(`Link error: ${errorFromUrl}. This link may have been used or expired. Please request a new invitation if you cannot log in.`);
+            } else if (!hasAuthParams) {
                 setError('Invalid or missing password reset link. Please use the link sent to your email.');
+            }
+            setIsCheckingSession(false);
+        };
+
+        // 1. Listen for auth changes (including hash processing)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session) validateSession(session);
+        });
+
+        // 2. Initial check + fallback delay
+        const check = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                validateSession(session);
+            } else {
+                // Wait a moment for hash processing before failing
+                setTimeout(async () => {
+                    const { data: { session: retrySession } } = await supabase.auth.getSession();
+                    validateSession(retrySession);
+                }, 1500);
             }
         };
 
-        checkAuth();
+        check();
+
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
     }, [searchParams]);
 
     const validation = validatePassword(formData.password);
@@ -135,6 +156,13 @@ const SetPasswordPage = () => {
         }
     };
 
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentImage((prev) => (prev + 1) % images.length);
+        }, 5000);
+        return () => clearInterval(timer);
+    }, []);
+
     if (success) {
         return (
             <div className="min-h-screen relative font-sans text-black flex flex-col">
@@ -162,6 +190,24 @@ const SetPasswordPage = () => {
                         </div>
                         <div className="h-1 bg-green-600 w-full"></div>
                     </motion.div>
+                </div>
+            </div>
+        );
+    }
+
+    if (isCheckingSession) {
+        return (
+            <div className="min-h-screen relative font-sans text-black flex flex-col">
+                <div className="fixed inset-0 z-0 bg-gray-900 overflow-hidden">
+                    <div className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-fixed opacity-40" style={{ backgroundImage: `url("${images[0]}")` }}></div>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
+                </div>
+                <Navbar />
+                <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-4">
+                    <div className="flex flex-col items-center gap-4 text-white">
+                        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                        <p className="text-xs font-black uppercase tracking-[0.4em]">Verifying Security Session...</p>
+                    </div>
                 </div>
             </div>
         );
