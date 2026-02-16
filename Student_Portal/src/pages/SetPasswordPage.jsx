@@ -46,8 +46,18 @@ const SetPasswordPage = () => {
             }
 
             const token = searchParams.get('token') || searchParams.get('access_token');
-            if (session || token || window.location.hash.includes('access_token')) {
+            const hasAuthParams = token || window.location.hash.includes('access_token');
+            const errorFromUrl = searchParams.get('error') || new URLSearchParams(window.location.hash.substring(1)).get('error');
+
+            if (session) {
+                // If we have a session, we are good to go, regardless of URL errors
                 setError('');
+            } else if (hasAuthParams && !errorFromUrl) {
+                // We have params but no session yet, wait for session
+                setError('');
+            } else if (errorFromUrl) {
+                // If there's an error in the URL but NO session, then it's actually invalid/expired
+                setError(`Link error: ${errorFromUrl}. Please try clicking the link in your email again or contact support.`);
             } else {
                 setError('Invalid or missing password reset link. Please use the link sent to your email.');
             }
